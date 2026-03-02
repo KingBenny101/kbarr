@@ -40,7 +40,17 @@ docker pull ghcr.io/kingbenny101/kbarr:latest
 
 # Or use a specific version
 docker pull ghcr.io/kingbenny101/kbarr:v1.0.0
+
+# Run the container (equivalent to docker-compose)
+docker run -d \
+  --name kbarr \
+  -p 8282:8282 \
+  -v kbarr-data:/app/data \
+  --restart unless-stopped \
+  ghcr.io/kingbenny101/kbarr
 ```
+
+The application will be available at `http://localhost:8282`.
 
 ## Development
 
