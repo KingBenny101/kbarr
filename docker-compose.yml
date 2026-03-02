@@ -1,0 +1,19 @@
+services:
+  kbarr:
+    build: .
+    container_name: kbarr
+    ports:
+      - "${KBARR_PORT:-8282}:8282"
+    volumes:
+      - kbarr-data:/app/data
+    environment:
+      - KBARR_PORT=8282
+      - KBARR_DB_PATH=/app/data/kbarr.db
+      - KBARR_CACHE_PATH=/app/data
+      - KBARR_LOG_LEVEL=info
+      - KBARR_ANIDB_CLIENT=kbarr
+      - KBARR_ANIDB_VERSION=1
+    restart: unless-stopped
+
+volumes:
+  kbarr-data:
