@@ -14,6 +14,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/logger"
 )
+
 const titlesDumpURL = "https://anidb.net/api/anime-titles.xml.gz"
 const titlesCacheMaxAge = 24 * time.Hour
 

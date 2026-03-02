@@ -37,8 +37,6 @@ func main() {
 
 	router := api.NewRouter(cfg)
 
-
-
 	addr := ":" + cfg.ServerPort
 	logger.Log.Infof("[Main] Server running on http://localhost:%s", cfg.ServerPort)
 	http.ListenAndServe(addr, router)
