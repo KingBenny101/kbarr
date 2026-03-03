@@ -16,8 +16,7 @@ frontend/.cache
 frontend/.parcel-cache
 
 # Database
-kbarr.db
-kbarr-titles.xml
+data/
 
 # Embedded frontend assets (built files)
 internal/api/frontend/
