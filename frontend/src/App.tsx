@@ -6,8 +6,8 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { LibraryPage } from "@/pages/LibraryPage"
 import { SearchPage } from "@/pages/SearchPage"
 import { SettingsPage } from "@/pages/SettingsPage"
-
-const API = "http://localhost:8282"
+import { API_URL } from "@/lib/api"
+import { Toaster } from "@/components/ui/sonner"
 
 interface ApiVersionResponse {
   version: string
@@ -31,7 +31,7 @@ export default function App() {
 
   const fetchVersion = async (): Promise<void> => {
     try {
-      const res = await fetch(`${API}/api/version`)
+      const res = await fetch(`${API_URL}/api/version`)
       const data = (await res.json()) as ApiVersionResponse
       setVersion(data.version || "v0.1.0")
     } catch (err) {
@@ -45,6 +45,7 @@ export default function App() {
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <Toaster />
       <SidebarProvider>
         <AppSidebar onNavigate={setView} currentView={view} version={version} />
         <main className="flex flex-col flex-1">
@@ -57,7 +58,7 @@ export default function App() {
           </header>
           <div className="flex-1 overflow-auto p-6">
             {view === "list" && (
-              <LibraryPage onAnimeAdded={handleAnimeAdded} />
+              <LibraryPage />
             )}
             {view === "search" && (
               <SearchPage onAnimeAdded={handleAnimeAdded} />
