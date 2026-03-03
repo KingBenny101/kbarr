@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/logger"
 )
 
 const anidbHTTPAPI = "http://api.anidb.net:9001/httpapi"
@@ -53,7 +54,13 @@ func (a *AnimeDetails) OfficialTitles() []string {
 	return titles
 }
 
-func GetAnimeDetails(aid string, cfg *config.Config) (*AnimeDetails, error) {
+func GetAnimeDetails(aid string) (*AnimeDetails, error) {
+	cfg := config.Get()
+	if err := checkAniDBSettings(cfg); err != nil {
+		logger.Log.Warnf("[AniDB] Skipping API call due to invalid settings: %v", err)
+		return nil, err
+	}
+
 	url := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%s",
 		anidbHTTPAPI, cfg.AniDBClient, cfg.AniDBVersion, aid,
 	)
@@ -78,4 +85,11 @@ func GetAnimeDetails(aid string, cfg *config.Config) (*AnimeDetails, error) {
 	}
 
 	return &details, nil
+}
+
+func checkAniDBSettings(cfg *config.Config) error {
+	if cfg.AniDBClient == "error" || cfg.AniDBVersion == "error" {
+		return fmt.Errorf("invalid AniDB client or version settings")
+	}
+	return nil
 }

@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 )
 
 const titlesDumpURL = "https://anidb.net/api/anime-titles.xml.gz"
-const titlesCacheMaxAge = 24 * time.Hour
 
 var titlesDump *AnimeTitlesDump
 
@@ -42,11 +40,12 @@ type SearchResult struct {
 }
 
 func LoadTitlesDump(cfg *config.Config) error {
-	titlesFile := filepath.Join(cfg.CachePath, "kbarr-titles.xml")
+	titlesFile := "data/anidb-titles.xml"
 
-	if shouldDownload(titlesFile) {
+	if shouldDownload(cfg,titlesFile) {
 		err := downloadTitlesDump(titlesFile, cfg)
 		if err != nil {
+			logger.Log.Errorf("[AniDB] Failed to download titles dump: %v", err)
 			return err
 		}
 	} else {
@@ -56,7 +55,10 @@ func LoadTitlesDump(cfg *config.Config) error {
 	return parseTitlesDump(titlesFile)
 }
 
-func shouldDownload(titlesFile string) bool {
+func shouldDownload(cfg *config.Config, titlesFile string) bool {
+
+	titlesCacheMaxAge := cfg.AniDBInterval
+
 	info, err := os.Stat(titlesFile)
 	if err != nil {
 		return true
@@ -65,12 +67,25 @@ func shouldDownload(titlesFile string) bool {
 }
 
 func downloadTitlesDump(titlesFile string, cfg *config.Config) error {
+	if err := checkAniDBSettings(cfg); err != nil {
+		logger.Log.Warnf("[AniDB] Skipping titles dump download due to invalid settings: %v", err)
+		return err
+	}
+
 	logger.Log.Info("[AniDB] Downloading titles dump...")
 
 	req, err := http.NewRequest("GET", titlesDumpURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+
+	anidbClient := cfg.AniDBClient
+	anidbVersion := cfg.AniDBVersion
+
+	if anidbClient == "error" || anidbVersion == "error" {
+		return fmt.Errorf("invalid AniDB client or version settings")
+	}
+
 	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", cfg.AniDBClient, cfg.AniDBVersion))
 
 	client := &http.Client{}

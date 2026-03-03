@@ -24,10 +24,13 @@ func Init(dbPath string) error {
 	}
 
 	logger.Log.Infof("[DB] Connected to database at %s", dbPath)
+
+	createTables()
+	checkSettings()
 	return nil
 }
 
-func CreateTables() error {
+func createTables() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS anime (
 		id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,13 +43,35 @@ func CreateTables() error {
 		anidb_id         TEXT,
 		cover_image      TEXT,
 		added_at         DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
+	);
+	
+	CREATE TABLE IF NOT EXISTS settings (
+		id    INTEGER PRIMARY KEY AUTOINCREMENT,
+		key   TEXT NOT NULL UNIQUE,
+		value TEXT
+	);
+	`
 
 	_, err := DB.Exec(query)
 	if err != nil {
 		return fmt.Errorf("failed to create tables: %w", err)
 	}
 
-	logger.Log.Info("[DB] Tables ready")
+	logger.Log.Infof("[DB] Tables ready")
+	return nil
+}
+
+func checkSettings() error {
+	query := `SELECT COUNT(*) FROM settings`
+	var count int
+	err := DB.QueryRow(query).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to check settings count: %w", err)
+	}
+
+	if count == 0 {
+		logger.Log.Info("[DB] Initializing default settings...")
+		InitDefaultSettings()
+	}
 	return nil
 }
