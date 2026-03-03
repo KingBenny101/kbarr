@@ -1,13 +1,11 @@
 # TODO
 
-- [ ] Clean up AniDB description links (e.g. `http://anidb.net/ch2069 [Name]` → plain text)
-- [ ] Populate `TitleJP` from AniDB Japanese official title
-- [ ] Populate `CoverImage` from AniDB picture field
-- [ ] Remove duplicate alternate titles
-- [ ] Duplicate detection when adding anime already in the list
-- [ ] Delete anime from list
-- [ ] Build a proper UI (poster grid, status badges, detail pages)
-- [ ] Async task queue for background jobs (Asynq + Redis)
-- [ ] Prowlarr/Torznab integration for torrent search
-- [ ] Torrent client integration (qBittorrent etc.)
-- [ ] Migrate database to PostgreSQL for production use
+## 03.02.2026
+
+- [x] Migrate frontend to TypeScript
+- [x] Use Tailwind CSS for styling
+- [x] Use shadcn/ui components for UI elements
+- [x] Separate search and library pages
+- [x] Create a settings page and setup api endpoints for saving and retrieving settings
+- [x] Check for proper settings at the start of the app 
+
