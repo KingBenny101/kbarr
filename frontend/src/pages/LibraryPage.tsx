@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-
-const API = "http://localhost:8282"
+import { API_URL } from "@/lib/api"
 
 interface Anime {
     ID: number
@@ -13,11 +12,8 @@ interface Anime {
     AddedAt?: string
 }
 
-interface LibraryPageProps {
-    onAnimeAdded?: () => void
-}
 
-export function LibraryPage({ onAnimeAdded }: LibraryPageProps) {
+export function LibraryPage() {
     const [animeList, setAnimeList] = useState<Anime[]>([])
 
     useEffect(() => {
@@ -26,18 +22,18 @@ export function LibraryPage({ onAnimeAdded }: LibraryPageProps) {
 
     const fetchList = async (): Promise<void> => {
         try {
-            const res = await fetch(`${API}/api/anime`)
+            const res = await fetch(`${API_URL}/api/library`)
             const data = (await res.json()) as Anime[]
             setAnimeList(data || [])
         } catch (err) {
-            console.error("Failed to fetch anime list:", err)
+            console.error("Failed to fetch media list:", err)
         }
     }
 
     return (
         <div>
             {animeList.length === 0 ? (
-                <p className="text-center py-8">No anime added yet</p>
+                <p className="text-center py-8">No media added yet</p>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {animeList.map((anime) => (

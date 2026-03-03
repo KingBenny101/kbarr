@@ -1,9 +1,12 @@
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+"use client"
 
-const API = "http://localhost:8282"
+import { useState } from "react"
+import { Search } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { API_URL } from "@/lib/api"
+import { showToast } from "@/lib/utils"
 
 interface SearchResult {
     AID: number
@@ -24,7 +27,7 @@ export function SearchPage({ onAnimeAdded }: SearchPageProps) {
         if (!query.trim()) return
         setSearching(true)
         try {
-            const res = await fetch(`${API}/api/anime/search?q=${encodeURIComponent(query)}`)
+            const res = await fetch(`${API_URL}/api/library/search?q=${encodeURIComponent(query)}`)
             const data = (await res.json()) as SearchResult[]
             setSearchResults(data || [])
         } catch (err) {
@@ -37,16 +40,22 @@ export function SearchPage({ onAnimeAdded }: SearchPageProps) {
     const handleAdd = async (aid: number): Promise<void> => {
         setAdding(aid)
         try {
-            const res = await fetch(`${API}/api/anime`, {
+            const res = await fetch(`${API_URL}/api/library`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ aid })
             })
             if (res.ok && onAnimeAdded) {
+                showToast("Media added successfully", "success")
                 onAnimeAdded()
             }
+
+            if (!res.ok) {
+                showToast("Failed to add media", "error")
+            }
         } catch (err) {
-            console.error("Failed to add anime:", err)
+            showToast("An error occurred while adding media", "error")
+            console.error("Failed to add media:", err)
         } finally {
             setAdding(null)
         }
@@ -54,19 +63,27 @@ export function SearchPage({ onAnimeAdded }: SearchPageProps) {
 
     return (
         <div>
-            <div className="flex gap-2 mb-6">
-                <Input
+            <InputGroup className="mb-6">
+                <InputGroupInput
                     type="text"
-                    placeholder="Search anime..."
+                    placeholder="Search..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     disabled={searching}
                 />
-                <Button onClick={handleSearch} disabled={searching || !query.trim()}>
-                    {searching ? "..." : "Search"}
-                </Button>
-            </div>
+                <InputGroupAddon align="inline-start">
+                    <Search className="size-4" />
+                </InputGroupAddon>
+                <InputGroupAddon align="inline-end">
+                    <InputGroupButton variant="secondary"
+                        onClick={handleSearch}
+                        disabled={searching || !query.trim()}
+                    >
+                        {searching ? "..." : "Search"}
+                    </InputGroupButton>
+                </InputGroupAddon>
+            </InputGroup>
 
             {searchResults.length > 0 && (
                 <div className="grid gap-4 grid-cols-3">
