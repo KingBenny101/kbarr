@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+
+const API = "http://localhost:8282"
 
 interface Anime {
     ID: number
@@ -11,13 +14,28 @@ interface Anime {
 }
 
 interface LibraryPageProps {
-    animeList: Anime[]
+    onAnimeAdded?: () => void
 }
 
-export function LibraryPage({ animeList }: LibraryPageProps) {
+export function LibraryPage({ onAnimeAdded }: LibraryPageProps) {
+    const [animeList, setAnimeList] = useState<Anime[]>([])
+
+    useEffect(() => {
+        fetchList()
+    }, [])
+
+    const fetchList = async (): Promise<void> => {
+        try {
+            const res = await fetch(`${API}/api/anime`)
+            const data = (await res.json()) as Anime[]
+            setAnimeList(data || [])
+        } catch (err) {
+            console.error("Failed to fetch anime list:", err)
+        }
+    }
+
     return (
         <div>
-
             {animeList.length === 0 ? (
                 <p className="text-center py-8">No anime added yet</p>
             ) : (

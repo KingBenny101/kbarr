@@ -8,24 +8,31 @@ import {
   SidebarMenuItem,
   SidebarGroup,
   SidebarGroupContent,
-} from '@/components/ui/sidebar'
-import { Library, Search } from 'lucide-react'
+  SidebarRail,
+} from '@/components/ui/sidebar';
+import { Library, Search } from 'lucide-react';
 
 interface AppSidebarProps {
-  onNavigate: (view: 'list' | 'search') => void
-  currentView: 'list' | 'search'
-  version: string
+  onNavigate: (view: 'list' | 'search' | 'settings') => void;
+  currentView: 'list' | 'search' | 'settings';
+  version: string;
 }
 
-export function AppSidebar({ onNavigate, currentView, version }: AppSidebarProps) {
+export function AppSidebar({
+  onNavigate,
+  currentView,
+  version,
+}: AppSidebarProps) {
   return (
     <Sidebar>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex justify-center gap-2 px-2 py-2">
-              <img src="/kbarr.svg" alt="kbarr logo" className="w-10 h-10" />
-              <h1 className="text-3xl font-bold">kbarr</h1>
+            <div className="flex justify-center gap-3 px-2 py-4">
+              <img src="/kbarr.svg" alt="kbarr logo" className="w-12 h-12" />
+              <div className="flex items-center">
+                <h1 className="text-3xl font-bold">kbarr</h1>
+              </div>
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -36,6 +43,16 @@ export function AppSidebar({ onNavigate, currentView, version }: AppSidebarProps
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  onClick={() => onNavigate('search')}
+                  isActive={currentView === 'search'}
+                >
+                  <Search />
+                  <span>Search</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
                   onClick={() => onNavigate('list')}
                   isActive={currentView === 'list'}
                 >
@@ -43,13 +60,14 @@ export function AppSidebar({ onNavigate, currentView, version }: AppSidebarProps
                   <span>Library</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onNavigate('search')}
-                  isActive={currentView === 'search'}
+                  onClick={() => onNavigate('settings')}
+                  isActive={currentView === 'settings'}
                 >
-                  <Search />
-                  <span>Search</span>
+                  <Library />
+                  <span>Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -65,6 +83,7 @@ export function AppSidebar({ onNavigate, currentView, version }: AppSidebarProps
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
-  )
+  );
 }

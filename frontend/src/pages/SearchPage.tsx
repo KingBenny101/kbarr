@@ -11,14 +11,14 @@ interface SearchResult {
 }
 
 interface SearchPageProps {
-    onAdd: (aid: number, title: string) => Promise<void>
-    adding: number | null
+    onAnimeAdded?: () => void
 }
 
-export function SearchPage({ onAdd, adding }: SearchPageProps) {
+export function SearchPage({ onAnimeAdded }: SearchPageProps) {
     const [query, setQuery] = useState<string>("")
     const [searchResults, setSearchResults] = useState<SearchResult[]>([])
     const [searching, setSearching] = useState<boolean>(false)
+    const [adding, setAdding] = useState<number | null>(null)
 
     const handleSearch = async (): Promise<void> => {
         if (!query.trim()) return
@@ -31,6 +31,24 @@ export function SearchPage({ onAdd, adding }: SearchPageProps) {
             console.error("Search failed:", err)
         } finally {
             setSearching(false)
+        }
+    }
+
+    const handleAdd = async (aid: number): Promise<void> => {
+        setAdding(aid)
+        try {
+            const res = await fetch(`${API}/api/anime`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ aid })
+            })
+            if (res.ok && onAnimeAdded) {
+                onAnimeAdded()
+            }
+        } catch (err) {
+            console.error("Failed to add anime:", err)
+        } finally {
+            setAdding(null)
         }
     }
 
@@ -60,7 +78,7 @@ export function SearchPage({ onAdd, adding }: SearchPageProps) {
                             </CardHeader>
                             <CardContent>
                                 <Button
-                                    onClick={() => onAdd(result.AID, result.Title)}
+                                    onClick={() => handleAdd(result.AID)}
                                     disabled={adding === result.AID}
                                     className="w-full"
                                 >
