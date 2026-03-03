@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -9,7 +10,10 @@ import (
 
 var Log *zap.SugaredLogger
 
-func Init(debug bool) {
+func Init() {
+
+	debug := os.Getenv("KBARR_LOG_LEVEL") == "debug"
+
 	level := zapcore.InfoLevel
 	if debug {
 		level = zapcore.DebugLevel
@@ -25,7 +29,6 @@ func Init(debug bool) {
 	base, _ := config.Build()
 	Log = base.Sugar()
 
-	Log.Info("[Main] Logger initialized")
 }
 
 func NewServiceLogger(service string) *zap.SugaredLogger {
