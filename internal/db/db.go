@@ -47,6 +47,7 @@ func createTables() error {
 		banner_image     TEXT,
 		external_id      TEXT,
 		source           TEXT,
+		monitored        BOOLEAN DEFAULT 0,
 		added_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
 	);

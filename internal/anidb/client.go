@@ -54,6 +54,13 @@ func (a *AnimeDetails) OfficialTitles() []string {
 	return titles
 }
 
+func (a *AnimeDetails) PosterURL() string {
+	if a.Picture == "" {
+		return ""
+	}
+	return "https://cdn-us.anidb.net/images/main/" + a.Picture
+}
+
 func GetAnimeDetails(aid string) (*AnimeDetails, error) {
 	cfg := config.Get()
 	if err := checkAniDBSettings(cfg); err != nil {

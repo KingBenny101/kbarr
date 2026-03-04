@@ -18,6 +18,7 @@ type Media struct {
 	BannerImage     string    `json:"banner_image" db:"banner_image"`
 	ExternalID      string    `json:"external_id" db:"external_id"` // Unified external identifier
 	Source          string    `json:"source" db:"source"`           // Source provider, e.g., "anidb", "tmdb"
+	Monitored       bool      `json:"monitored" db:"monitored"`     // Whether to check for new downloads
 	AddedAt         time.Time `json:"added_at" db:"added_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
