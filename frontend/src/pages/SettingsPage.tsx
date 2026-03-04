@@ -10,12 +10,14 @@ import { showToast } from "@/lib/utils"
 interface Settings {
     anidbClient: string
     anidbVersion: string
+    anidbSyncInterval: string
 }
 
 export function SettingsPage() {
     const [initialSettings, setInitialSettings] = useState<Settings | null>(null)
     const [anidbClient, setAnidbClient] = useState<string>("")
     const [anidbVersion, setAnidbVersion] = useState<string>("")
+    const [anidbSyncInterval, setAnidbSyncInterval] = useState<string>("60")
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
 
@@ -28,15 +30,17 @@ export function SettingsPage() {
         try {
             const res = await fetch(`${API_URL}/api/settings`)
             const data = (await res.json()) as Record<string, string>
-            
+
             const settings: Settings = {
                 anidbClient: data.anidbClient,
-                anidbVersion: data.anidbVersion
+                anidbVersion: data.anidbVersion,
+                anidbSyncInterval: data.anidbSyncInterval
             }
 
             setInitialSettings(settings)
             setAnidbClient(settings.anidbClient)
             setAnidbVersion(settings.anidbVersion)
+            setAnidbSyncInterval(settings.anidbSyncInterval)
         } catch (err) {
             console.error("Failed to fetch settings:", err)
         } finally {
@@ -45,8 +49,9 @@ export function SettingsPage() {
     }
 
     const isDirty = initialSettings && (
-        anidbClient !== initialSettings.anidbClient || 
-        anidbVersion !== initialSettings.anidbVersion
+        anidbClient !== initialSettings.anidbClient ||
+        anidbVersion !== initialSettings.anidbVersion ||
+        anidbSyncInterval !== initialSettings.anidbSyncInterval
     )
 
     const handleSave = async (): Promise<void> => {
@@ -57,13 +62,15 @@ export function SettingsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     anidbClient: anidbClient,
-                    anidbVersion: anidbVersion
+                    anidbVersion: anidbVersion,
+                    anidbSyncInterval: anidbSyncInterval
                 })
             })
             if (res.ok) {
                 setInitialSettings({
                     anidbClient: anidbClient,
-                    anidbVersion: anidbVersion
+                    anidbVersion: anidbVersion,
+                    anidbSyncInterval: anidbSyncInterval
                 })
 
                 showToast("Settings saved successfully", "success")
@@ -74,7 +81,7 @@ export function SettingsPage() {
             }
 
         } catch (err) {
-            showToast("An error occurred while saving settings", "error")   
+            showToast("An error occurred while saving settings", "error")
             console.error("Failed to save settings:", err)
         } finally {
             setSaving(false)
@@ -125,6 +132,23 @@ export function SettingsPage() {
                             placeholder="1"
                         />
                     </Field>
+
+                    <Separator className="opacity-40" />
+
+
+                    <Field orientation="responsive" className="justify-between gap-4 md:gap-8">
+                        <div className="flex-1 space-y-1">
+                            <FieldLabel htmlFor="anidbSyncInterval" className="text-base font-semibold">Sync Interval ( default : 86400s )</FieldLabel>
+                            <FieldDescription className="text-sm">How often to sync with AniDB.</FieldDescription>
+                        </div>
+                        <Input
+                            id="anidbSyncInterval"
+                            className="w-full md:max-w-[300px] h-10"
+                            value={anidbSyncInterval}
+                            onChange={(e) => setAnidbSyncInterval(e.target.value)}
+                            placeholder="60"
+                        />
+                    </Field>
                 </FieldGroup>
             </section>
 
@@ -140,8 +164,8 @@ export function SettingsPage() {
             </section>
 
             <div className="flex justify-end pt-8 border-t">
-                <Button 
-                    onClick={handleSave} 
+                <Button
+                    onClick={handleSave}
                     disabled={!isDirty || saving}
                     className="w-full md:w-auto px-10 h-11 text-base transition-opacity font-bold"
                 >

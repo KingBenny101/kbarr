@@ -10,19 +10,18 @@ import {
   SidebarGroupContent,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import { Library, Search } from 'lucide-react';
+import { Library, Search, Settings } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
 interface AppSidebarProps {
-  onNavigate: (view: 'list' | 'search' | 'settings') => void;
-  currentView: 'list' | 'search' | 'settings';
   version: string;
 }
 
 export function AppSidebar({
-  onNavigate,
-  currentView,
   version,
 }: AppSidebarProps) {
+  const location = useLocation();
+
   return (
     <Sidebar>
       <SidebarHeader>
@@ -43,31 +42,37 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onNavigate('search')}
-                  isActive={currentView === 'search'}
+                  asChild
+                  isActive={location.pathname === '/search'}
                 >
-                  <Search />
-                  <span>Search</span>
+                  <Link to="/search">
+                    <Search />
+                    <span>Search</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onNavigate('list')}
-                  isActive={currentView === 'list'}
+                  asChild
+                  isActive={location.pathname === '/'}
                 >
-                  <Library />
-                  <span>Library</span>
+                  <Link to="/">
+                    <Library />
+                    <span>Library</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onNavigate('settings')}
-                  isActive={currentView === 'settings'}
+                  asChild
+                  isActive={location.pathname === '/settings'}
                 >
-                  <Library />
-                  <span>Settings</span>
+                  <Link to="/settings">
+                    <Settings />
+                    <span>Settings</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -78,7 +83,7 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="text-xs text-center text-muted-foreground py-2">
-              v{version}
+              {version}
             </div>
           </SidebarMenuItem>
         </SidebarMenu>

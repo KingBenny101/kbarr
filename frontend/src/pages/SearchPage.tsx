@@ -14,10 +14,10 @@ interface SearchResult {
 }
 
 interface SearchPageProps {
-    onAnimeAdded?: () => void
+    onMediaAdded?: () => void
 }
 
-export function SearchPage({ onAnimeAdded }: SearchPageProps) {
+export function SearchPage({ onMediaAdded }: SearchPageProps) {
     const [query, setQuery] = useState<string>("")
     const [searchResults, setSearchResults] = useState<SearchResult[]>([])
     const [searching, setSearching] = useState<boolean>(false)
@@ -45,9 +45,9 @@ export function SearchPage({ onAnimeAdded }: SearchPageProps) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ aid })
             })
-            if (res.ok && onAnimeAdded) {
+            if (res.ok && onMediaAdded) {
                 showToast("Media added successfully", "success")
-                onAnimeAdded()
+                onMediaAdded()
             }
 
             if (!res.ok) {
