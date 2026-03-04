@@ -9,12 +9,15 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/logger"
+	"github.com/kingbenny101/kbarr/internal/workers"
 )
 
 var cfg *config.Config
+var WorkerMgr *workers.Manager
 
-func NewRouter(c *config.Config) http.Handler {
-	cfg = c
+func NewRouter(wm *workers.Manager) http.Handler {
+	cfg = config.Get()
+	WorkerMgr = wm
 	r := chi.NewRouter()
 
 	// r.Use(middleware.Logger)
@@ -32,6 +35,8 @@ func NewRouter(c *config.Config) http.Handler {
 
 	r.Get("/api/version", handleGetVersion)
 	r.Get("/api/library/search", handleMediaSearch)
+	r.Delete("/api/library/{id}", handleDeleteMedia)
+
 	r.Get("/api/library", handleGetMediaList)
 	r.Post("/api/library", handleAddMedia)
 
@@ -66,4 +71,3 @@ func NewRouter(c *config.Config) http.Handler {
 	logger.Log.Info("[API] Frontend embedded and ready")
 	return r
 }
-

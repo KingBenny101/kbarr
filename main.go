@@ -12,7 +12,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/bootstrap"
 	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/logger"
-	"github.com/kingbenny101/kbarr/internal/anidb"
+	"github.com/kingbenny101/kbarr/internal/workers"
 )
 
 func main() {
@@ -22,13 +22,12 @@ func main() {
 	// Config
 	cfg := config.Load()
 
-	// API Router
-	router := api.NewRouter(cfg)
+	// Start Worker Manager
+	mgr := workers.NewManager(cfg)
+	mgr.Start()
 
-	// Start AniDB Sync Worker
-	logger.Log.Info("[AniDB] Starting AniDB sync worker...")
-	stop := make(chan struct{})
-	go anidb.Start(cfg, stop)
+	// API Router
+	router := api.NewRouter(mgr)
 
 	server := &http.Server{
 		Addr:    cfg.ServerAddr,
@@ -47,7 +46,7 @@ func main() {
 	<-quit
 
 	logger.Log.Info("[Main] Shutting down...")
-	close(stop)
+	mgr.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

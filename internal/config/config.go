@@ -24,22 +24,19 @@ var (
 func Load() *Config {
 	anidbClient, err := db.GetSetting("anidbClient")
 	if err != nil {
-		anidbClient = "error"
+		anidbClient = db.DefaultSettings["anidbClient"]
 	}
-
-	anidbInterval, err := db.GetSetting("anidbInterval")
+	anidbIntervalStr, err := db.GetSetting("anidbSyncInterval")
 	if err != nil {
-		anidbInterval = "24h"
+		anidbIntervalStr = db.DefaultSettings["anidbSyncInterval"]
 	}
-
-	anidbIntervalDuration, err := time.ParseDuration(anidbInterval)
+	anidbInterval, err := time.ParseDuration(anidbIntervalStr + "s")
 	if err != nil {
-		anidbIntervalDuration = 24 * time.Hour
+		anidbInterval = 60 * time.Second
 	}
-
 	anidbVersion, err := db.GetSetting("anidbVersion")
 	if err != nil {
-		anidbVersion = "error"
+		anidbVersion = db.DefaultSettings["anidbVersion"]
 	}
 
 	serverPort := getEnv("KBARR_PORT", "8282")
@@ -50,7 +47,7 @@ func Load() *Config {
 		ServerAddr:    serverAddr,
 		AniDBClient:   anidbClient,
 		AniDBVersion:  anidbVersion,
-		AniDBInterval: anidbIntervalDuration,
+		AniDBInterval: anidbInterval,
 	}
 
 	mu.Lock()

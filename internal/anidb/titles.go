@@ -39,11 +39,11 @@ type SearchResult struct {
 	Title string
 }
 
-func LoadTitlesDump(cfg *config.Config) error {
+func LoadTitlesDump() error {
 	titlesFile := "data/anidb-titles.xml"
 
-	if shouldDownload(cfg,titlesFile) {
-		err := downloadTitlesDump(titlesFile, cfg)
+	if shouldDownload(titlesFile) {
+		err := downloadTitlesDump(titlesFile)
 		if err != nil {
 			logger.Log.Errorf("[AniDB] Failed to download titles dump: %v", err)
 			return err
@@ -55,8 +55,8 @@ func LoadTitlesDump(cfg *config.Config) error {
 	return parseTitlesDump(titlesFile)
 }
 
-func shouldDownload(cfg *config.Config, titlesFile string) bool {
-
+func shouldDownload(titlesFile string) bool {
+	cfg := config.Get()
 	titlesCacheMaxAge := cfg.AniDBInterval
 
 	info, err := os.Stat(titlesFile)
@@ -66,7 +66,8 @@ func shouldDownload(cfg *config.Config, titlesFile string) bool {
 	return time.Since(info.ModTime()) > titlesCacheMaxAge
 }
 
-func downloadTitlesDump(titlesFile string, cfg *config.Config) error {
+func downloadTitlesDump(titlesFile string) error {
+	cfg := config.Get()
 	if err := checkAniDBSettings(cfg); err != nil {
 		logger.Log.Warnf("[AniDB] Skipping titles dump download due to invalid settings: %v", err)
 		return err

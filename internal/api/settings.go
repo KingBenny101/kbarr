@@ -4,16 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/kingbenny101/kbarr/internal/db"
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/db"
 )
 
 func handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
 
-	settings, err := db.GetAllSettings() 
+	settings, err := db.GetAllSettings()
 	if err != nil {
 		http.Error(w, "Failed to retrieve settings", http.StatusInternalServerError)
 		return
@@ -31,7 +30,6 @@ func handleGetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	
 	w.Write(settingsJSON)
 }
 
@@ -52,6 +50,7 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config.Reload()
+	WorkerMgr.Reload("anidb")
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Settings updated successfully"))
