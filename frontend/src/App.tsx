@@ -1,85 +1,44 @@
-import { useState, useEffect } from "react"
-import { useNavigate, useLocation, Routes, Route, BrowserRouter } from "react-router-dom"
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
-import { ThemeProvider } from "@/components/theme-provider"
-import { ModeToggle } from "@/components/mode-toggle"
-import { LibraryPage } from "@/pages/LibraryPage"
-import { SearchPage } from "@/pages/SearchPage"
-import { SettingsPage } from "@/pages/SettingsPage"
-import { API_URL } from "@/lib/api"
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { SearchPage } from './pages/SearchPage';
+import { LibraryPage } from './pages/LibraryPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { MediaDetailPage } from './pages/MediaDetailPage';
+import { AppSidebar } from './components/app-sidebar';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from './components/ui/sidebar';
 import { Toaster } from "@/components/ui/sonner"
+import { ModeToggle } from './components/mode-toggle';
+import { ThemeProvider } from './components/theme-provider';
 
-
-interface ApiVersionResponse {
-  version: string
-}
-
-const pageTitleMapping: Record<string, string> = {
-  "/": "Library",
-  "/search": "Search",
-  "/settings": "Settings"
-}
-
-function AppContent() {
-  const [version, setVersion] = useState<string>("v0.1.0")
-  const navigate = useNavigate()
-  const location = useLocation()
-
-  useEffect(() => {
-    fetchVersion()
-  }, [])
-
-  const fetchVersion = async (): Promise<void> => {
-    try {
-      const res = await fetch(`${API_URL}/api/version`)
-      const data = (await res.json()) as ApiVersionResponse
-      setVersion(data.version || "v0.1.0")
-    } catch (err) {
-      console.error("Failed to fetch version:", err)
-    }
-  }
-
-  const handleMediaAdded = (): void => {
-    navigate("/")
-  }
-
-
+function App() {
   return (
-    <SidebarProvider>
-      <AppSidebar version={version} />
-      <main className="flex flex-col flex-1">
-        <header className="border-b p-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger />
-            <h2 className="text-lg font-semibold">{pageTitleMapping[location.pathname] || "kbarr"}</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <ModeToggle />
-
-  
-
-          </div>
-        </header>
-        <div className="flex-1 overflow-auto p-6">
-          <Routes>
-            <Route path="/" element={<LibraryPage />} />
-            <Route path="/search" element={<SearchPage onMediaAdded={handleMediaAdded} />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
-        </div>
-      </main>
-    </SidebarProvider>
-  )
-}
-
-export default function App() {
-  return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <Toaster />
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+    <ThemeProvider defaultTheme="dark" storageKey="kbarr-theme">
+      <Router>
+        <SidebarProvider>
+          <AppSidebar version="v0.0.1" />
+          <SidebarInset>
+            <header className="flex h-16 shrink-0 items-center justify-between px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 border-b">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger className="-ml-1" />
+              </div>
+              <div className="flex items-center gap-4">
+                <ModeToggle />
+              </div>
+            </header>
+            <div className="p-4 md:p-8">
+              <Routes>
+                <Route path="/" element={<LibraryPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/settings/*" element={<SettingsPage />} />
+                <Route path="/media/:id" element={<MediaDetailPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+        <Toaster />
+      </Router>
     </ThemeProvider>
-  )
+  );
 }
+
+export default App;

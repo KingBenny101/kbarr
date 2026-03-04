@@ -1,34 +1,30 @@
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useNavigate } from "react-router-dom"
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger
-} from "@/components/ui/alert-dialog"
-import { Trash2 } from "lucide-react"
+import { PlayCircle, Film, Tv } from "lucide-react"
 import { API_URL } from "@/lib/api"
-import { toast } from "sonner"
 
 interface Media {
-    ID: number
-    Title: string
-    TitleJP?: string
-    Episodes?: number
-    Status: string
-    AddedAt?: string
+    id: number
+    title: string
+    title_original: string
+    description: string
+    status: string
+    type: "anime" | "movie" | "tv"
+    source: "anidb" | "tmdb"
+    episodes: number
+    seasons: number
+    year: number
+    cover_image: string
+    external_id: string
+    monitored: boolean
+    added_at: string
 }
-
 
 export function LibraryPage() {
     const [mediaList, setMediaList] = useState<Media[]>([])
+    const navigate = useNavigate()
 
     useEffect(() => {
         fetchList()
@@ -44,67 +40,56 @@ export function LibraryPage() {
         }
     }
 
-    const handleDelete = async (id: number) => {
-        try {
-            const res = await fetch(`${API_URL}/api/library/${id}`, {
-                method: 'DELETE',
-            })
-            if (res.ok) {
-                toast.success("Media removed from library")
-                fetchList()
-            } else {
-                toast.error("Failed to remove media")
-            }
-        } catch (err) {
-            console.error("Failed to delete media:", err)
-            toast.error("An error occurred while deleting")
+    const getIcon = (type: string) => {
+        switch (type) {
+            case "anime": return <PlayCircle className="size-4 text-primary" />
+            case "movie": return <Film className="size-4 text-primary" />
+            case "tv": return <Tv className="size-4 text-primary" />
+            default: return null
         }
     }
 
     return (
-        <div>
+        <div className="space-y-6">
+    
             {mediaList.length === 0 ? (
-                <p className="text-center py-8">No media added yet</p>
+                <Card className="border-dashed flex flex-col items-center justify-center p-12 text-center space-y-4">
+                    <div className="bg-muted rounded-full p-4">
+                        <Film className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <div className="space-y-1">
+                        <p className="font-medium">No media added yet</p>
+                        <p className="text-sm text-muted-foreground">Go to search and add some anime or movies!</p>
+                    </div>
+                </Card>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {mediaList.map((media) => (
-                        <Card key={media.ID} className="flex flex-col">
-                            <CardHeader className="flex-row items-start justify-between space-y-0">
-                                <div className="space-y-1">
-                                    <CardTitle>{media.Title}</CardTitle>
-                                    <CardDescription>ID: {media.ID}</CardDescription>
+                        <Card 
+                            key={media.id} 
+                            className="group cursor-pointer hover:bg-accent/50 transition-all duration-200 border border-border/50 shadow-sm hover:shadow-md h-32 flex flex-col justify-center"
+                            onClick={() => navigate(`/media/${media.id}`)}
+                        >
+                            <CardHeader className="py-0 px-4 flex flex-row items-center space-y-0 gap-3">
+                                <div className="p-2 bg-muted rounded-md group-hover:bg-primary/10 transition-colors">
+                                    {getIcon(media.type)}
                                 </div>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This will permanently remove <strong>{media.Title}</strong> from your library.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction
-                                                onClick={() => handleDelete(media.ID)}
-                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                            >
-                                                Delete
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
+                                <div className="flex-grow min-w-0">
+                                    <CardTitle className="text-sm font-semibold line-clamp-2 leading-tight">
+                                        {media.title}
+                                    </CardTitle>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        {media.year > 0 && (
+                                            <span className="text-[10px] text-muted-foreground font-medium">{media.year}</span>
+                                        )}
+                                        {media.monitored && (
+                                            <Badge variant="secondary" className="text-[8px] h-4 px-1 bg-primary/10 text-primary border-none">
+                                                MONITORED
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
                             </CardHeader>
-                            <CardContent className="text-sm space-y-2 flex-1">
-                                <div>Episodes: {media.Episodes || "—"}</div>
-                                <div>Status: <Badge variant="secondary">{media.Status}</Badge></div>
-                                <div>Added: {media.AddedAt ? new Date(media.AddedAt).toLocaleDateString() : "—"}</div>
-                                {media.TitleJP && <div className="italic text-xs">{media.TitleJP}</div>}
-                            </CardContent>
                         </Card>
                     ))}
                 </div>
