@@ -36,6 +36,9 @@ func NewRouter(wm *workers.Manager) http.Handler {
 	r.Get("/api/version", handleGetVersion)
 	r.Get("/api/library/search", handleMediaSearch)
 	r.Delete("/api/library/{id}", handleDeleteMedia)
+	r.Get("/api/library/{id}", handleGetMediaByID)
+	r.Put("/api/library/{id}/monitor", handleUpdateMonitorStatus)
+	r.Post("/api/library/{id}/search", handleTriggerSearch)
 
 	r.Get("/api/library", handleGetMediaList)
 	r.Post("/api/library", handleAddMedia)

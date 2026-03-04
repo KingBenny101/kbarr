@@ -8,9 +8,14 @@ import (
 )
 
 var DefaultSettings = map[string]string{
-	"anidbClient":  "error",
-	"anidbVersion": "error",
+	"anidbClient":       "error",
+	"anidbVersion":      "error",
 	"anidbSyncInterval": "86400",
+	"tmdbApiKey":        "error",
+	"prowlarrUrl":       "http://localhost:9696",
+	"prowlarrApiKey":    "error",
+	"prowlarrInterval":  "60", // in minutes
+	"autoMonitorOnAdd":  "false",
 }
 
 func InitDefaultSettings() error {
