@@ -27,6 +27,9 @@ func (m *Manager) Start() {
 
 	// Start initial workers
 	m.StartWorker("anidb", StartAniDBWorker)
+	m.StartWorker("monitor", func(stopCh <-chan struct{}) {
+		StartMonitorWorker(stopCh)
+	})
 }
 
 func (m *Manager) Stop() {
@@ -52,6 +55,10 @@ func (m *Manager) Reload(name string) {
 	switch name {
 	case "anidb":
 		m.StartWorker("anidb", StartAniDBWorker)
+	case "monitor":
+		m.StartWorker("monitor", func(stopCh <-chan struct{}) {
+			StartMonitorWorker(stopCh)
+		})
 	}
 }
 
