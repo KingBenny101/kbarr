@@ -32,17 +32,23 @@ func Init(dbPath string) error {
 
 func createTables() error {
 	query := `
-	CREATE TABLE IF NOT EXISTS anime (
+	CREATE TABLE IF NOT EXISTS media (
 		id               INTEGER PRIMARY KEY AUTOINCREMENT,
 		title            TEXT NOT NULL,
-		title_jp         TEXT,
+		title_original   TEXT,
 		alternate_titles TEXT DEFAULT '[]',
 		description      TEXT,
 		status           TEXT DEFAULT 'watching',
+		type             TEXT,
 		episodes         INTEGER DEFAULT 0,
-		anidb_id         TEXT,
+		seasons          INTEGER DEFAULT 0,
+		year             INTEGER,
 		cover_image      TEXT,
-		added_at         DATETIME DEFAULT CURRENT_TIMESTAMP
+		banner_image     TEXT,
+		external_id      TEXT,
+		source           TEXT,
+		added_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	
 	CREATE TABLE IF NOT EXISTS settings (

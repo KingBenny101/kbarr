@@ -7,13 +7,14 @@ import (
 	"github.com/kingbenny101/kbarr/internal/models"
 )
 
-var defaultSettings = map[string]string{
+var DefaultSettings = map[string]string{
 	"anidbClient":  "error",
 	"anidbVersion": "error",
+	"anidbSyncInterval": "86400",
 }
 
 func InitDefaultSettings() error {
-	for key := range defaultSettings {
+	for key := range DefaultSettings {
 		err := SetDefaultSetting(key)
 		if err != nil {
 			return fmt.Errorf("failed to initialize default settings: %w", err)
@@ -27,7 +28,7 @@ func SetDefaultSetting(key string) error {
 		INSERT INTO settings (key, value)
 		VALUES (?, ?)
 		ON CONFLICT(key) DO NOTHING
-	`, key, defaultSettings[key])
+	`, key, DefaultSettings[key])
 	if err != nil {
 		return fmt.Errorf("failed to set default setting: %w", err)
 	}
@@ -36,7 +37,7 @@ func SetDefaultSetting(key string) error {
 
 func SetSetting(key, value string) error {
 
-	if _, exists := defaultSettings[key]; !exists {
+	if _, exists := DefaultSettings[key]; !exists {
 		return fmt.Errorf("invalid setting key: %s", key)
 	}
 

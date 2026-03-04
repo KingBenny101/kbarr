@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	
+
 	"github.com/go-chi/chi/v5"
 	"github.com/kingbenny101/kbarr/internal/anidb"
 	"github.com/kingbenny101/kbarr/internal/db"
@@ -62,34 +62,38 @@ func handleAddMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	anime := models.Anime{
-		AnidbID:         details.AID,
+	media := models.Media{
+		ExternalID:      details.AID,
+		Source:          "anidb",
+		Type:            "anime",
 		Title:           details.MainTitle(),
+		TitleOriginal:   details.MainTitle(), // Adjust if anidb provides original title separately
 		Description:     details.Description,
 		Episodes:        details.EpisodeCount,
 		Status:          "watching",
 		AlternateTitles: details.OfficialTitles(),
+		CoverImage:      "", // Add if available in details
 	}
 
-	id, err := db.InsertAnime(anime)
+	id, err := db.InsertMedia(media)
 	if err != nil {
 		logger.Log.Errorf("[API] Failed to insert media: %v", err)
 		http.Error(w, "failed to save media", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Log.Infof("[API] Media added with ID %d: %s", id, anime.Title)
+	logger.Log.Infof("[API] Media added with ID %d: %s", id, media.Title)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"id":    id,
-		"title": anime.Title,
+		"title": media.Title,
 	})
 }
 
 func handleGetMediaList(w http.ResponseWriter, r *http.Request) {
-	animeList, err := db.GetAllAnime()
+	mediaList, err := db.GetAllMedia()
 	if err != nil {
 		logger.Log.Errorf("[API] Failed to fetch media list: %v", err)
 		http.Error(w, "failed to fetch media list", http.StatusInternalServerError)
@@ -97,5 +101,22 @@ func handleGetMediaList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(animeList)
+	json.NewEncoder(w).Encode(mediaList)
+}
+
+func handleDeleteMedia(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	logger.Log.Infof("[API] Delete media request for ID: %s", id)
+
+	err := db.DeleteMedia(id)
+	if err != nil {
+		logger.Log.Errorf("[API] Failed to delete media with ID %s: %v", id, err)
+		http.Error(w, "failed to delete media", http.StatusInternalServerError)
+		return
+	}
+
+	logger.Log.Infof("[API] Media with ID %s deleted successfully", id)
+
+	w.WriteHeader(http.StatusNoContent)
 }
