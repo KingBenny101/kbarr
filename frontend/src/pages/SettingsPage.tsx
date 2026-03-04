@@ -1,23 +1,34 @@
 import { useState, useEffect } from "react"
-import { Badge } from "@/components/ui/badge"
+import { useLocation, Navigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
 import { API_URL } from "@/lib/api"
 import { showToast } from "@/lib/utils"
+import { AnidbSettings } from "./settings/AnidbSettings"
+import { TmdbSettings } from "./settings/TmdbSettings"
+import { ProwlarrSettings } from "./settings/ProwlarrSettings"
+import { GeneralSettings } from "./settings/GeneralSettings"
 
 interface Settings {
     anidbClient: string
     anidbVersion: string
     anidbSyncInterval: string
+    tmdbApiKey: string
+    prowlarrUrl: string
+    prowlarrApiKey: string
+    prowlarrInterval: string
+    autoMonitorOnAdd: string
 }
 
 export function SettingsPage() {
+    const location = useLocation()
+    const path = location.pathname.toLowerCase()
+
+    if (path === "/settings" || path === "/settings/") {
+        return <Navigate to="/settings/general" replace />
+    }
+
+    const [settings, setSettings] = useState<Settings | null>(null)
     const [initialSettings, setInitialSettings] = useState<Settings | null>(null)
-    const [anidbClient, setAnidbClient] = useState<string>("")
-    const [anidbVersion, setAnidbVersion] = useState<string>("")
-    const [anidbSyncInterval, setAnidbSyncInterval] = useState<string>("60")
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
 
@@ -29,147 +40,121 @@ export function SettingsPage() {
         setLoading(true)
         try {
             const res = await fetch(`${API_URL}/api/settings`)
-            const data = (await res.json()) as Record<string, string>
-
+            const data = await res.json()
             const settings: Settings = {
-                anidbClient: data.anidbClient,
-                anidbVersion: data.anidbVersion,
-                anidbSyncInterval: data.anidbSyncInterval
+                anidbClient: data.anidbClient || "",
+                anidbVersion: data.anidbVersion || "",
+                anidbSyncInterval: data.anidbSyncInterval || "86400",
+                tmdbApiKey: data.tmdbApiKey || "",
+                prowlarrUrl: data.prowlarrUrl || "http://localhost:9696",
+                prowlarrApiKey: data.prowlarrApiKey || "",
+                prowlarrInterval: data.prowlarrInterval || "60",
+                autoMonitorOnAdd: data.autoMonitorOnAdd || "false",
             }
-
+            setSettings(settings)
             setInitialSettings(settings)
-            setAnidbClient(settings.anidbClient)
-            setAnidbVersion(settings.anidbVersion)
-            setAnidbSyncInterval(settings.anidbSyncInterval)
         } catch (err) {
-            console.error("Failed to fetch settings:", err)
+            console.error("Fetch settings error:", err)
         } finally {
             setLoading(false)
         }
     }
 
-    const isDirty = initialSettings && (
-        anidbClient !== initialSettings.anidbClient ||
-        anidbVersion !== initialSettings.anidbVersion ||
-        anidbSyncInterval !== initialSettings.anidbSyncInterval
-    )
+    const updateSetting = (key: keyof Settings, value: string): void => {
+        if (settings) {
+            setSettings({ ...settings, [key]: value })
+        }
+    }
+
+    const isDirty =
+        initialSettings &&
+        settings &&
+        JSON.stringify(initialSettings) !== JSON.stringify(settings)
 
     const handleSave = async (): Promise<void> => {
+        if (!settings) return
         setSaving(true)
         try {
             const res = await fetch(`${API_URL}/api/settings`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    anidbClient: anidbClient,
-                    anidbVersion: anidbVersion,
-                    anidbSyncInterval: anidbSyncInterval
-                })
+                    anidbClient: settings.anidbClient,
+                    anidbVersion: settings.anidbVersion,
+                    anidbSyncInterval: settings.anidbSyncInterval,
+                    tmdbApiKey: settings.tmdbApiKey.trim() || "error",
+                    prowlarrUrl: settings.prowlarrUrl,
+                    prowlarrApiKey: settings.prowlarrApiKey.trim() || "error",
+                    prowlarrInterval: settings.prowlarrInterval,
+                    autoMonitorOnAdd: settings.autoMonitorOnAdd,
+                }),
             })
             if (res.ok) {
-                setInitialSettings({
-                    anidbClient: anidbClient,
-                    anidbVersion: anidbVersion,
-                    anidbSyncInterval: anidbSyncInterval
-                })
-
-                showToast("Settings saved successfully", "success")
+                showToast("Settings saved", "success")
+                await fetchSettings()
+            } else {
+                showToast("Save failed", "error")
             }
-
-            if (!res.ok) {
-                showToast("Failed to save settings", "error")
-            }
-
         } catch (err) {
-            showToast("An error occurred while saving settings", "error")
-            console.error("Failed to save settings:", err)
+            showToast("Error saving", "error")
         } finally {
             setSaving(false)
         }
     }
 
-    if (loading) {
-        return <div className="p-8 text-center text-muted-foreground italic">Loading settings...</div>
+    if (loading || !settings) {
+        return <div className="p-8 text-center italic">Loading...</div>
     }
 
     return (
-        <div className="max-w-3xl mx-auto space-y-12 pb-20 pt-4 px-4 font-sans">
-            <section className="group space-y-6">
-                <div>
-                    <h3 className="text-xl font-bold tracking-tight">AniDB</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Configure how your client identifies itself to the AniDB API.
-                    </p>
-                </div>
-                <Separator />
-                <FieldGroup>
-                    <Field orientation="responsive" className="justify-between gap-4 md:gap-8">
-                        <div className="flex-1 space-y-1">
-                            <FieldLabel htmlFor="anidbclient" className="text-base font-semibold">Client Name</FieldLabel>
-                            <FieldDescription className="text-sm">The registered name for your application.</FieldDescription>
-                        </div>
-                        <Input
-                            id="anidbclient"
-                            className="w-full md:max-w-[300px] h-10"
-                            value={anidbClient}
-                            onChange={(e) => setAnidbClient(e.target.value)}
-                            placeholder="kbarr"
-                        />
-                    </Field>
-
-                    <Separator className="opacity-40" />
-
-                    <Field orientation="responsive" className="justify-between gap-4 md:gap-8">
-                        <div className="flex-1 space-y-1">
-                            <FieldLabel htmlFor="anidbversion" className="text-base font-semibold">Client Version</FieldLabel>
-                            <FieldDescription className="text-sm">The version string used in API headers.</FieldDescription>
-                        </div>
-                        <Input
-                            id="anidbversion"
-                            className="w-full md:max-w-[300px] h-10"
-                            value={anidbVersion}
-                            onChange={(e) => setAnidbVersion(e.target.value)}
-                            placeholder="1"
-                        />
-                    </Field>
-
-                    <Separator className="opacity-40" />
-
-
-                    <Field orientation="responsive" className="justify-between gap-4 md:gap-8">
-                        <div className="flex-1 space-y-1">
-                            <FieldLabel htmlFor="anidbSyncInterval" className="text-base font-semibold">Sync Interval ( default : 86400s )</FieldLabel>
-                            <FieldDescription className="text-sm">How often to sync with AniDB.</FieldDescription>
-                        </div>
-                        <Input
-                            id="anidbSyncInterval"
-                            className="w-full md:max-w-[300px] h-10"
-                            value={anidbSyncInterval}
-                            onChange={(e) => setAnidbSyncInterval(e.target.value)}
-                            placeholder="60"
-                        />
-                    </Field>
-                </FieldGroup>
-            </section>
-
-            <section className="space-y-6">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold tracking-tight">Download Client</h3>
-                    <Badge variant="outline" className="h-5 text-[10px]">Upcoming</Badge>
-                </div>
-                <Separator />
-                <p className="text-sm text-muted-foreground italic">
-                    Integration with qBittorrent and Prowlarr will be configured here.
-                </p>
-            </section>
-
-            <div className="flex justify-end pt-8 border-t">
-                <Button
-                    onClick={handleSave}
-                    disabled={!isDirty || saving}
-                    className="w-full md:w-auto px-10 h-11 text-base transition-opacity font-bold"
-                >
-                    {saving ? "Saving..." : isDirty ? "Save Changes" : "No Changes"}
+        <div className="max-w-4xl mx-auto space-y-16 pb-20 pt-4 px-4">
+            {path.includes("general") && (
+                <GeneralSettings
+                    autoMonitorOnAdd={settings.autoMonitorOnAdd}
+                    setAutoMonitorOnAdd={(value) =>
+                        updateSetting("autoMonitorOnAdd", value)
+                    }
+                />
+            )}
+            {path.includes("anidb") && (
+                <AnidbSettings
+                    client={settings.anidbClient}
+                    setClient={(value) => updateSetting("anidbClient", value)}
+                    version={settings.anidbVersion}
+                    setVersion={(value) => updateSetting("anidbVersion", value)}
+                    interval={settings.anidbSyncInterval}
+                    setInterval={(value) =>
+                        updateSetting("anidbSyncInterval", value)
+                    }
+                />
+            )}
+            {path.includes("tmdb") && (
+                <TmdbSettings
+                    apiKey={settings.tmdbApiKey}
+                    setApiKey={(value) => updateSetting("tmdbApiKey", value)}
+                    initialApiKey={initialSettings?.tmdbApiKey}
+                />
+            )}
+            {path.includes("prowlarr") && (
+                <ProwlarrSettings
+                    url={settings.prowlarrUrl}
+                    setUrl={(value) => updateSetting("prowlarrUrl", value)}
+                    apiKey={settings.prowlarrApiKey}
+                    setApiKey={(value) => updateSetting("prowlarrApiKey", value)}
+                    interval={settings.prowlarrInterval}
+                    setInterval={(value) =>
+                        updateSetting("prowlarrInterval", value)
+                    }
+                    initialApiKey={initialSettings?.prowlarrApiKey}
+                />
+            )}
+            <div className="sticky bottom-4 z-10 flex justify-end">
+                <Button onClick={handleSave} disabled={!isDirty || saving}>
+                    {saving
+                        ? "Saving..."
+                        : isDirty
+                            ? "Save Changes"
+                            : "No Changes"}
                 </Button>
             </div>
         </div>

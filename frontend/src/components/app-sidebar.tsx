@@ -9,8 +9,16 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarRail,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
-import { Library, Search, Settings } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Library, Search, Settings, ChevronRight } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 interface AppSidebarProps {
@@ -46,7 +54,7 @@ export function AppSidebar({
                   isActive={location.pathname === '/search'}
                 >
                   <Link to="/search">
-                    <Search />
+                    <Search className="size-4" />
                     <span>Search</span>
                   </Link>
                 </SidebarMenuButton>
@@ -58,23 +66,57 @@ export function AppSidebar({
                   isActive={location.pathname === '/'}
                 >
                   <Link to="/">
-                    <Library />
+                    <Library className="size-4" />
                     <span>Library</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location.pathname === '/settings'}
-                >
-                  <Link to="/settings">
-                    <Settings />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location.pathname.startsWith('/settings')}
+                    >
+                      <Settings className="size-4" />
+                      <span>Settings</span>
+                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location.pathname === '/settings/general'}>
+                          <Link to="/settings/general">
+                            <span>General</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location.pathname === '/settings/anidb'}>
+                          <Link to="/settings/anidb">
+                            <span>AniDB</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location.pathname === '/settings/tmdb'}>
+                          <Link to="/settings/tmdb">
+                            <span>TMDB</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location.pathname === '/settings/prowlarr'}>
+                          <Link to="/settings/prowlarr">
+                            <span>Prowlarr</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
