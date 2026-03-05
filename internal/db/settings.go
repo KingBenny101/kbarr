@@ -1,10 +1,13 @@
 package db
 
 import (
-	"database/sql"
+	"context"
+	"errors"
 	"fmt"
 
+	"github.com/kingbenny101/kbarr/internal/logger"
 	"github.com/kingbenny101/kbarr/internal/models"
+	"gorm.io/gorm"
 )
 
 var DefaultSettings = map[string]string{
@@ -20,72 +23,67 @@ var DefaultSettings = map[string]string{
 
 func InitDefaultSettings() error {
 	for key := range DefaultSettings {
-		err := SetDefaultSetting(key)
-		if err != nil {
+		if err := SetSetting(key,DefaultSettings[key]); err != nil {
 			return fmt.Errorf("failed to initialize default settings: %w", err)
 		}
 	}
 	return nil
 }
 
-func SetDefaultSetting(key string) error {
-	_, err := DB.Exec(`
-		INSERT INTO settings (key, value)
-		VALUES (?, ?)
-		ON CONFLICT(key) DO NOTHING
-	`, key, DefaultSettings[key])
-	if err != nil {
-		return fmt.Errorf("failed to set default setting: %w", err)
-	}
-	return nil
-}
-
 func SetSetting(key, value string) error {
+    if _, exists := DefaultSettings[key]; !exists {
+        return fmt.Errorf("invalid setting key: %s", key)
+    }
 
-	if _, exists := DefaultSettings[key]; !exists {
-		return fmt.Errorf("invalid setting key: %s", key)
-	}
-
-	_, err := DB.Exec(`
-		INSERT INTO settings (key, value)
-		VALUES (?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value
-	`, key, value)
-	if err != nil {
-		return fmt.Errorf("failed to set setting: %w", err)
-	}
-	return nil
+    ctx := context.Background()
+    _, err := gorm.G[models.Setting](DB).Where("key = ?", key).First(ctx)
+    if err != nil {
+        if !errors.Is(err, gorm.ErrRecordNotFound) {
+            return fmt.Errorf("failed to get setting: %w", err)
+        }
+        // doesn't exist — create it
+        s := models.Setting{Key: key, Value: value}
+        return gorm.G[models.Setting](DB).Create(ctx, &s)
+    }
+    // exists — update it
+	_,err = gorm.G[models.Setting](DB).Where("key = ?", key).Update(ctx, "Value", value)
+    if err != nil {
+        return fmt.Errorf("failed to update setting: %w", err)
+    }
+    return nil
 }
 
 func GetSetting(key string) (string, error) {
-	var value string
-	err := DB.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&value)
+	ctx := context.Background()
+	setting, err := gorm.G[models.Setting](DB).Where("key = ?", key).First(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", nil
 		}
 		return "", fmt.Errorf("failed to get setting: %w", err)
 	}
-	return value, nil
+	return setting.Value, nil
 }
 
 func GetAllSettings() ([]models.Setting, error) {
-	rows, err := DB.Query("SELECT id, key, value FROM settings")
+	ctx := context.Background()
+	settings, err := gorm.G[models.Setting](DB).Find(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query settings: %w", err)
 	}
-	defer rows.Close()
+	return settings, nil
+}
 
-	var settings []models.Setting
-
-	for rows.Next() {
-		var s models.Setting
-		err := rows.Scan(&s.ID, &s.Key, &s.Value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan row: %w", err)
-		}
-		settings = append(settings, s)
+func checkSettings() error {
+	ctx := context.Background()
+	count, err := gorm.G[models.Setting](DB).Count(ctx,"key")
+	if err != nil {
+		return fmt.Errorf("failed to check settings count: %w", err)
 	}
 
-	return settings, nil
+	if count == 0 {
+		logger.Log.Info("[DB] Initializing default settings...")
+		InitDefaultSettings()
+	}
+	return nil
 }

@@ -15,3 +15,7 @@
 - [x] Figure out tmdb api and how to use it for searching and getting details about movies and tv shows
 - [x] Update the anime struct to a common media struct
 - [x] Get prowlarr to working and dump results
+
+## 05.02.2026
+
+- [ ] Migrate backed to use GORM

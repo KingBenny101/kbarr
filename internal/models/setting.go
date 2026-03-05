@@ -1,7 +1,7 @@
 package models
 
 type Setting struct {
-	ID    int    `db:"id"`
-	Key   string `db:"key"`
-	Value string `db:"value"`
+	ID    int    `json:"id"    gorm:"primaryKey;autoIncrement"`
+	Key   string `json:"key"   gorm:"uniqueIndex;not null"`
+	Value string `json:"value"`
 }

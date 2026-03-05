@@ -1,24 +1,28 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 // Media represents a generic media item (Anime from AniDB or TV/Movie from TMDB)
 type Media struct {
-	ID              int       `json:"id" db:"id"`
-	Title           string    `json:"title" db:"title"`
-	TitleOriginal   string    `json:"title_original" db:"title_original"`
-	AlternateTitles []string  `json:"alternate_titles" db:"alternate_titles"`
-	Description     string    `json:"description" db:"description"`
-	Status          string    `json:"status" db:"status"`
-	Type            string    `json:"type" db:"type"` // e.g., "anime", "tv", "movie"
-	Episodes        int       `json:"episodes" db:"episodes"`
-	Seasons         int       `json:"seasons" db:"seasons"`
-	Year            int       `json:"year" db:"year"`
-	CoverImage      string    `json:"cover_image" db:"cover_image"`
-	BannerImage     string    `json:"banner_image" db:"banner_image"`
-	ExternalID      string    `json:"external_id" db:"external_id"` // Unified external identifier
-	Source          string    `json:"source" db:"source"`           // Source provider, e.g., "anidb", "tmdb"
-	Monitored       bool      `json:"monitored" db:"monitored"`     // Whether to check for new downloads
-	AddedAt         time.Time `json:"added_at" db:"added_at"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+	ID              int                         `json:"id"               gorm:"primaryKey;autoIncrement"`
+	Title           string                      `json:"title"`
+	TitleOriginal   string                      `json:"title_original"`
+	AlternateTitles datatypes.JSONSlice[string] `json:"alternate_titles"`
+	Description     string                      `json:"description"`
+	Status          string                      `json:"status"           gorm:"default:watching"`
+	Type            string                      `json:"type"`
+	Episodes        int                         `json:"episodes"         gorm:"default:0"`
+	Seasons         int                         `json:"seasons"          gorm:"default:0"`
+	Year            int                         `json:"year"`
+	CoverImage      string                      `json:"cover_image"`
+	BannerImage     string                      `json:"banner_image"`
+	ExternalID      string                      `json:"external_id"`
+	Source          string                      `json:"source"`
+	Monitored       bool                        `json:"monitored"        gorm:"default:false"`
+	AddedAt         time.Time                   `json:"added_at"         gorm:"autoCreateTime"`
+	UpdatedAt       time.Time                   `json:"updated_at"       gorm:"autoUpdateTime"`
 }
