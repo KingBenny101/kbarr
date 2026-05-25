@@ -1,0 +1,2 @@
+ALTER TABLE settings DROP COLUMN IF EXISTS created_at;
+ALTER TABLE settings DROP COLUMN IF EXISTS updated_at;
