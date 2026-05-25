@@ -1,0 +1,35 @@
+syntax = "proto3";
+package downloader;
+option go_package = "kbarr/shared/proto/downloader";
+
+service Downloader {
+  rpc AddTorrent(AddTorrentRequest) returns (AddTorrentResponse);
+  rpc GetTorrent(TorrentRequest) returns (TorrentResponse);
+  rpc ListTorrents(ListTorrentsRequest) returns (ListTorrentsResponse);
+  rpc RemoveTorrent(RemoveTorrentRequest) returns (RemoveTorrentResponse);
+}
+
+message AddTorrentRequest {
+  string magnet_url = 1;
+  string save_path = 2;
+  string category = 3;
+}
+message AddTorrentResponse { string hash = 1; bool success = 2; string error = 3; }
+
+message TorrentRequest { string hash = 1; }
+message TorrentResponse {
+  string hash = 1;
+  string name = 2;
+  string state = 3;
+  int64 size = 4;
+  float progress = 5;
+  int64 eta = 6;
+  string save_path = 7;
+  string category = 8;
+}
+
+message ListTorrentsRequest { string category = 1; }
+message ListTorrentsResponse { repeated TorrentResponse torrents = 1; }
+
+message RemoveTorrentRequest { string hash = 1; bool delete_files = 2; }
+message RemoveTorrentResponse { bool success = 1; string error = 2; }

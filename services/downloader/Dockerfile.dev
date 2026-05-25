@@ -1,0 +1,13 @@
+FROM golang:1.25-alpine
+
+WORKDIR /workspace
+RUN apk add --no-cache ca-certificates
+
+COPY shared ./shared
+COPY services/downloader ./services/downloader
+
+WORKDIR /workspace/services/downloader
+RUN go mod download
+
+EXPOSE 8083
+CMD ["go", "run", "./cmd"]

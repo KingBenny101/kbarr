@@ -1,0 +1,208 @@
+# This is the distribution compose file. It pulls pre-built images from
+# ghcr.io. For local development use docker-compose.dev.yml instead.
+services:
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  migrate-core:
+    image: migrate/migrate
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/migrations:ro,z
+    command: ["-path", "/migrations/core", "-database", "${DB_URL}", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  migrate-anidb:
+    image: migrate/migrate
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/migrations:ro,z
+    command: ["-path", "/migrations/anidb", "-database", "${DB_URL}", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  migrate-indexer:
+    image: migrate/migrate
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/migrations:ro,z
+    command: ["-path", "/migrations/indexer", "-database", "${DB_URL}", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  migrate-downloader:
+    image: migrate/migrate
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/migrations:ro,z
+    command: ["-path", "/migrations/downloader", "-database", "${DB_URL}", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  migrate-settings:
+    image: migrate/migrate
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/migrations:ro,z
+    command: ["-path", "/migrations/settings", "-database", "${DB_URL}", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  downloader:
+    image: ghcr.io/KingBenny101/kbarr-downloader:latest
+    env_file:
+      - .env
+    environment:
+      DB_URL: ${DB_URL}
+      DOWNLOADER_SERVICE_PORT: ${DOWNLOADER_SERVICE_PORT:-8083}
+      QBITTORRENT_URL: ${QBITTORRENT_URL:-http://qbittorrent:8080}
+    depends_on:
+      migrate-core:
+        condition: service_completed_successfully
+      migrate-anidb:
+        condition: service_completed_successfully
+      migrate-indexer:
+        condition: service_completed_successfully
+      migrate-downloader:
+        condition: service_completed_successfully
+      migrate-settings:
+        condition: service_completed_successfully
+    expose:
+      - "8083"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    environment:
+      PUID: 1000
+      PGID: 1000
+      WEBUI_PORT: 8080
+    expose:
+      - "8080"
+    volumes:
+      - ${DOWNLOAD_DIR_HOST:-./downloads}:/downloads
+      - qbt_config:/config
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - dev
+
+  anidb:
+    image: ghcr.io/KingBenny101/kbarr-anidb:latest
+    env_file:
+      - .env
+    environment:
+      DB_URL: ${DB_URL}
+      ANIDB_SERVICE_PORT: ${ANIDB_SERVICE_PORT:-8081}
+      KBARR_DATA_DIR: ${KBARR_DATA_DIR:-/app/data}
+    depends_on:
+      migrate-core:
+        condition: service_completed_successfully
+      migrate-anidb:
+        condition: service_completed_successfully
+      migrate-indexer:
+        condition: service_completed_successfully
+      migrate-downloader:
+        condition: service_completed_successfully
+      migrate-settings:
+        condition: service_completed_successfully
+    expose:
+      - "8081"
+    volumes:
+      - ${DATA_DIR_HOST:-./data}:${KBARR_DATA_DIR:-/app/data}
+
+  prowlarr:
+    image: ghcr.io/KingBenny101/kbarr-prowlarr:latest
+    env_file:
+      - .env
+    environment:
+      DB_URL: ${DB_URL}
+      PROWLARR_SERVICE_PORT: ${PROWLARR_SERVICE_PORT:-8082}
+    depends_on:
+      migrate-core:
+        condition: service_completed_successfully
+      migrate-anidb:
+        condition: service_completed_successfully
+      migrate-indexer:
+        condition: service_completed_successfully
+      migrate-downloader:
+        condition: service_completed_successfully
+      migrate-settings:
+        condition: service_completed_successfully
+    expose:
+      - "8082"
+
+  core:
+    image: ghcr.io/KingBenny101/kbarr-core:latest
+    env_file:
+      - .env
+    environment:
+      DB_URL: ${DB_URL}
+      PORT: ${PORT:-8282}
+      KBARR_DATA_DIR: ${KBARR_DATA_DIR:-/app/data}
+      ANIDB_GRPC_ADDR: ${ANIDB_GRPC_ADDR:-anidb:8081}
+      PROWLARR_GRPC_ADDR: ${PROWLARR_GRPC_ADDR:-prowlarr:8082}
+      DOWNLOADER_GRPC_ADDR: ${DOWNLOADER_GRPC_ADDR:-downloader:8083}
+    depends_on:
+      migrate-core:
+        condition: service_completed_successfully
+      migrate-anidb:
+        condition: service_completed_successfully
+      migrate-indexer:
+        condition: service_completed_successfully
+      migrate-downloader:
+        condition: service_completed_successfully
+      migrate-settings:
+        condition: service_completed_successfully
+      anidb:
+        condition: service_started
+      prowlarr:
+        condition: service_started
+    ports:
+      - "${PORT:-8282}:${PORT:-8282}"
+    volumes:
+      - ${DATA_DIR_HOST:-./data}:${KBARR_DATA_DIR:-/app/data}
+
+volumes:
+  pg_data:
+  qbt_config:

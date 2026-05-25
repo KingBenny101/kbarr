@@ -1,0 +1,82 @@
+services:
+  anidb:
+    build:
+      context: .
+      dockerfile: services/anidb/Dockerfile.dev
+    environment:
+      KBARR_DATA_DIR: ${DEV_KBARR_DATA_DIR:-/workspace/data}
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./services/anidb
+          target: /workspace/services/anidb
+        - action: sync+restart
+          path: ./shared
+          target: /workspace/shared
+        - action: rebuild
+          path: ./services/anidb/go.mod
+    volumes:
+      - ${DATA_DIR_HOST:-./data}:${DEV_KBARR_DATA_DIR:-/workspace/data}
+
+  core:
+    build:
+      context: .
+      dockerfile: services/core/Dockerfile.dev
+    environment:
+      PORT: ${PORT:-8282}
+      KBARR_DATA_DIR: ${DEV_KBARR_DATA_DIR:-/workspace/data}
+      ANIDB_GRPC_ADDR: ${ANIDB_GRPC_ADDR:-anidb:8081}
+      PROWLARR_GRPC_ADDR: ${PROWLARR_GRPC_ADDR:-prowlarr:8082}
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./services/core
+          target: /workspace/services/core
+        - action: sync+restart
+          path: ./shared
+          target: /workspace/shared
+        - action: rebuild
+          path: ./services/core/go.mod
+    ports:
+      - "${PORT:-8282}:${PORT:-8282}"
+    volumes:
+      - ${DATA_DIR_HOST:-./data}:${DEV_KBARR_DATA_DIR:-/workspace/data}
+
+  prowlarr:
+    build:
+      context: .
+      dockerfile: services/prowlarr/Dockerfile.dev
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./services/prowlarr
+          target: /workspace/services/prowlarr
+        - action: sync+restart
+          path: ./shared
+          target: /workspace/shared
+        - action: rebuild
+          path: ./services/prowlarr/go.mod
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8282}
+      VITE_ANIDB_URL: ${VITE_ANIDB_URL:-http://localhost:8282}
+    ports: !override
+      - "5173:5173"
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+          ignore:
+            - node_modules/
+        - action: sync
+          path: ./frontend/public
+          target: /app/public
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: ./frontend/package.json

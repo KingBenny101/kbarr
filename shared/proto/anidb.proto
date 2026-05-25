@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package kbarr;
+
+option go_package = "github.com/kingbenny101/kbarr/shared/proto;proto";
+
+import "google/protobuf/timestamp.proto";
+
+service AniDBService {
+  rpc SearchTitles(AniDBSearchTitlesRequest) returns (AniDBSearchTitlesResponse);
+  rpc GetAnimeDetails(AniDBGetAnimeDetailsRequest) returns (AniDBAnimeDetails);
+  rpc PrepareDetailedFromMedia(AniDBMedia) returns (AniDBDetailed);
+}
+
+message AniDBSearchTitlesRequest {
+  string query = 1;
+}
+
+message AniDBSearchResult {
+  uint64 aid = 1;
+  string title = 2;
+  bool added = 3;
+}
+
+message AniDBSearchTitlesResponse {
+  repeated AniDBSearchResult results = 1;
+}
+
+message AniDBGetAnimeDetailsRequest {
+  uint64 aid = 1;
+}
+
+message AniDBAnimeTitle {
+  string lang = 1;
+  string type = 2;
+  string value = 3;
+}
+
+message AniDBRelatedAnime {
+  string id = 1;
+  string type = 2;
+  string title = 3;
+}
+
+message AniDBSimilarAnime {
+  string id = 1;
+  string approval = 2;
+  string total = 3;
+  string title = 4;
+}
+
+message AniDBRecommendation {
+  string type = 1;
+  string uid = 2;
+  string text = 3;
+}
+
+message AniDBCreator {
+  string id = 1;
+  string type = 2;
+  string name = 3;
+}
+
+message AniDBVoteRating {
+  string votes = 1;
+  string value = 2;
+}
+
+message AniDBCountRating {
+  string count = 1;
+  string value = 2;
+}
+
+message AniDBRatings {
+  AniDBCountRating permanent = 1;
+  AniDBCountRating temporary = 2;
+  AniDBCountRating review = 3;
+}
+
+message AniDBResourceExternalEntity {
+  repeated string identifier = 1;
+  string url = 2;
+}
+
+message AniDBResource {
+  string type = 1;
+  AniDBResourceExternalEntity external_entity = 2;
+}
+
+message AniDBTag {
+  string id = 1;
+  string parent_id = 2;
+  string weight = 3;
+  string local_spoiler = 4;
+  string global_spoiler = 5;
+  string verified = 6;
+  string update = 7;
+  string infobox = 8;
+  string name = 9;
+  string description = 10;
+  string pic_url = 11;
+}
+
+message AniDBCharacterType {
+  string id = 1;
+  string type = 2;
+}
+
+message AniDBSeiyuu {
+  string id = 1;
+  string picture = 2;
+  string name = 3;
+}
+
+message AniDBCharacter {
+  string id = 1;
+  string type = 2;
+  string update = 3;
+  AniDBVoteRating rating = 4;
+  string name = 5;
+  string gender = 6;
+  AniDBCharacterType character_type = 7;
+  string description = 8;
+  string picture = 9;
+  repeated AniDBSeiyuu seiyuu = 10;
+}
+
+message AniDBEpisodeNumber {
+  string type = 1;
+  string value = 2;
+}
+
+message AniDBAnimeEpisode {
+  string id = 1;
+  string update = 2;
+  AniDBEpisodeNumber ep_no = 3;
+  string length = 4;
+  string air_date = 5;
+  AniDBVoteRating rating = 6;
+  repeated AniDBAnimeTitle titles = 7;
+}
+
+message AniDBAnimeDetails {
+  uint64 aid = 1;
+  string restricted = 2;
+  string type = 3;
+  int32 episode_count = 4;
+  string start_date = 5;
+  string end_date = 6;
+  repeated AniDBAnimeTitle titles = 7;
+  repeated AniDBRelatedAnime related_anime = 8;
+  repeated AniDBSimilarAnime similar_anime = 9;
+  repeated AniDBRecommendation recommendations = 10;
+  string url = 11;
+  repeated AniDBCreator creators = 12;
+  string description = 13;
+  AniDBRatings ratings = 14;
+  string picture = 15;
+  repeated AniDBResource resources = 16;
+  repeated AniDBTag tags = 17;
+  repeated AniDBAnimeEpisode episodes = 18;
+  repeated AniDBCharacter characters = 19;
+}
+
+message AniDBMedia {
+  uint64 id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp updated_at = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+  string title = 5;
+  uint64 aid = 6;
+  string poster_url = 7;
+}
+
+message AniDBDetailedEpisode {
+  uint64 id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp updated_at = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+  uint64 detailed_id = 5;
+  string anidb_id = 6;
+  int32 type = 7;
+  string ep_no = 8;
+  string title = 9;
+  string air_date = 10;
+}
+
+message AniDBDetailed {
+  uint64 id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp updated_at = 3;
+  google.protobuf.Timestamp deleted_at = 4;
+  string title = 5;
+  uint64 aid = 6;
+  uint64 library_id = 7;
+  string alternate_titles = 8;
+  string description = 9;
+  string release_date = 10;
+  string genres = 11;
+  string poster_url = 12;
+  int32 total_episodes = 13;
+  int32 total_seasons = 14;
+  repeated AniDBDetailedEpisode episodes = 15;
+}
