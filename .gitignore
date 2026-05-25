@@ -16,6 +16,7 @@ frontend/.env*
 frontend/.cache
 frontend/.parcel-cache
 .env
+.env.local
 
 # Database
 data/
@@ -52,3 +53,7 @@ Thumbs.db
 *.tmp
 *.temp
 tmp/
+services/core/tmp/
+services/anidb/tmp/
+services/prowlarr/tmp/
+services/downloader/tmp/
