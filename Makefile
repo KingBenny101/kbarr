@@ -1,28 +1,47 @@
-.PHONY: dev dev-down up down generate build-frontend docker-build
+.PHONY: db db-down migrate run-anidb run-prowlarr run-downloader run-core run-frontend up down build-frontend generate release
 
-COMPOSE_DEV = docker compose -f docker-compose.yml -f docker-compose.dev.yml
-COMPOSE = docker compose
+# Start only Postgres (for local dev)
+db:
+	docker compose up -d postgres
 
-dev:
-	$(COMPOSE_DEV) watch
+db-down:
+	docker compose stop postgres
 
-dev-down:
-	$(COMPOSE_DEV) down --remove-orphans
+# Run migrations against local Postgres
+migrate:
+	docker compose up --no-deps migrate-core migrate-settings migrate-anidb migrate-indexer migrate-downloader
 
+# Run individual services locally with air
+run-anidb:
+	cd services/anidb && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+
+run-prowlarr:
+	cd services/prowlarr && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+
+run-downloader:
+	cd services/downloader && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+
+run-core:
+	cd services/core && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+
+run-frontend:
+	cd frontend && npm run dev
+
+# Production stack (uses pre-built images from ghcr.io)
 up:
-	$(COMPOSE) up --build
+	docker compose up -d
 
 down:
-	$(COMPOSE) down
+	docker compose down -v
 
+# Build and release
 build-frontend:
 	cd frontend && npm ci && npm run build
 	cp -r frontend/dist/. services/core/internal/api/frontend/
-	cp -r frontend/dist/. services/core/frontend/
-
-docker-build: build-frontend
-	$(COMPOSE) build core
 
 generate:
 	cd shared/proto && go generate
 	cd services/core && sqlc generate
+
+release:
+	./scripts/release.sh
