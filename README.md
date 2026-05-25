@@ -1,6 +1,6 @@
 # kbarr
 
-A self-hosted anime management application in the spirit of Sonarr and Radarr. 
+A self-hosted anime management application in the spirit of Sonarr and Radarr.
 
 Built as a hobby project to learn Go.
 
@@ -10,13 +10,17 @@ Uses AniDB as the source for anime metadata.
 
 Requirements: Docker and Docker Compose.
 
+You also need qBittorrent running separately and reachable at the default URL
+(`http://host.docker.internal:8080` in Docker, `http://localhost:8080` for local
+`air` runs unless you override `QBITTORRENT_URL`).
+
 ```bash
-curl -O https://raw.githubusercontent.com/KingBenny101/kbarr/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/KingBenny101/kbarr/main/.env.example
+curl -O https://raw.githubusercontent.com/kingbenny101/kbarr/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/kingbenny101/kbarr/main/.env.example
 cp .env.example .env
 ```
 
-Edit .env and set PROWLARR_API_KEY and DOWNLOAD_DIR_HOST, then:
+Edit .env and set PROWLARR_API_KEY, then:
 
 ```bash
 docker compose up -d
@@ -33,8 +37,7 @@ docker compose up -d
 
 ## AI Usage
 
-AI is used to implement small features and in debugging, but all the code is manually reviewed
- 
+Vibe coded while listening to songs.
 
 ## License
 
