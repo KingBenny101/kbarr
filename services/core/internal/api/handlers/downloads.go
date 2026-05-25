@@ -3,12 +3,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/kingbenny101/kbarr/shared/logger"
 	proto "github.com/kingbenny101/kbarr/shared/proto"
 )
 
@@ -24,7 +24,7 @@ func HandleAddTorrent(w http.ResponseWriter, r *http.Request, downloaderClient p
 
 	response, err := downloaderClient.AddTorrent(ctx, &request)
 	if err != nil {
-		logger.Log.Errorf("[API] Downloader add torrent failed %v", err)
+		slog.Error("Downloader add torrent failed", "error", err)
 		http.Error(w, "failed to add torrent", http.StatusInternalServerError)
 		return
 	}
@@ -42,7 +42,7 @@ func HandleListTorrents(w http.ResponseWriter, r *http.Request, downloaderClient
 
 	response, err := downloaderClient.ListTorrents(ctx, &proto.ListTorrentsRequest{Category: r.URL.Query().Get("category")})
 	if err != nil {
-		logger.Log.Errorf("[API] Downloader list torrents failed %v", err)
+		slog.Error("Downloader list torrents failed", "error", err)
 		http.Error(w, "failed to list torrents", http.StatusInternalServerError)
 		return
 	}
@@ -66,7 +66,7 @@ func HandleGetTorrent(w http.ResponseWriter, r *http.Request, downloaderClient p
 
 	response, err := downloaderClient.GetTorrent(ctx, &proto.TorrentRequest{Hash: hash})
 	if err != nil {
-		logger.Log.Errorf("[API] Downloader get torrent failed %v", err)
+		slog.Error("Downloader get torrent failed", "error", err)
 		http.Error(w, "failed to get torrent", http.StatusInternalServerError)
 		return
 	}
@@ -96,7 +96,7 @@ func HandleRemoveTorrent(w http.ResponseWriter, r *http.Request, downloaderClien
 
 	response, err := downloaderClient.RemoveTorrent(ctx, &proto.RemoveTorrentRequest{Hash: hash, DeleteFiles: deleteFiles})
 	if err != nil {
-		logger.Log.Errorf("[API] Downloader remove torrent failed %v", err)
+		slog.Error("Downloader remove torrent failed", "error", err)
 		http.Error(w, "failed to remove torrent", http.StatusInternalServerError)
 		return
 	}

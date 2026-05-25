@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
 var (
@@ -45,14 +45,14 @@ func Init() error {
 				if err == nil {
 					Pool = pool
 					SQLDB = stdlib.OpenDBFromPool(pool)
-					logger.Log.Infof("[Prowlarr Service] Connected to PostgreSQL")
+					slog.Info("Connected to PostgreSQL")
 					return nil
 				}
 				pool.Close()
 			}
 		}
 
-		logger.Log.Warnf("[Prowlarr Service] PostgreSQL not ready (attempt %d/%d): %v", attempt, maxAttempts, err)
+		slog.Warn("PostgreSQL not ready", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
 		time.Sleep(1 * time.Second)
 	}
 

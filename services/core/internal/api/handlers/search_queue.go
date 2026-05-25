@@ -2,18 +2,18 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
-	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
 func HandleGetSearchQueue(w http.ResponseWriter, r *http.Request) {
 	queue, err := db.GetSearchQueue()
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to fetch search queue %v", err)
+		slog.Error("Failed to fetch search queue", "error", err)
 		http.Error(w, "failed to fetch search queue", http.StatusInternalServerError)
 		return
 	}
@@ -31,7 +31,7 @@ func HandleDeleteSearchQueueEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.DeleteSearchQueueEntry(uint(id)); err != nil {
-		logger.Log.Errorf("[API] Failed to delete search queue entry %v", err)
+		slog.Error("Failed to delete search queue entry", "error", err)
 		http.Error(w, "failed to delete entry", http.StatusInternalServerError)
 		return
 	}

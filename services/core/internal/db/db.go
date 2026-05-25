@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	dbgen "github.com/kingbenny101/kbarr/services/core/internal/db/generated"
 	"github.com/kingbenny101/kbarr/shared/config"
-	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
 var (
@@ -44,7 +44,7 @@ func Init() error {
 			if poolConfig.ConnConfig.RuntimeParams == nil {
 				poolConfig.ConnConfig.RuntimeParams = make(map[string]string)
 			}
-			poolConfig.ConnConfig.RuntimeParams["search_path"] = "core, settings"
+			poolConfig.ConnConfig.RuntimeParams["search_path"] = "public"
 
 			pool, poolErr := pgxpool.NewWithConfig(ctx, poolConfig)
 			if poolErr != nil {
@@ -61,7 +61,7 @@ func Init() error {
 			}
 		}
 
-		logger.Log.Warnf("[DB] PostgreSQL not ready (attempt %d/%d): %v", attempt, maxAttempts, err)
+		slog.Warn("PostgreSQL not ready", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
 		time.Sleep(1 * time.Second)
 	}
 
@@ -69,7 +69,7 @@ func Init() error {
 		return fmt.Errorf("failed to open database after %d attempts: %w", maxAttempts, err)
 	}
 
-	logger.Log.Infof("[DB] Connected to PostgreSQL")
+	slog.Info("Connected to PostgreSQL")
 
 	if err := runMigrations(dbURL); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
@@ -77,12 +77,12 @@ func Init() error {
 
 	Queries = dbgen.New(DB)
 
-	logger.Log.Infof("[DB] Tables ready")
+	slog.Info("Tables ready")
 
 	if err := config.EnsureDefaults(DB); err != nil {
 		return fmt.Errorf("failed to initialize settings defaults: %w", err)
 	}
-	logger.Log.Infof("[DB] Settings defaults ready")
+	slog.Info("Settings defaults ready")
 
 	return nil
 }
@@ -102,10 +102,10 @@ func runMigrations(dbURL string) error {
 	defer func() {
 		srcErr, dbErr := m.Close()
 		if srcErr != nil {
-			logger.Log.Warnf("[DB] Failed to close migration source: %v", srcErr)
+			slog.Warn("Failed to close migration source", "error", srcErr)
 		}
 		if dbErr != nil {
-			logger.Log.Warnf("[DB] Failed to close migration database handle: %v", dbErr)
+			slog.Warn("Failed to close migration database handle", "error", dbErr)
 		}
 	}()
 

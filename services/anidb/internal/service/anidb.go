@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,7 +15,6 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/shared/config"
-	"github.com/kingbenny101/kbarr/shared/logger"
 	"github.com/kingbenny101/kbarr/shared/models"
 )
 
@@ -45,11 +45,11 @@ func (s *AniDBService) LoadTitlesDump() error {
 
 	if s.shouldDownloadTitles(titlesFile, cfg.AniDBInterval) {
 		if err := s.downloadTitlesDump(titlesFile, cfg.AniDBClient, cfg.AniDBVersion); err != nil {
-			logger.Log.Errorf("[AniDB Service] Failed to download titles dump: %v", err)
+			slog.Error("Failed to download titles dump", "error", err)
 			return err
 		}
 	} else {
-		logger.Log.Info("[AniDB Service] Titles dump is fresh, loading from cache")
+		slog.Info("Titles dump is fresh, loading from cache")
 	}
 
 	return s.parseTitlesDump(titlesFile)
@@ -105,7 +105,7 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*models.AnimeDetails, error) {
 	}
 
 	if err := os.WriteFile(cacheFile, raw, 0644); err != nil {
-		logger.Log.Warnf("[AniDB Service] Failed to write anime details cache %s: %v", cacheFile, err)
+		slog.Warn("Failed to write anime details cache", "cacheFile", cacheFile, "error", err)
 	}
 
 	return details, nil
@@ -132,9 +132,9 @@ func (s *AniDBService) PrepareDetailedFromMedia(media *models.Media) (models.Det
 		go func(filename string, libraryID uint) {
 			imageURL := anidbCDN + filename
 			if err := downloadAndSaveImage(s.httpClient, imageURL, filename); err != nil {
-				logger.Log.Warnf("[AniDB Service] Failed to download image %s: %v", imageURL, err)
+				slog.Warn("Failed to download image", "imageURL", imageURL, "error", err)
 			} else {
-				logger.Log.Infof("[AniDB Service] Cached image for media ID %d: %s", libraryID, filename)
+				slog.Info("Cached image for media ID", "mediaID", libraryID, "filename", filename)
 			}
 		}(details.Picture, media.ID)
 	}
@@ -187,7 +187,7 @@ func (s *AniDBService) downloadTitlesDump(titlesFile, client, version string) er
 		return fmt.Errorf("failed to cache titles dump: %w", err)
 	}
 
-	logger.Log.Infof("[AniDB Service] Titles dump cached to %s", titlesFile)
+	slog.Info("Titles dump cached to", "path", titlesFile)
 	return nil
 }
 
@@ -206,7 +206,7 @@ func (s *AniDBService) parseTitlesDump(titlesFile string) error {
 	s.titlesDump = &dump
 	s.mu.Unlock()
 
-	logger.Log.Infof("[AniDB Service] Titles dump loaded with %d entries", len(dump.Anime))
+	slog.Info("Titles dump loaded", "entries", len(dump.Anime))
 	return nil
 }
 
@@ -233,7 +233,7 @@ func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duratio
 		return nil, false
 	}
 
-	logger.Log.Infof("[AniDB Service] Using cached anime details for aid=%d", details.AID)
+	slog.Info("Using cached anime details", "aid", details.AID)
 	return &details, true
 }
 

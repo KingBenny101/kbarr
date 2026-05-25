@@ -1,12 +1,12 @@
 package service
 
 import (
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/kingbenny101/kbarr/shared/config"
-	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
 func DataRootDir() string {
@@ -22,7 +22,7 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 	interval := s.currentTitlesInterval()
 
 	if err := s.LoadTitlesDump(); err != nil {
-		logger.Log.Warnf("[AniDB Service] Initial titles sync failed: %v", err)
+		slog.Warn("Initial titles sync failed", "error", err)
 	}
 
 	ticker := time.NewTicker(interval)
@@ -32,7 +32,7 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 		select {
 		case <-ticker.C:
 			if err := s.LoadTitlesDump(); err != nil {
-				logger.Log.Warnf("[AniDB Service] Scheduled titles sync failed: %v", err)
+				slog.Warn("Scheduled titles sync failed", "error", err)
 			}
 
 			nextInterval := s.currentTitlesInterval()
@@ -41,7 +41,7 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 				ticker.Reset(interval)
 			}
 		case <-stop:
-			logger.Log.Info("[AniDB Service] Titles sync loop stopped")
+			slog.Info("Titles sync loop stopped")
 			return
 		}
 	}

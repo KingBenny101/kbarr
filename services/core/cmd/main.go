@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,42 +22,42 @@ import (
 
 func main() {
 	logger.Init()
-	logger.Log.Infof("[Main] kbarr starting...")
-	logger.Log.Infof("[Main] Initializing database...")
+	slog.Info("kbarr starting...")
+	slog.Info("Initializing database...")
 	if err := db.Init(); err != nil {
-		logger.Log.Fatalf("[Main] Database initialization error %v", err)
-		return
+		slog.Error("Database initialization error", "error", err)
+		os.Exit(1)
 	}
-	logger.Log.Info("[Main] Initialization complete.")
+	slog.Info("Initialization complete.")
 
 	// Config
 	cfg := config.Load(db.DB)
 
 	appVersion, err := coreversion.Load()
 	if err != nil {
-		logger.Log.Fatalf("[Main] Failed to load version: %v", err)
-		return
+		slog.Error("Failed to load version", "error", err)
+		os.Exit(1)
 	}
-	logger.Log.Infof("[Main] kbarr version %s", appVersion)
+	slog.Info("kbarr version", "version", appVersion)
 
 	anidbConn, err := grpc.NewClient(resolveGRPCAddr("ANIDB_GRPC_ADDR", "localhost:8081"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		logger.Log.Fatalf("[Main] Failed to connect to AniDB gRPC service: %v", err)
-		return
+		slog.Error("Failed to connect to AniDB gRPC service", "error", err)
+		os.Exit(1)
 	}
 	defer anidbConn.Close()
 
 	prowlarrConn, err := grpc.NewClient(resolveGRPCAddr("PROWLARR_GRPC_ADDR", "localhost:8082"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		logger.Log.Fatalf("[Main] Failed to connect to Prowlarr gRPC service: %v", err)
-		return
+		slog.Error("Failed to connect to Prowlarr gRPC service", "error", err)
+		os.Exit(1)
 	}
 	defer prowlarrConn.Close()
 
 	downloaderConn, err := grpc.NewClient(resolveGRPCAddr("DOWNLOADER_GRPC_ADDR", "downloader:8083"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		logger.Log.Fatalf("[Main] Failed to connect to Downloader gRPC service: %v", err)
-		return
+		slog.Error("Failed to connect to Downloader gRPC service", "error", err)
+		os.Exit(1)
 	}
 	defer downloaderConn.Close()
 
@@ -73,7 +74,7 @@ func main() {
 
 	go func() {
 		// Start server
-		logger.Log.Infof("[Main] Server running on http://localhost:%s", cfg.ServerPort)
+		slog.Info("Server running on", "url", "http://localhost:"+cfg.ServerPort)
 		_ = server.ListenAndServe()
 	}()
 
@@ -83,7 +84,7 @@ func main() {
 	defer cancel()
 	server.Shutdown(ctx)
 
-	logger.Log.Info("[Main] Server stopped")
+	slog.Info("Server stopped")
 }
 
 func resolveGRPCAddr(envKey, fallback string) string {

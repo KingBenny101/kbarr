@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
-	"github.com/kingbenny101/kbarr/shared/logger"
 	"github.com/kingbenny101/kbarr/shared/models"
 	proto "github.com/kingbenny101/kbarr/shared/proto"
 )
@@ -23,17 +23,17 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 		return
 	}
 
-	logger.Log.Infof("[API] HandleAddMedia called with title %s, aid %d", media.Title, media.AID)
+	slog.Info("HandleAddMedia called", "title", media.Title, "aid", media.AID)
 
 	exists, err := db.CheckMediaExists(media.AID)
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to check media existence %v", err)
+		slog.Error("Failed to check media existence", "error", err)
 		http.Error(w, "failed to check media existence", http.StatusInternalServerError)
 		return
 	}
 
 	if exists {
-		logger.Log.Infof("[API] Media already exists %s", media.Title)
+		slog.Info("Media already exists", "title", media.Title)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -42,28 +42,28 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 		return
 	}
 
-	logger.Log.Infof("[API] Preparing detailed info for %s", media.Title)
+	slog.Info("Preparing detailed info", "title", media.Title)
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
 	prepared, err := anidbClient.PrepareDetailedFromMedia(ctx, toAniDBMediaProto(media))
 	if err != nil {
-		logger.Log.Warnf("[API] Failed to get anime details for poster URL %v", err)
+		slog.Warn("Failed to get anime details for poster URL", "error", err)
 
 	} else if prepared != nil && prepared.GetPosterUrl() != "" {
 		media.PosterURL = prepared.GetPosterUrl()
-		logger.Log.Infof("[API] Set poster URL %s", media.PosterURL)
+		slog.Info("Set poster URL", "posterURL", media.PosterURL)
 
 	}
 
 	id, err := db.InsertMedia(media)
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to insert media %v", err)
+		slog.Error("Failed to insert media", "error", err)
 		http.Error(w, "failed to save media", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Log.Infof("[API] Media added with ID %d %s", id, media.Title)
+	slog.Info("Media added", "id", id, "title", media.Title)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -74,7 +74,7 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 	// Process adding Detailed and download image asynchronously
 	if prepared != nil {
 		go func(prepared *proto.AniDBDetailed, media models.Media, id int64) {
-			logger.Log.Infof("[API] Starting async detailed info processing for media ID %d %s", id, media.Title)
+			slog.Info("Starting async detailed info processing", "id", id, "title", media.Title)
 
 			prepared.LibraryId = uint64(id)
 
@@ -82,12 +82,12 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 			detailed.LibraryID = uint(id) // Link Detailed to Media
 
 			if _, insertErr := db.InsertDetailed(detailed); insertErr != nil {
-				logger.Log.Errorf("[API] Failed to insert detailed info for media ID %d %v", id, insertErr)
+				slog.Error("Failed to insert detailed info for media ID", "id", id, "error", insertErr)
 
 				return
 			}
 
-			logger.Log.Infof("[API] Detailed info added for media ID %d", id)
+			slog.Info("Detailed info added", "id", id)
 
 		}(prepared, media, id)
 	}
@@ -97,7 +97,7 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 func HandleGetMediaList(w http.ResponseWriter, r *http.Request) {
 	mediaList, err := db.GetAllMedia()
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to fetch media list %v", err)
+		slog.Error("Failed to fetch media list", "error", err)
 		http.Error(w, "failed to fetch media list", http.StatusInternalServerError)
 		return
 	}
@@ -109,16 +109,16 @@ func HandleGetMediaList(w http.ResponseWriter, r *http.Request) {
 func HandleDeleteMedia(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	logger.Log.Infof("[API] Delete media request for ID %s", id)
+	slog.Info("Delete media request", "id", id)
 
 	err := db.DeleteMedia(id)
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to delete media with ID %s %v", id, err)
+		slog.Error("Failed to delete media with ID", "id", id, "error", err)
 		http.Error(w, "failed to delete media", http.StatusInternalServerError)
 		return
 	}
 
-	logger.Log.Infof("[API] Media with ID %s deleted successfully", id)
+	slog.Info("Media deleted successfully", "id", id)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -135,11 +135,11 @@ func HandleUpdateMonitorStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log.Infof("[API] Update monitor status for ID %s to %v", id, body.Monitored)
+	slog.Info("Update monitor status", "id", id, "monitored", body.Monitored)
 
 	err = db.UpdateMediaMonitorStatus(id, body.Monitored)
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to update monitor status %v", err)
+		slog.Error("Failed to update monitor status", "error", err)
 		http.Error(w, "failed to update monitor status", http.StatusInternalServerError)
 		return
 	}
@@ -150,11 +150,11 @@ func HandleUpdateMonitorStatus(w http.ResponseWriter, r *http.Request) {
 func HandleTriggerSearch(w http.ResponseWriter, r *http.Request, prowlarrClient proto.ProwlarrServiceClient) {
 	id := chi.URLParam(r, "id")
 
-	logger.Log.Infof("[API] Trigger search for media ID %s", id)
+	slog.Info("Trigger search for media ID", "id", id)
 
 	media, err := db.GetMediaByID(id)
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to fetch media with ID %s %v", id, err)
+		slog.Error("Failed to fetch media with ID", "id", id, "error", err)
 		http.Error(w, "media not found", http.StatusNotFound)
 		return
 	}
@@ -164,7 +164,7 @@ func HandleTriggerSearch(w http.ResponseWriter, r *http.Request, prowlarrClient 
 
 	resultsResponse, err := prowlarrClient.Search(ctx, &proto.ProwlarrSearchRequest{Query: media.Title})
 	if err != nil {
-		logger.Log.Errorf("[API] Prowlarr search failed %v", err)
+		slog.Error("Prowlarr search failed", "error", err)
 		http.Error(w, fmt.Sprintf("search failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -182,17 +182,17 @@ func HandleTriggerSearch(w http.ResponseWriter, r *http.Request, prowlarrClient 
 func HandleGetDetailedByMediaID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	logger.Log.Infof("[API] Fetch detailed info for media ID %s", id)
+	slog.Info("Fetch detailed info for media ID", "id", id)
 
 	library_id, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		logger.Log.Errorf("[API] Invalid media ID format %s", id)
+		slog.Error("Invalid media ID format", "id", id)
 		http.Error(w, "invalid media ID format", http.StatusBadRequest)
 		return
 	}
 	detailed, err := db.GetDetailedByLibraryID(uint(library_id))
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to fetch detailed info for media ID %s %v", id, err)
+		slog.Error("Failed to fetch detailed info for media ID", "id", id, "error", err)
 		http.Error(w, "failed to fetch detailed info", http.StatusNotFound)
 		return
 	}

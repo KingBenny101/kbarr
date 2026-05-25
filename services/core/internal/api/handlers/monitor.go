@@ -2,19 +2,19 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
-	"github.com/kingbenny101/kbarr/shared/logger"
 	"github.com/kingbenny101/kbarr/shared/models"
 )
 
 func HandleGetMonitoredList(w http.ResponseWriter, r *http.Request) {
 	monitors, err := db.GetAllMonitored()
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to fetch monitored list %v", err)
+		slog.Error("Failed to fetch monitored list", "error", err)
 		http.Error(w, "failed to fetch monitored list", http.StatusInternalServerError)
 		return
 	}
@@ -31,7 +31,7 @@ func HandleAddMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log.Infof("[API] HandleAddMonitor called for %s", monitor.Title)
+	slog.Info("HandleAddMonitor called", "title", monitor.Title)
 
 	db.InsertMonitor(monitor)
 
@@ -60,11 +60,11 @@ func HandleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log.Infof("[API] Delete monitor request for ID %d", id)
+	slog.Info("Delete monitor request", "id", id)
 
 	err = db.DeleteMonitor(uint(id))
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to delete monitor entry %v", err)
+		slog.Error("Failed to delete monitor entry", "error", err)
 		http.Error(w, "failed to delete monitor entry", http.StatusInternalServerError)
 		return
 	}
@@ -82,7 +82,7 @@ func HandleGetMonitorsByLibraryID(w http.ResponseWriter, r *http.Request) {
 
 	monitors, err := db.GetMonitorsByLibraryID(uint(id))
 	if err != nil {
-		logger.Log.Errorf("[API] Failed to fetch monitored items for library ID %d: %v", id, err)
+		slog.Error("Failed to fetch monitored items for library ID", "id", id, "error", err)
 		http.Error(w, "failed to fetch monitored items", http.StatusInternalServerError)
 		return
 	}
@@ -115,7 +115,7 @@ func HandleBulkAddMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log.Infof("[API] HandleBulkAddMonitor called for %d items", len(monitors))
+	slog.Info("HandleBulkAddMonitor called", "items", len(monitors))
 
 	db.InsertMonitorsBulk(monitors)
 

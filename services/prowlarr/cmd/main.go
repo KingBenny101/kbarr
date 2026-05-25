@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -17,16 +18,16 @@ import (
 
 func main() {
 	logger.Init()
-	logger.Log.Infof("[Prowlarr Service] Starting service")
+	slog.Info("Starting service")
 
 	if err := db.Init(); err != nil {
-		logger.Log.Fatalf("[Prowlarr Service] Failed to initialize database: %v", err)
-		return
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 
 	if err := config.EnsureDefaults(db.SQLDB); err != nil {
-		logger.Log.Fatalf("[Prowlarr Service] Failed to ensure default settings: %v", err)
-		return
+		slog.Error("Failed to ensure default settings", "error", err)
+		os.Exit(1)
 	}
 
 	svc := service.New(db.SQLDB)
@@ -38,8 +39,8 @@ func main() {
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Log.Fatalf("[Prowlarr Service] Failed to listen on :%s: %v", port, err)
-		return
+		slog.Error("Failed to listen on", "port", port, "error", err)
+		os.Exit(1)
 	}
 
 	grpcServer := grpc.NewServer()
@@ -49,14 +50,15 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		logger.Log.Infof("[Prowlarr Service] Listening on :%s", port)
+		slog.Info("Listening on", "port", port)
 		if err := grpcServer.Serve(lis); err != nil {
-			logger.Log.Fatalf("[Prowlarr Service] Server failed: %v", err)
+			slog.Error("Server failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-quit
-	logger.Log.Info("[Prowlarr Service] Shutting down")
+	slog.Info("Shutting down")
 
 	shutdownDone := make(chan struct{})
 	go func() {
@@ -67,7 +69,7 @@ func main() {
 	select {
 	case <-shutdownDone:
 	case <-time.After(10 * time.Second):
-		logger.Log.Warn("[Prowlarr Service] Graceful shutdown timed out, forcing stop")
+		slog.Warn("Graceful shutdown timed out, forcing stop")
 		grpcServer.Stop()
 	}
 }
