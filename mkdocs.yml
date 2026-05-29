@@ -124,6 +124,10 @@ extra:
 nav:
   - About: index.md
   - Installation: installation.md
+  - Blog:
+      - Overview: blog/index.md
+      - 'First post': blog/2026-05-29-first-post.md
+      - 'Architecture notes': blog/2026-05-29-architecture-notes.md
   - Documentation:
       - API Reference:
           - System: api/system.md
