@@ -1,204 +1,171 @@
-import { useEffect, useState } from 'react';
-import { API_URL } from "@/lib/api";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Trash2, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
-import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react"
+import { ActionIcon, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
+import { IconExternalLink, IconTrash } from "@tabler/icons-react"
+import { Link } from "react-router-dom"
+import { API_URL } from "@/lib/api"
+import { showToast } from "@/lib/notifications"
+import { SectionCard } from "@/components/SectionCard"
+import { StatusPill } from "@/components/StatusPill"
 
 interface MonitorEntry {
-  ID: number;
-  CreatedAt: string;
-  library_id: number;
-  title: string;
-  episode_title: string;
-  season: number;
-  episode_number: number;
-  is_episode: boolean;
-  is_season: boolean;
-  anidb_id: string;
-  status: string;
+    ID: number
+    CreatedAt: string
+    library_id: number
+    title: string
+    episode_title: string
+    season: number
+    episode_number: number
+    is_episode: boolean
+    is_season: boolean
+    anidb_id: string
+    status: string
 }
 
 export function MonitorPage() {
-  const [monitors, setMonitors] = useState<MonitorEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+    const [monitors, setMonitors] = useState<MonitorEntry[]>([])
+    const [loading, setLoading] = useState(true)
+    const [currentPage, setCurrentPage] = useState(1)
+    const itemsPerPage = 10
 
-  const fetchMonitors = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/monitor`);
-      if (!response.ok) throw new Error("Failed to fetch monitored items");
-      const data = await response.json();
-      setMonitors(data || []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load monitored items");
-    } finally {
-      setLoading(false);
+    const fetchMonitors = async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/monitor`)
+            if (!response.ok) throw new Error("Failed to fetch monitored items")
+            const data = await response.json()
+            setMonitors(data || [])
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to load monitored items", "error")
+        } finally {
+            setLoading(false)
+        }
     }
-  };
 
-  useEffect(() => {
-    fetchMonitors();
-  }, []);
+    useEffect(() => {
+        fetchMonitors()
+    }, [])
 
-  const handleDelete = async (id: number) => {
-    try {
-      const response = await fetch(`${API_URL}/api/monitor/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete monitor entry");
-      setMonitors(monitors.filter((m) => m.ID !== id));
-      toast.success("Removed from monitor");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to remove item");
+    const handleDelete = async (id: number) => {
+        try {
+            const response = await fetch(`${API_URL}/api/monitor/${id}`, { method: "DELETE" })
+            if (!response.ok) throw new Error("Failed to delete monitor entry")
+            setMonitors((items) => items.filter((item) => item.ID !== id))
+            showToast("Removed from monitor", "success")
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to remove item", "error")
+        }
     }
-  };
 
-  const totalPages = Math.ceil(monitors.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentMonitors = monitors.slice(startIndex, startIndex + itemsPerPage);
+    const totalPages = Math.ceil(monitors.length / itemsPerPage)
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const currentMonitors = monitors.slice(startIndex, startIndex + itemsPerPage)
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Monitored Items</h1>
-        <p className="text-muted-foreground">
-          Tracked seasons and episodes across your library.
-        </p>
-      </div>
+    return (
+        <Stack gap="lg">
+            <Stack gap={4}>
+                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                    System
+                </Text>
+                <Title order={1}>Monitored items</Title>
+                <Text c="dimmed" maw={720}>
+                    Seasons and episodes tracked by kbarr for downstream search and download actions.
+                </Text>
+            </Stack>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Currently Monitoring</CardTitle>
-          <CardDescription>
-            You have {monitors.length} item{monitors.length !== 1 ? 's' : ''} being monitored.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b font-medium">
-                <tr>
-                  <th className="px-4 py-3 text-left">Anime</th>
-                  <th className="px-4 py-3 text-left">Type</th>
-                  <th className="px-4 py-3 text-left">Details</th>
-                  <th className="px-4 py-3 text-left w-24">Status</th>
-                  <th className="px-4 py-3 text-left w-24">AniDB</th>
-                  <th className="px-4 py-3 text-right w-12"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-8">
-                      Loading...
-                    </td>
-                  </tr>
-                ) : monitors.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No items monitored yet.
-                    </td>
-                  </tr>
-                ) : (
-                  currentMonitors.map((entry) => (
-                    <tr key={entry.ID} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">
-                        <Link 
-                          to={`/media/${entry.library_id}`}
-                          className="hover:underline text-primary"
-                        >
-                          {entry.title}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                          entry.is_season ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        }`}>
-                          {entry.is_season ? "Season" : "Episode"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {entry.is_season ? (
-                          null
-                        ) : (
-                          `E${entry.episode_number}: ${entry.episode_title}`
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="capitalize text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                          {entry.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {entry.anidb_id && (
-                          <a
-                            href={entry.is_season ? `https://anidb.net/anime/${entry.anidb_id}` : `https://anidb.net/episode/${entry.anidb_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-primary transition-colors"
-                          >
-                            <ExternalLink className="size-4" />
-                          </a>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(entry.ID)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+            <SectionCard withBorder radius="xl">
+                <Stack gap="md">
+                    <Group justify="space-between" align="center">
+                        <div>
+                            <Title order={3}>Currently monitoring</Title>
+                            <Text c="dimmed" size="sm">
+                                You have {monitors.length} item{monitors.length !== 1 ? "s" : ""} being monitored.
+                            </Text>
+                        </div>
+                        <StatusPill label={`${monitors.length} total`} tone="gray" />
+                    </Group>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-xs text-muted-foreground">
-                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, monitors.length)} of {monitors.length} items
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="size-4 mr-1" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                  <ChevronRight className="size-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+                    <ScrollArea type="auto">
+                        <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Anime</Table.Th>
+                                    <Table.Th>Type</Table.Th>
+                                    <Table.Th>Details</Table.Th>
+                                    <Table.Th>Status</Table.Th>
+                                    <Table.Th>AniDB</Table.Th>
+                                    <Table.Th w={72} />
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {loading ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={6}>
+                                            <Text ta="center" py="md">Loading...</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : monitors.length === 0 ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={6}>
+                                            <Text ta="center" py="md" c="dimmed">No items monitored yet.</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : (
+                                    currentMonitors.map((entry) => (
+                                        <Table.Tr key={entry.ID}>
+                                            <Table.Td fw={700}>
+                                                <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700}>
+                                                    {entry.title}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
+                                            </Table.Td>
+                                            <Table.Td c="dimmed">
+                                                {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <StatusPill label={entry.status} tone="gray" />
+                                            </Table.Td>
+                                            <Table.Td>
+                                                {entry.anidb_id ? (
+                                                    <ActionIcon component="a" href={entry.is_season ? `https://anidb.net/anime/${entry.anidb_id}` : `https://anidb.net/episode/${entry.anidb_id}`} target="_blank" rel="noreferrer" variant="subtle" color="gray" aria-label="Open AniDB entry">
+                                                        <IconExternalLink size={18} />
+                                                    </ActionIcon>
+                                                ) : null}
+                                            </Table.Td>
+                                            <Table.Td ta="right">
+                                                <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
+                                                    <IconTrash size={18} />
+                                                </ActionIcon>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </ScrollArea>
+
+                    {totalPages > 1 ? (
+                        <Group justify="space-between">
+                            <Text size="sm" c="dimmed">
+                                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, monitors.length)} of {monitors.length} items
+                            </Text>
+                            <Group gap="xs">
+                                <ActionIcon variant="light" onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))} disabled={currentPage === 1} aria-label="Previous page">
+                                    <IconExternalLink size={16} style={{ transform: "rotate(180deg)" }} />
+                                </ActionIcon>
+                                <Text size="sm" fw={700}>
+                                    {currentPage} / {totalPages}
+                                </Text>
+                                <ActionIcon variant="light" onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))} disabled={currentPage === totalPages} aria-label="Next page">
+                                    <IconExternalLink size={16} />
+                                </ActionIcon>
+                            </Group>
+                        </Group>
+                    ) : null}
+                </Stack>
+            </SectionCard>
+        </Stack>
+    )
 }

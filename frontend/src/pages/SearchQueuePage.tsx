@@ -1,161 +1,142 @@
-import { useEffect, useState } from 'react';
-import { API_URL } from "@/lib/api";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Trash2, Info } from "lucide-react";
-import { toast } from "sonner";
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from "react"
+import { ActionIcon, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
+import { IconInfoCircle, IconTrash } from "@tabler/icons-react"
+import { Link } from "react-router-dom"
+import { API_URL } from "@/lib/api"
+import { showToast } from "@/lib/notifications"
+import { SectionCard } from "@/components/SectionCard"
+import { StatusPill } from "@/components/StatusPill"
 
 interface QueueItem {
-  ID: number;
-  CreatedAt: string;
-  library_id: number;
-  title: string;
-  episode_title: string;
-  season: number;
-  episode_number: number;
-  is_episode: boolean;
-  is_season: boolean;
-  status: string;
+    ID: number
+    CreatedAt: string
+    library_id: number
+    title: string
+    episode_title: string
+    season: number
+    episode_number: number
+    is_episode: boolean
+    is_season: boolean
+    status: string
 }
 
 export function SearchQueuePage() {
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
+    const [queue, setQueue] = useState<QueueItem[]>([])
+    const [loading, setLoading] = useState(true)
 
-  const fetchQueue = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/search-queue`);
-      if (!response.ok) throw new Error("Failed to fetch search queue");
-      const data = await response.json();
-      setQueue(data || []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load search queue");
-    } finally {
-      setLoading(false);
+    const fetchQueue = async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/search-queue`)
+            if (!response.ok) throw new Error("Failed to fetch search queue")
+            const data = await response.json()
+            setQueue(data || [])
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to load search queue", "error")
+        } finally {
+            setLoading(false)
+        }
     }
-  };
 
-  useEffect(() => {
-    fetchQueue();
-    const interval = setInterval(fetchQueue, 5000); // refresh every 5s
-    return () => clearInterval(interval);
-  }, []);
+    useEffect(() => {
+        fetchQueue()
+        const interval = setInterval(fetchQueue, 5000)
+        return () => clearInterval(interval)
+    }, [])
 
-  const handleDelete = async (id: number) => {
-    try {
-      const response = await fetch(`${API_URL}/api/search-queue/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete queue entry");
-      setQueue(queue.filter((item) => item.ID !== id));
-      toast.success("Removed from queue");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to remove item");
+    const handleDelete = async (id: number) => {
+        try {
+            const response = await fetch(`${API_URL}/api/search-queue/${id}`, { method: "DELETE" })
+            if (!response.ok) throw new Error("Failed to delete queue entry")
+            setQueue((items) => items.filter((item) => item.ID !== id))
+            showToast("Removed from queue", "success")
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to remove item", "error")
+        }
     }
-  };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Search Queue</h1>
-        <p className="text-muted-foreground">
-          Pending Prowlarr searches for monitored content.
-        </p>
-      </div>
+    return (
+        <Stack gap="lg">
+            <Stack gap={4}>
+                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                    System
+                </Text>
+                <Title order={1}>Search queue</Title>
+                <Text c="dimmed" maw={720}>
+                    Pending searches from the monitor worker appear here while Prowlarr works through them.
+                </Text>
+            </Stack>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Queue Status</CardTitle>
-          <CardDescription>
-            {queue.length} item{queue.length !== 1 ? 's' : ' '} waiting for search.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b font-medium">
-                <tr>
-                  <th className="px-4 py-3 text-left">Anime</th>
-                  <th className="px-4 py-3 text-left">Type</th>
-                  <th className="px-4 py-3 text-left">Details</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-right w-12"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-8">
-                      Loading queue...
-                    </td>
-                  </tr>
-                ) : queue.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
-                      Search queue is empty.
-                    </td>
-                  </tr>
-                ) : (
-                  queue.map((item) => (
-                    <tr key={item.ID} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">
-                        <Link 
-                          to={`/media/${item.library_id}`}
-                          className="hover:underline text-primary"
-                        >
-                          {item.title}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                          item.is_season ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        }`}>
-                          {item.is_season ? "Season" : "Episode"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {item.is_season ? "" : `E${item.episode_number}: ${item.episode_title}`}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="capitalize text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(item.ID)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+            <SectionCard withBorder radius="xl">
+                <Stack gap="md">
+                    <Group justify="space-between">
+                        <Title order={3}>Queue status</Title>
+                        <StatusPill label={`${queue.length} waiting`} tone="gray" />
+                    </Group>
+                    <ScrollArea type="auto">
+                        <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Anime</Table.Th>
+                                    <Table.Th>Type</Table.Th>
+                                    <Table.Th>Details</Table.Th>
+                                    <Table.Th>Status</Table.Th>
+                                    <Table.Th w={72} />
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {loading ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={5}>
+                                            <Text ta="center" py="md">Loading queue...</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : queue.length === 0 ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={5}>
+                                            <Text ta="center" py="md" c="dimmed">Search queue is empty.</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : (
+                                    queue.map((item) => (
+                                        <Table.Tr key={item.ID}>
+                                            <Table.Td fw={700}>
+                                                <Text component={Link} to={`/media/${item.library_id}`} c="gray" fw={700}>
+                                                    {item.title}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <StatusPill label={item.is_season ? "Season" : "Episode"} tone={item.is_season ? "violet" : "blue"} />
+                                            </Table.Td>
+                                            <Table.Td c="dimmed">
+                                                {item.is_season ? "" : `E${item.episode_number}: ${item.episode_title}`}
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <StatusPill label={item.status} tone="gray" />
+                                            </Table.Td>
+                                            <Table.Td ta="right">
+                                                <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(item.ID)} aria-label="Remove from queue">
+                                                    <IconTrash size={18} />
+                                                </ActionIcon>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </ScrollArea>
+                </Stack>
+            </SectionCard>
 
-      <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 p-4 rounded-lg border border-dashed">
-        <Info className="size-4 mt-0.5 shrink-0" />
-        <p>
-          Items are added to this queue when they are monitored. A background worker will pick up these items 
-          and search for them on Prowlarr sequentially.
-        </p>
-      </div>
-    </div>
-  );
+            <SectionCard withBorder radius="xl">
+                <Group align="start" wrap="nowrap">
+                    <IconInfoCircle size={20} style={{ flexShrink: 0, marginTop: 2, color: "var(--mantine-color-dimmed)" }} />
+                    <Text c="dimmed">
+                        Items are added to this queue when they are monitored. A background worker picks them up and searches for them sequentially in Prowlarr.
+                    </Text>
+                </Group>
+            </SectionCard>
+        </Stack>
+    )
 }

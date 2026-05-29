@@ -57,3 +57,6 @@ services/core/tmp/
 services/anidb/tmp/
 services/prowlarr/tmp/
 services/downloader/tmp/
+
+# Archived frontend
+frontend-old/

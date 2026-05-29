@@ -1,4 +1,3 @@
-// Basic media info - used by search and library list endpoints
 export interface Media {
     ID: number
     aid: number
@@ -16,7 +15,6 @@ export interface Episode {
     air_date: string
 }
 
-// Extended media details - used by detail endpoint
 export interface MediaDetails {
     ID: number
     CreatedAt: string

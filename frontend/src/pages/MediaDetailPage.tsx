@@ -1,485 +1,404 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { API_URL, resolvePosterUrl } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Trash2, ExternalLink, ChevronLeft, ChevronRight, Bell, Info } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import type { MediaDetails, Episode } from "@/types/media";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { useEffect, useMemo, useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { ActionIcon, Anchor, Button, Checkbox, Grid, Group, Image, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
+import { modals } from "@mantine/modals"
+import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconTrash } from "@tabler/icons-react"
+import { API_URL, resolvePosterUrl } from "@/lib/api"
+import { showToast } from "@/lib/notifications"
+import type { Episode, MediaDetails } from "@/types/media"
+import { SectionCard } from "@/components/SectionCard"
+import { StatusPill } from "@/components/StatusPill"
+
+interface MonitoredItem {
+    anidb_id: string
+    is_episode: boolean
+    is_season: boolean
+    season: number
+}
 
 export function MediaDetailPage() {
-    const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
-    const [media, setMedia] = useState<MediaDetails | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [monitoredItems, setMonitoredItems] = useState<any[]>([]);
-    const [rangeInput, setRangeInput] = useState("");
-    const [monitorEntireSeason, setMonitorEntireSeason] = useState(false);
+    const { id } = useParams<{ id: string }>()
+    const navigate = useNavigate()
+    const [media, setMedia] = useState<MediaDetails | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [monitoredItems, setMonitoredItems] = useState<MonitoredItem[]>([])
+    const [rangeInput, setRangeInput] = useState("")
+    const [monitorEntireSeason, setMonitorEntireSeason] = useState(false)
+    const [page, setPage] = useState(1)
+    const itemsPerPage = 10
 
     useEffect(() => {
-        fetchMedia();
-    }, [id]);
+        if (!id) return
+        setLoading(true)
+        fetch(`${API_URL}/api/library/${id}`)
+            .then(async (response) => {
+                if (!response.ok) throw new Error("Failed to fetch media details")
+                return response.json()
+            })
+            .then((data: MediaDetails) => setMedia(data))
+            .catch((error) => {
+                console.error(error)
+                showToast("Error loading media details", "error")
+            })
+            .finally(() => setLoading(false))
+    }, [id])
 
     useEffect(() => {
-        if (media) {
-            fetchMonitoredItems();
-        }
-    }, [media]);
-
-    const fetchMonitoredItems = async () => {
-        try {
-            const response = await fetch(`${API_URL}/api/library/${id}/monitored`);
-            if (response.ok) {
-                const data = await response.json();
-                setMonitoredItems(data || []);
-                const isSeasonMonitored = data.some((m: any) => m.is_season && m.season === 1);
-                setMonitorEntireSeason(isSeasonMonitored);
-            }
-        } catch (error) {
-            console.error("Failed to fetch monitored items", error);
-        }
-    };
-
-    const fetchMedia = async () => {
-        try {
-            const response = await fetch(`${API_URL}/api/library/${id}`);
-            if (!response.ok) throw new Error("Failed to fetch media details");
-            const data = await response.json();
-            setMedia(data);
-        } catch (error) {
-            toast.error("Error loading media details");
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-    const deleteMedia = async () => {
-        if (!media) return;
-        try {
-            const response = await fetch(`${API_URL}/api/library/${id}`, {
-                method: "DELETE",
-            });
-            if (response.ok) {
-                toast.success("Media deleted");
-                navigate("/library");
-            }
-        } catch (error) {
-            toast.error("Failed to delete media");
-        }
-    };
+        if (!media || !id) return
+        fetch(`${API_URL}/api/library/${id}/monitored`)
+            .then((response) => response.json())
+            .then((data: MonitoredItem[]) => {
+                setMonitoredItems(data || [])
+                setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1) ?? false)
+            })
+            .catch((error) => console.error("Failed to fetch monitored items", error))
+    }, [id, media])
 
     const parseRange = (input: string): number[] => {
-        const nums = new Set<number>();
-        const parts = input.split(',').map(p => p.trim());
-
-        for (const part of parts) {
-            if (part.includes('-')) {
-                const [start, end] = part.split('-').map(p => parseInt(p.trim()));
-                if (!isNaN(start) && !isNaN(end)) {
-                    for (let i = Math.min(start, end); i <= Math.max(start, end); i++) {
-                        nums.add(i);
+        const values = new Set<number>()
+        for (const part of input.split(",").map((entry) => entry.trim()).filter(Boolean)) {
+            if (part.includes("-")) {
+                const [start, end] = part.split("-").map((entry) => Number.parseInt(entry.trim(), 10))
+                if (!Number.isNaN(start) && !Number.isNaN(end)) {
+                    for (let current = Math.min(start, end); current <= Math.max(start, end); current += 1) {
+                        values.add(current)
                     }
                 }
             } else {
-                const val = parseInt(part);
-                if (!isNaN(val)) nums.add(val);
+                const value = Number.parseInt(part, 10)
+                if (!Number.isNaN(value)) values.add(value)
             }
         }
-        return Array.from(nums).sort((a, b) => a - b);
-    };
+        return [...values].sort((left, right) => left - right)
+    }
 
     const handleBulkMonitor = async () => {
-        let epNumbers: number[] = [];
-        if (monitorEntireSeason) {
-            if (!media?.episodes) return;
-            epNumbers = media.episodes.map(e => parseInt(e.ep_no)).filter(n => !isNaN(n));
+        if (!media || !id) return
 
-            const bulk = epNumbers.map((num: number) => {
-                const epInfo = media?.episodes?.find(e => parseInt(e.ep_no) === num);
+        const buildPayload = (episodeNumbers: number[]) => [
+            ...episodeNumbers.map((episodeNumber) => {
+                const episode = media.episodes?.find((entry) => Number.parseInt(entry.ep_no, 10) === episodeNumber)
                 return {
                     library_id: Number(id),
-                    title: media?.title,
-                    episode_title: epInfo?.title || `Episode ${num}`,
+                    title: media.title,
+                    episode_title: episode?.title || `Episode ${episodeNumber}`,
                     season: 1,
-                    episode_number: num,
+                    episode_number: episodeNumber,
                     is_episode: true,
-                    anidb_id: epInfo?.anidb_id || "",
-                };
-            });
-
-            bulk.push({
+                    anidb_id: episode?.anidb_id || "",
+                }
+            }),
+            {
                 library_id: Number(id),
-                title: media?.title,
+                title: media.title,
                 episode_title: "",
                 season: 1,
                 episode_number: 0,
                 is_episode: false,
                 is_season: true,
-                anidb_id: String(media?.aid || ""),
-            } as any);
+                anidb_id: String(media.aid || ""),
+            },
+        ]
 
-            try {
+        try {
+            if (monitorEntireSeason) {
+                const episodeNumbers = media.episodes.map((episode) => Number.parseInt(episode.ep_no, 10)).filter((value) => !Number.isNaN(value))
                 const response = await fetch(`${API_URL}/api/monitor/bulk`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(bulk),
-                });
+                    body: JSON.stringify(buildPayload(episodeNumbers)),
+                })
                 if (response.ok) {
-                    toast.success("Season monitoring applied");
-                    fetchMonitoredItems();
-                    setRangeInput("");
+                    showToast("Season monitoring applied", "success")
+                    setRangeInput("")
                 }
-            } catch (error) {
-                toast.error("Failed to apply monitor settings");
-            }
-        } else {
-            // Unmonitoring or specific range
-            if (rangeInput.trim()) {
-                epNumbers = parseRange(rangeInput);
-                const bulk = epNumbers.map((num: number) => {
-                    const epInfo = media?.episodes?.find(e => parseInt(e.ep_no) === num);
-                    return {
-                        library_id: Number(id),
-                        title: media?.title,
-                        episode_title: epInfo?.title || `Episode ${num}`,
-                        season: 1,
-                        episode_number: num,
-                        is_episode: true,
-                        anidb_id: epInfo?.anidb_id || "",
-                    };
-                });
-
-                try {
-                    const response = await fetch(`${API_URL}/api/monitor/bulk`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(bulk),
-                    });
-                    if (response.ok) {
-                        toast.success("Episode monitoring applied");
-                        fetchMonitoredItems();
-                        setRangeInput("");
-                    }
-                } catch (error) {
-                    toast.error("Failed to apply range monitor");
+            } else if (rangeInput.trim()) {
+                const episodeNumbers = parseRange(rangeInput)
+                const response = await fetch(`${API_URL}/api/monitor/bulk`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(buildPayload(episodeNumbers)),
+                })
+                if (response.ok) {
+                    showToast("Episode monitoring applied", "success")
+                    setRangeInput("")
+                }
+            } else if (monitoredItems.some((item) => item.is_season && item.season === 1)) {
+                const response = await fetch(`${API_URL}/api/unmonitor/season`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ library_id: Number(id), season: 1 }),
+                })
+                if (response.ok) {
+                    showToast("Stopped monitoring entire season", "success")
                 }
             } else {
-                // If checkbox is unchecked and range is empty, unmonitor the whole season?
-                // This is safer to do via a specific unmonitor call if they previously had it checked.
-                const wasSeasonMonitored = monitoredItems.some((m: any) => m.is_season && m.season === 1);
-                if (wasSeasonMonitored) {
-                    try {
-                        const response = await fetch(`${API_URL}/api/unmonitor/season`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                library_id: Number(id),
-                                season: 1,
-                            }),
-                        });
-                        if (response.ok) {
-                            toast.success("Stopped monitoring entire season");
-                            fetchMonitoredItems();
-                        }
-                    } catch (error) {
-                        toast.error("Failed to unmonitor season");
-                    }
-                } else {
-                    toast.error("Please enter a range or select entire season");
-                }
+                showToast("Enter a range or select entire season", "error")
             }
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to apply monitor settings", "error")
         }
-    };
+    }
 
+    const totalPages = Math.ceil((media?.episodes?.length || 0) / itemsPerPage)
+    const visibleEpisodes = useMemo(
+        () => media?.episodes.slice((page - 1) * itemsPerPage, page * itemsPerPage) ?? [],
+        [media?.episodes, page],
+    )
 
+    const deleteMedia = async () => {
+        if (!media || !id) return
+        try {
+            const response = await fetch(`${API_URL}/api/library/${id}`, { method: "DELETE" })
+            if (response.ok) {
+                showToast("Media deleted", "success")
+                navigate("/")
+            }
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to delete media", "error")
+        }
+    }
 
+    if (loading) {
+        return <Text c="dimmed" ta="center" py="xl">Loading...</Text>
+    }
 
-    if (loading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
-    if (!media) return <div className="p-8 text-center text-destructive font-bold">Media not found</div>;
+    if (!media) {
+        return <Text c="red" fw={700} ta="center" py="xl">Media not found</Text>
+    }
 
     return (
-        <div className="container mx-auto p-4 lg:p-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center space-x-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-                    <ArrowLeft className="h-5 w-5" />
+        <Stack gap="lg">
+            <Group align="start" justify="space-between">
+                <Group align="start" gap="md">
+                    <ActionIcon variant="light" size="lg" onClick={() => navigate(-1)} aria-label="Go back">
+                        <IconArrowLeft size={18} />
+                    </ActionIcon>
+                    <Stack gap={4}>
+                        <Title order={1}>{media.title}</Title>
+                        {media.alternate_titles !== media.title ? <Text c="dimmed">{media.alternate_titles}</Text> : null}
+                    </Stack>
+                </Group>
+
+                <Button component="a" href={`https://anidb.net/anime/${media.aid}`} target="_blank" rel="noreferrer" variant="light" color="gray" leftSection={<IconExternalLink size={16} />}>
+                    View on AniDB
                 </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{media.title}</h1>
-                    <p className="text-muted-foreground">{media.alternate_titles !== media.title ? media.alternate_titles : ""}</p>
-                </div>
-            </div>
+            </Group>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-2 space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Overview</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-lg leading-relaxed text-muted-foreground">
-                                {media.description || "No description available."}
-                            </p>
-                        </CardContent>
-                    </Card>
+            <Grid gutter="lg">
+                <Grid.Col span={{ base: 12, md: 8 }}>
+                    <Stack gap="lg">
+                        <SectionCard withBorder radius="md">
+                            <Stack gap="sm">
+                                <Title order={3}>Overview</Title>
+                                <Text c="dimmed" lh={1.7}>
+                                    {media.description || "No description available."}
+                                </Text>
+                            </Stack>
+                        </SectionCard>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-sm text-muted-foreground font-medium">AniDB ID</p>
-                                <p className="text-sm">{media.aid}</p>
-                            </div>
-                            {media.total_episodes > 0 && (
-                                <div className="space-y-1">
-                                    <p className="text-sm text-muted-foreground font-medium">Episodes</p>
-                                    <p className="text-sm">{media.total_episodes}</p>
-                                </div>
-                            )}
-                            {media.total_seasons > 0 && (
-                                <div className="space-y-1">
-                                    <p className="text-sm text-muted-foreground font-medium">Seasons</p>
-                                    <p className="text-sm">{media.total_seasons}</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                        <SectionCard withBorder radius="md">
+                            <Stack gap="sm">
+                                <Title order={3}>Information</Title>
+                                <SimpleKeyValue label="AniDB ID" value={String(media.aid)} />
+                                {media.total_episodes > 0 ? <SimpleKeyValue label="Episodes" value={String(media.total_episodes)} /> : null}
+                                {media.total_seasons > 0 ? <SimpleKeyValue label="Seasons" value={String(media.total_seasons)} /> : null}
+                            </Stack>
+                        </SectionCard>
 
-                    <Card className="border-primary/20 bg-primary/5">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="flex items-center gap-2">
-                                <Bell className="size-5 text-primary" />
-                                Monitor Anime
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="flex items-center justify-between space-x-2">
-                                <div className="space-y-0.5">
-                                    <Label className="text-sm font-semibold">Monitor Entire Season</Label>
-                                    <p className="text-xs text-muted-foreground">Automatically track all episodes in this season</p>
-                                </div>
-                                <Checkbox
-                                    id="monitor-season"
-                                    checked={monitorEntireSeason}
-                                    onCheckedChange={(val) => setMonitorEntireSeason(!!val)}
-                                />
-                            </div>
+                        <SectionCard withBorder radius="md">
+                            <Stack gap="md">
+                                <Group align="start" justify="space-between">
+                                    <div>
+                                        <Title order={3}>Monitor anime</Title>
+                                        <Text size="sm" c="dimmed">
+                                            Choose whole-season tracking or pass specific episode ranges.
+                                        </Text>
+                                    </div>
+                                    <IconBell size={20} color="var(--mantine-color-dimmed)" />
+                                </Group>
 
-                            <div className="space-y-3 pt-2">
-                                <Label className="text-sm font-semibold">Monitor Specific Episodes (Ranges)</Label>
-                                <Input
-                                    placeholder="ex: 1-5, 8, 10-12"
-                                    value={rangeInput}
-                                    onChange={(e) => setRangeInput(e.target.value)}
-                                    className="bg-background"
-                                />
-                                <Button className="w-full" onClick={handleBulkMonitor}>Apply Changes</Button>
-                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Info className="size-3" />
-                                    Use comma separated numbers or ranges (1-10, 15, 20-25)
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                <Group justify="space-between" align="center">
+                                    <div>
+                                        <Text fw={700}>Monitor entire season</Text>
+                                        <Text size="sm" c="dimmed">Automatically track all episodes in this season.</Text>
+                                    </div>
+                                    <Checkbox checked={monitorEntireSeason} onChange={(event) => setMonitorEntireSeason(event.currentTarget.checked)} />
+                                </Group>
 
-                    {media.episodes && media.episodes.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Episodes</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <EpisodeTable
-                                    episodes={media.episodes}
-                                    monitoredItems={monitoredItems}
-                                />
-                            </CardContent>
-                        </Card>
-                    )}
+                                <Stack gap={6}>
+                                    <Text fw={700}>Monitor specific episodes</Text>
+                                    <TextInput value={rangeInput} onChange={(event) => setRangeInput(event.currentTarget.value)} placeholder="ex: 1-5, 8, 10-12" />
+                                    <Group gap={6} align="center">
+                                        <IconInfoCircle size={14} />
+                                        <Text size="xs" c="dimmed">
+                                            Use comma separated numbers or ranges like 1-10, 15, 20-25.
+                                        </Text>
+                                    </Group>
+                                </Stack>
 
-                    <div className="flex gap-4">
+                                <Button color="gray" onClick={handleBulkMonitor}>Apply changes</Button>
+                            </Stack>
+                        </SectionCard>
 
-                        <Button variant="outline" asChild>
-                            <a href={`https://anidb.net/anime/${media.aid}`} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="mr-2 h-4 w-4" /> View on AniDB
-                            </a>
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Media
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This will remove <strong>{media.title}</strong> from your library.
-                                        This action cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={deleteMedia} className="bg-destructive hover:bg-destructive/90">
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        {media.episodes?.length ? (
+                            <SectionCard withBorder radius="xl">
+                                <Stack gap="md">
+                                    <Title order={3}>Episodes</Title>
+                                    <EpisodeTable episodes={visibleEpisodes} monitoredItems={monitoredItems} />
+                                    {totalPages > 1 ? (
+                                        <Group justify="space-between">
+                                            <Text size="sm" c="dimmed">
+                                                Showing {(page - 1) * itemsPerPage + 1} to {Math.min(page * itemsPerPage, media.episodes.length)} of {media.episodes.length} episodes
+                                            </Text>
+                                            <Group gap="xs">
+                                                <Button variant="default" onClick={() => setPage((previous) => Math.max(1, previous - 1))} disabled={page === 1}>Previous</Button>
+                                                <Button variant="default">{page} / {totalPages}</Button>
+                                                <Button variant="default" onClick={() => setPage((previous) => Math.min(totalPages, previous + 1))} disabled={page === totalPages}>Next</Button>
+                                            </Group>
+                                        </Group>
+                                    ) : null}
+                                </Stack>
+                            </SectionCard>
+                        ) : null}
 
-                    </div>
+                        <Group>
+                            <Button component="a" href={`https://anidb.net/anime/${media.aid}`} target="_blank" rel="noreferrer" variant="light" color="gray" leftSection={<IconExternalLink size={16} />}>
+                                AniDB entry
+                            </Button>
 
+                            <Button
+                                color="red"
+                                variant="light"
+                                leftSection={<IconTrash size={16} />}
+                                onClick={() =>
+                                    modals.openConfirmModal({
+                                        title: "Delete media",
+                                        centered: true,
+                                        children: <Text size="sm">This removes <strong>{media.title}</strong> from your library and cannot be undone.</Text>,
+                                        labels: { confirm: "Delete", cancel: "Cancel" },
+                                        confirmProps: { color: "red" },
+                                        onConfirm: deleteMedia,
+                                    })
+                                }
+                            >
+                                Delete media
+                            </Button>
+                        </Group>
+                    </Stack>
+                </Grid.Col>
 
-                </div>
+                <Grid.Col span={{ base: 12, md: 4 }}>
+                    <Stack gap="lg" pos="sticky" top={96}>
+                        <SectionCard withBorder radius="xl" p={0} style={{ overflow: "hidden" }}>
+                            <Image src={resolvePosterUrl(media.poster_url)} alt={media.title} radius="xl" />
+                        </SectionCard>
 
-
-                <div className="space-y-6">
-                    <Card className="overflow-hidden border-none shadow-xl">
-                        <img
-                            src={resolvePosterUrl(media.poster_url)}
-                            alt={media.title}
-                            className="w-full aspect-[2/3] object-cover"
-                        />
-                    </Card>
-
-
-
-                </div>
-
-
-            </div>
-        </div>
-    );
-
+                        <SectionCard withBorder radius="xl">
+                            <Stack gap={6}>
+                                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>Metadata</Text>
+                                <SimpleKeyValue label="Created" value={media.CreatedAt ? new Date(media.CreatedAt).toLocaleString() : "Unknown"} />
+                                <SimpleKeyValue label="Updated" value={media.UpdatedAt ? new Date(media.UpdatedAt).toLocaleString() : "Unknown"} />
+                                <SimpleKeyValue label="Genres" value={media.genres || "Unknown"} />
+                                <SimpleKeyValue label="Release" value={media.release_date || "Unknown"} />
+                            </Stack>
+                        </SectionCard>
+                    </Stack>
+                </Grid.Col>
+            </Grid>
+        </Stack>
+    )
 }
 
-function EpisodeTable({
-    episodes,
-    monitoredItems
-}: {
-    episodes: Episode[],
-    monitoredItems: any[]
-}) {
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
-    const totalPages = Math.ceil(episodes.length / itemsPerPage);
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const currentEpisodes = episodes.slice(startIndex, startIndex + itemsPerPage);
-
+function SimpleKeyValue({ label, value }: { label: string; value: string }) {
     return (
-        <div className="space-y-4">
-            <div className="rounded-md border overflow-hidden">
-                <table className="w-full text-sm">
-                    <thead className="bg-muted/50 border-b font-medium">
-                        <tr>
-                            <th className="px-4 py-3 text-left w-16">No.</th>
-                            <th className="px-4 py-3 text-left">Title</th>
-                            <th className="px-4 py-3 text-left w-24">Type</th>
-                            <th className="px-4 py-3 text-left w-32">Availability</th>
-                            <th className="px-4 py-3 text-left w-32">Status</th>
-                            <th className="px-4 py-3 text-right w-12">AniDB</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {currentEpisodes.map((episode) => (
-                            <tr key={episode.ID} className="hover:bg-muted/30 transition-colors">
-                                <td className="px-4 py-3 font-medium">{episode.ep_no}</td>
-                                <td className="px-4 py-3">{episode.title}</td>
-                                <td className="px-4 py-3">
-                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${episode.type === 1 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-                                            episode.type === 2 ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
-                                                episode.type === 3 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-                                                    episode.type === 4 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                                                        episode.type === 5 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
-                                                            "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                                        }`}>
-                                        {episode.type === 1 ? "Regular" :
-                                            episode.type === 2 ? "Special" :
-                                                episode.type === 3 ? "Credit" :
-                                                    episode.type === 4 ? "Trailer" :
-                                                        episode.type === 5 ? "Parody" : "Other"}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                                        Unavailable
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                    {monitoredItems.some(m => m.anidb_id === episode.anidb_id && m.is_episode) ? (
-                                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                            Monitored
-                                        </span>
-                                    ) : (
-                                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                                            Not Monitored
-                                        </span>
-                                    )}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                    <a
-                                        href={`https://anidb.net/episode/${episode.anidb_id}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-muted-foreground hover:text-primary transition-colors inline-flex items-center"
-                                        title="View on AniDB"
-                                    >
-                                        <ExternalLink className="size-4" />
-                                        <span className="sr-only">View on AniDB</span>
-                                    </a>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                        Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, episodes.length)} of {episodes.length} episodes
-                    </p>
-                    <div className="flex items-center space-x-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                        >
-                            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-                        </Button>
-                        <span className="text-sm font-medium">
-                            Page {currentPage} of {totalPages}
-                        </span>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages}
-                        >
-                            Next <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+        <Group justify="space-between" align="start" wrap="nowrap">
+            <Text c="dimmed" size="sm">
+                {label}
+            </Text>
+            <Text fw={600} ta="right" style={{ wordBreak: "break-word" }}>
+                {value}
+            </Text>
+        </Group>
+    )
 }
 
+function EpisodeTable({ episodes, monitoredItems }: { episodes: Episode[]; monitoredItems: MonitoredItem[] }) {
+    return (
+        <ScrollArea type="auto">
+            <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th w={80}>No.</Table.Th>
+                        <Table.Th>Title</Table.Th>
+                        <Table.Th w={120}>Type</Table.Th>
+                        <Table.Th w={160}>Availability</Table.Th>
+                        <Table.Th w={160}>Status</Table.Th>
+                        <Table.Th w={80}>AniDB</Table.Th>
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {episodes.map((episode) => {
+                        const monitored = monitoredItems.some((item) => item.anidb_id === episode.anidb_id && item.is_episode)
+                        return (
+                            <Table.Tr key={episode.ID}>
+                                <Table.Td fw={700}>{episode.ep_no}</Table.Td>
+                                <Table.Td>{episode.title}</Table.Td>
+                                <Table.Td>
+                                    <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
+                                </Table.Td>
+                                <Table.Td>
+                                    <StatusPill label="Unavailable" tone="gray" />
+                                </Table.Td>
+                                <Table.Td>
+                                    <StatusPill label={monitored ? "Monitored" : "Not monitored"} tone={monitored ? "green" : "gray"} />
+                                </Table.Td>
+                                <Table.Td>
+                                    <Anchor href={`https://anidb.net/episode/${episode.anidb_id}`} target="_blank" rel="noreferrer" c="gray">
+                                        <IconExternalLink size={18} />
+                                    </Anchor>
+                                </Table.Td>
+                            </Table.Tr>
+                        )
+                    })}
+                </Table.Tbody>
+            </Table>
+        </ScrollArea>
+    )
+}
+
+function episodeTypeLabel(type: number) {
+    switch (type) {
+        case 1:
+            return "Regular"
+        case 2:
+            return "Special"
+        case 3:
+            return "Credit"
+        case 4:
+            return "Trailer"
+        case 5:
+            return "Parody"
+        default:
+            return "Other"
+    }
+}
+
+function episodeTypeTone(type: number) {
+    switch (type) {
+        case 1:
+            return "blue"
+        case 2:
+            return "violet"
+        case 3:
+            return "green"
+        case 4:
+            return "gray"
+        case 5:
+            return "red"
+        default:
+            return "gray"
+    }
+}

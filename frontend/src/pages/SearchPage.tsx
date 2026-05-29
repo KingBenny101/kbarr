@@ -1,183 +1,136 @@
-"use client"
-
 import { useState } from "react"
-import { Search, ExternalLink } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
-import { Card, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { ActionIcon, Button, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
+import { IconExternalLink, IconSearch } from "@tabler/icons-react"
 import { API_URL } from "@/lib/api"
-import { showToast } from "@/lib/utils"
+import { showToast } from "@/lib/notifications"
 import type { Media } from "@/types/media"
+import { EmptyState } from "@/components/EmptyState"
+import { SectionCard } from "@/components/SectionCard"
+import { StatusPill } from "@/components/StatusPill"
 
-import {
-    Pagination,
-    PaginationContent,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from "@/components/ui/pagination"
-
-
-
-interface SearchPageProps {
-    // onMediaAdded?: () => void
-}
-
-export function SearchPage({ }: SearchPageProps) {
-    const [query, setQuery] = useState<string>("")
-    const [Medias, setMedias] = useState<Media[]>([])
-    const [searching, setSearching] = useState<boolean>(false)
+export function SearchPage() {
+    const [query, setQuery] = useState("")
+    const [medias, setMedias] = useState<Media[]>([])
+    const [searching, setSearching] = useState(false)
     const [adding, setAdding] = useState<number | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 12
 
-    const totalPages = Math.ceil(Medias.length / itemsPerPage)
-    const paginatedResults = Medias.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    )
+    const totalPages = Math.ceil(medias.length / itemsPerPage)
+    const paginatedResults = medias.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
-    const handleSearch = async (): Promise<void> => {
+    const handleSearch = async () => {
         if (!query.trim()) return
         setCurrentPage(1)
         setSearching(true)
         try {
-            const res = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(query)}`)
-            const data = (await res.json()) as Media[]
+            const response = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(query)}`)
+            const data = (await response.json()) as Media[]
             setMedias(data || [])
-        } catch (err) {
-            console.error("Search failed:", err)
+        } catch (error) {
+            console.error("Search failed:", error)
         } finally {
             setSearching(false)
         }
     }
 
-    const handleAdd = async (result: Media): Promise<void> => {
+    const handleAdd = async (result: Media) => {
         setAdding(result.aid)
         try {
-            const res = await fetch(`${API_URL}/api/library`, {
+            const response = await fetch(`${API_URL}/api/library`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(result)
+                body: JSON.stringify(result),
             })
-            if (res.ok) {
-                const data = await res.json()
+            if (response.ok) {
+                const data = await response.json()
                 showToast(data.message, "success")
-                // Mark as added in the local list
-                setMedias(prev => prev.map(m => m.aid === result.aid ? { ...m, added: true } : m))
-            }
-
-            if (!res.ok) {
+                setMedias((previous) => previous.map((media) => (media.aid === result.aid ? { ...media, added: true } : media)))
+            } else {
                 showToast("Failed to add media", "error")
             }
-        } catch (err) {
+        } catch (error) {
+            console.error("Failed to add media:", error)
             showToast("An error occurred while adding media", "error")
-            console.error("Failed to add media:", err)
         } finally {
             setAdding(null)
         }
     }
 
     return (
-        <div>
-            <InputGroup className="mb-6">
-                <InputGroupInput
-                    type="text"
-                    placeholder="Search for anime..."
+        <Stack gap="lg">
+            <Stack gap={4}>
+                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                    Search
+                </Text>
+                <Title order={1}>Find anime and add it to the library</Title>
+                <Text c="dimmed" maw={680}>
+                    Query AniDB results, open the source entry, and add titles without leaving the page.
+                </Text>
+            </Stack>
+
+            <Group align="end" wrap="nowrap">
+                <TextInput
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    disabled={searching}
+                    onChange={(event) => setQuery(event.currentTarget.value)}
+                    onKeyDown={(event) => event.key === "Enter" && handleSearch()}
+                    placeholder="Search for anime..."
+                    leftSection={<IconSearch size={18} />}
+                    style={{ flex: 1 }}
+                    size="md"
                 />
-                <InputGroupAddon align="inline-start">
-                    <Search className="size-4" />
-                </InputGroupAddon>
-                <InputGroupAddon align="inline-end">
-                    <InputGroupButton variant="secondary"
-                        onClick={handleSearch}
-                        disabled={searching || !query.trim()}
-                    >
-                        {searching ? "..." : "Search"}
-                    </InputGroupButton>
-                </InputGroupAddon>
-            </InputGroup>
+                <Button color="gray" onClick={handleSearch} loading={searching}>
+                    Search
+                </Button>
+            </Group>
 
-            {Medias.length > 0 && (
-                <div className="flex flex-col gap-6">
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {medias.length > 0 ? (
+                <Stack gap="lg">
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                         {paginatedResults.map((result) => (
-                            <Card key={result.aid} className="group">
-                                <CardHeader className="p-4 pb-2">
-                                    <div className="flex justify-between gap-4">
-                                        <div className="space-y-1 flex-1">
-                                            <CardTitle className="text-sm line-clamp-1 leading-tight">{result.title}</CardTitle>
-                                            <CardDescription className="text-xs flex gap-2 items-center">
-                                                <span>ID: {result.aid}</span>
-                                            </CardDescription>
-                                        </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon-sm"
-                                            className="text-muted-foreground hover:text-primary shrink-0"
-                                            asChild
-                                        >
-                                            <a href={`https://anidb.net/anime/${result.aid}`} target="_blank" rel="noopener noreferrer">
-                                                <ExternalLink className="size-4" />
-                                            </a>
-                                        </Button>
-                                    </div>
-                                </CardHeader>
-                                <CardFooter className="p-4 pt-2 mt-auto">
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() => handleAdd(result)}
-                                        disabled={adding === result.aid || result.added}
-                                        className="w-full text-xs font-semibold"
-                                    >
-                                        {adding === result.aid ? "Adding..." : result.added ? "Added" : "Add to Library"}
+                            <SectionCard key={result.aid} withBorder radius="xl">
+                                <Stack gap="sm" justify="space-between" h="100%">
+                                    <Stack gap={6}>
+                                        <Group justify="space-between" align="start" wrap="nowrap">
+                                            <Title order={4} lineClamp={2} style={{ flex: 1 }}>
+                                                {result.title}
+                                            </Title>
+                                            <ActionIcon component="a" href={`https://anidb.net/anime/${result.aid}`} target="_blank" rel="noreferrer" variant="subtle" color="gray" aria-label="Open AniDB entry">
+                                                <IconExternalLink size={18} />
+                                            </ActionIcon>
+                                        </Group>
+                                        <Text size="sm" c="dimmed">
+                                            AniDB ID {result.aid}
+                                        </Text>
+                                        <Group gap="xs">
+                                            <StatusPill label={result.added ? "Added" : "Ready"} tone={result.added ? "green" : "blue"} />
+                                        </Group>
+                                    </Stack>
+
+                                    <Button color="gray" variant={result.added ? "light" : "filled"} onClick={() => handleAdd(result)} disabled={adding === result.aid || result.added} loading={adding === result.aid} fullWidth>
+                                        {result.added ? "Added" : "Add to Library"}
                                     </Button>
-                                </CardFooter>
-                            </Card>
+                                </Stack>
+                            </SectionCard>
                         ))}
-                    </div>
+                    </SimpleGrid>
 
-                    <Pagination className="mt-4">
-                        <PaginationContent>
-                            <PaginationItem>
-                                <PaginationPrevious
-                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                                />
-                            </PaginationItem>
+                    <Group justify="space-between" align="center">
+                        <Text size="sm" c="dimmed">
+                            Page {totalPages === 0 ? 0 : currentPage} of {totalPages}
+                        </Text>
+                        <Pagination value={currentPage} onChange={setCurrentPage} total={Math.max(totalPages, 1)} color="gray" />
+                    </Group>
+                </Stack>
+            ) : null}
 
-                            <PaginationItem>
-                                <span className="text-sm text-muted-foreground px-4">
-                                    Page {totalPages === 0 ? 0 : currentPage} of {totalPages}
-                                </span>
-                            </PaginationItem>
+            {!searching && query && medias.length === 0 ? (
+                <EmptyState icon={<IconSearch size={28} />} title="No results found" description={`Nothing matched “${query}”. Try a different title or spelling.`} />
+            ) : null}
 
-                            <PaginationItem>
-                                <PaginationNext
-                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                                />
-                            </PaginationItem>
-                        </PaginationContent>
-                    </Pagination>
-                </div>
-            )}
-
-            {!searching && query && Medias.length === 0 && (
-                <p className="text-center py-12 text-muted-foreground italic">No results found for "{query}"</p>
-            )}
-
-            {!query && !searching && (
-                <div className="text-center py-20 text-muted-foreground flex flex-col items-center gap-3">
-                    <Search className="size-10 opacity-20" />
-                    <p className="italic">Search for something to add to your library</p>
-                </div>
-            )}
-        </div>
+            {!query && !searching ? (
+                <EmptyState icon={<IconSearch size={28} />} title="Start searching" description="Use the search field above to discover anime to add to your library." />
+            ) : null}
+        </Stack>
     )
 }

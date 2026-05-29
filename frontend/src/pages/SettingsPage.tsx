@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react"
-import { useLocation, Navigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
+import { useEffect, useMemo, useState } from "react"
+import { Navigate, useLocation } from "react-router-dom"
+import { Alert, Button, Group, Loader, Stack, Text, Title } from "@mantine/core"
 import { API_URL } from "@/lib/api"
-import { showToast } from "@/lib/utils"
+import { showToast } from "@/lib/notifications"
 import { AnidbSettings } from "./settings/AnidbSettings"
-import { ProwlarrSettings } from "./settings/ProwlarrSettings"
 import { GeneralSettings } from "./settings/GeneralSettings"
+import { ProwlarrSettings } from "./settings/ProwlarrSettings"
 
 interface Settings {
     anidbClient: string
@@ -22,10 +22,6 @@ export function SettingsPage() {
     const location = useLocation()
     const path = location.pathname.toLowerCase()
 
-    if (path === "/settings" || path === "/settings/") {
-        return <Navigate to="/settings/general" replace />
-    }
-
     const [settings, setSettings] = useState<Settings | null>(null)
     const [initialSettings, setInitialSettings] = useState<Settings | null>(null)
     const [loading, setLoading] = useState(true)
@@ -35,12 +31,12 @@ export function SettingsPage() {
         fetchSettings()
     }, [])
 
-    const fetchSettings = async (): Promise<void> => {
+    const fetchSettings = async () => {
         setLoading(true)
         try {
-            const res = await fetch(`${API_URL}/api/settings`)
-            const data = await res.json()
-            const settings: Settings = {
+            const response = await fetch(`${API_URL}/api/settings`)
+            const data = await response.json()
+            const nextSettings: Settings = {
                 anidbClient: data.anidbClient || "",
                 anidbVersion: data.anidbVersion || "",
                 anidbSyncInterval: data.anidbSyncInterval || "1440",
@@ -50,31 +46,29 @@ export function SettingsPage() {
                 autoMonitorOnAdd: data.autoMonitorOnAdd || "false",
                 monitorSyncInterval: data.monitorSyncInterval || "1",
             }
-            setSettings(settings)
-            setInitialSettings(settings)
-        } catch (err) {
-            console.error("Fetch settings error:", err)
+            setSettings(nextSettings)
+            setInitialSettings(nextSettings)
+        } catch (error) {
+            console.error("Fetch settings error:", error)
         } finally {
             setLoading(false)
         }
     }
 
-    const updateSetting = (key: keyof Settings, value: string): void => {
-        if (settings) {
-            setSettings({ ...settings, [key]: value })
-        }
+    const isDirty = useMemo(
+        () => Boolean(initialSettings && settings && JSON.stringify(initialSettings) !== JSON.stringify(settings)),
+        [initialSettings, settings],
+    )
+
+    const updateSetting = (key: keyof Settings, value: string) => {
+        setSettings((previous) => (previous ? { ...previous, [key]: value } : previous))
     }
 
-    const isDirty =
-        initialSettings &&
-        settings &&
-        JSON.stringify(initialSettings) !== JSON.stringify(settings)
-
-    const handleSave = async (): Promise<void> => {
+    const handleSave = async () => {
         if (!settings) return
         setSaving(true)
         try {
-            const res = await fetch(`${API_URL}/api/settings`, {
+            const response = await fetch(`${API_URL}/api/settings`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -88,71 +82,80 @@ export function SettingsPage() {
                     monitorSyncInterval: settings.monitorSyncInterval,
                 }),
             })
-            if (res.ok) {
+            if (response.ok) {
                 showToast("Settings saved", "success")
                 await fetchSettings()
             } else {
                 showToast("Save failed", "error")
             }
-        } catch (err) {
+        } catch (error) {
+            console.error(error)
             showToast("Error saving", "error")
         } finally {
             setSaving(false)
         }
     }
 
+    if (path === "/settings" || path === "/settings/") {
+        return <Navigate to="/settings/general" replace />
+    }
+
     if (loading || !settings) {
-        return <div className="p-8 text-center italic">Loading...</div>
+        return <Group justify="center" py="xl"><Loader color="gray" /></Group>
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-16 pb-20 pt-4 px-4">
-            {path.includes("general") && (
-                <GeneralSettings
-                    autoMonitorOnAdd={settings.autoMonitorOnAdd}
-                    setAutoMonitorOnAdd={(value) =>
-                        updateSetting("autoMonitorOnAdd", value)
-                    }
-                    monitorSyncInterval={settings.monitorSyncInterval}
-                    setMonitorSyncInterval={(value) =>
-                        updateSetting("monitorSyncInterval", value)
-                    }
-                />
-            )}
-            {path.includes("anidb") && (
-                <AnidbSettings
-                    client={settings.anidbClient}
-                    setClient={(value) => updateSetting("anidbClient", value)}
-                    version={settings.anidbVersion}
-                    setVersion={(value) => updateSetting("anidbVersion", value)}
-                    interval={settings.anidbSyncInterval}
-                    setInterval={(value) =>
-                        updateSetting("anidbSyncInterval", value)
-                    }
-                />
-            )}
-            {path.includes("prowlarr") && (
-                <ProwlarrSettings
-                    url={settings.prowlarrUrl}
-                    setUrl={(value) => updateSetting("prowlarrUrl", value)}
-                    apiKey={settings.prowlarrApiKey}
-                    setApiKey={(value) => updateSetting("prowlarrApiKey", value)}
-                    interval={settings.prowlarrInterval}
-                    setInterval={(value) =>
-                        updateSetting("prowlarrInterval", value)
-                    }
-                    initialApiKey={initialSettings?.prowlarrApiKey}
-                />
-            )}
-            <div className="sticky bottom-4 z-10 flex justify-end">
-                <Button onClick={handleSave} disabled={!isDirty || saving}>
-                    {saving
-                        ? "Saving..."
-                        : isDirty
-                            ? "Save Changes"
-                            : "No Changes"}
+        <Stack gap="lg" pb={80}>
+            <Stack gap={4}>
+                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                    Configuration
+                </Text>
+                <Title order={1}>Settings</Title>
+                <Text c="dimmed" maw={720}>
+                    Keep the sync and monitoring behavior aligned with your local setup.
+                </Text>
+            </Stack>
+
+            <Stack gap="lg">
+                {path.includes("general") ? (
+                    <GeneralSettings
+                        autoMonitorOnAdd={settings.autoMonitorOnAdd}
+                        setAutoMonitorOnAdd={(value) => updateSetting("autoMonitorOnAdd", value)}
+                        monitorSyncInterval={settings.monitorSyncInterval}
+                        setMonitorSyncInterval={(value) => updateSetting("monitorSyncInterval", value)}
+                    />
+                ) : null}
+                {path.includes("anidb") ? (
+                    <AnidbSettings
+                        client={settings.anidbClient}
+                        setClient={(value) => updateSetting("anidbClient", value)}
+                        version={settings.anidbVersion}
+                        setVersion={(value) => updateSetting("anidbVersion", value)}
+                        interval={settings.anidbSyncInterval}
+                        setInterval={(value) => updateSetting("anidbSyncInterval", value)}
+                    />
+                ) : null}
+                {path.includes("prowlarr") ? (
+                    <ProwlarrSettings
+                        url={settings.prowlarrUrl}
+                        setUrl={(value) => updateSetting("prowlarrUrl", value)}
+                        apiKey={settings.prowlarrApiKey}
+                        setApiKey={(value) => updateSetting("prowlarrApiKey", value)}
+                        interval={settings.prowlarrInterval}
+                        setInterval={(value) => updateSetting("prowlarrInterval", value)}
+                        initialApiKey={initialSettings?.prowlarrApiKey}
+                    />
+                ) : null}
+            </Stack>
+
+            <Group justify="flex-end" style={{ position: "sticky", bottom: 16 }}>
+                <Alert color={isDirty ? "gray" : "gray"} variant="light" style={{ flex: 1, maxWidth: 480 }}>
+                    {isDirty ? "You have unsaved changes." : "No changes pending."}
+                </Alert>
+                <Button color="gray" onClick={handleSave} disabled={!isDirty || saving} loading={saving}>
+                    Save changes
                 </Button>
-            </div>
-        </div>
+            </Group>
+        </Stack>
     )
 }

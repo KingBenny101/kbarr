@@ -1,13 +1,13 @@
-export const API_URL = "";
+export const API_URL = ""
 
 export function resolvePosterUrl(posterUrl?: string | null): string {
     if (!posterUrl) {
-        return "/placeholder.svg";
+        return "/placeholder.svg"
     }
 
     if (posterUrl.startsWith("http://") || posterUrl.startsWith("https://")) {
-        return posterUrl;
+        return posterUrl
     }
 
-    return posterUrl; // already a relative path like /api/images/filename
+    return posterUrl
 }
