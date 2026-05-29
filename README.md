@@ -14,8 +14,8 @@ Download the latest release files:
 
 ```bash
 curl -LO https://github.com/kingbenny101/kbarr/releases/latest/download/docker-compose.yml
-curl -LO https://github.com/kingbenny101/kbarr/releases/latest/download/.env.example
-cp .env.example .env
+curl -LO https://github.com/kingbenny101/kbarr/releases/latest/download/example.env
+cp example.env .env
 ```
 
 Edit `.env` and set `PROWLARR_API_KEY`, then:

@@ -62,5 +62,5 @@ jobs:
         with:
           files: |
             docker-compose.yml
-            .env.example
+            example.env
           generate_release_notes: true
