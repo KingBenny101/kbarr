@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [core, anidb, prowlarr, downloader]
+        service: [core, metadata, indexer, downloader]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [core, anidb, prowlarr, downloader]
+        service: [core, metadata, indexer, downloader]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
