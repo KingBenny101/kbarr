@@ -48,8 +48,13 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 
 	prepared, err := anidbClient.PrepareDetailedFromMedia(ctx, toAniDBMediaProto(media))
 	if err != nil {
-		slog.Warn("Failed to get anime details for poster URL", "error", err)
-
+		slog.Error("Failed to get anime details from AniDB", "error", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to fetch anime details from AniDB. Check your AniDB client settings.",
+		})
+		return
 	} else if prepared != nil && prepared.GetPosterUrl() != "" {
 		media.PosterURL = prepared.GetPosterUrl()
 		slog.Info("Set poster URL", "posterURL", media.PosterURL)
@@ -71,25 +76,22 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 		"message": "Media added successfully!",
 	})
 
-	// Process adding Detailed and download image asynchronously
 	if prepared != nil {
-		go func(prepared *proto.AniDBDetailed, media models.Media, id int64) {
-			slog.Info("Starting async detailed info processing", "id", id, "title", media.Title)
+		prepared.LibraryId = uint64(id)
 
-			prepared.LibraryId = uint64(id)
+		detailed := toDetailedModel(prepared)
+		detailed.LibraryID = uint(id)
 
-			detailed := toDetailedModel(prepared)
-			detailed.LibraryID = uint(id) // Link Detailed to Media
-
-			if _, insertErr := db.InsertDetailed(detailed); insertErr != nil {
-				slog.Error("Failed to insert detailed info for media ID", "id", id, "error", insertErr)
-
-				return
+		if _, insertErr := db.InsertDetailed(detailed); insertErr != nil {
+			slog.Error("Failed to insert detailed info for media ID", "id", id, "error", insertErr)
+			if deleteErr := db.DeleteMedia(strconv.FormatInt(id, 10)); deleteErr != nil {
+				slog.Error("Failed to rollback media insert after detailed insert failure", "id", id, "error", deleteErr)
 			}
+			http.Error(w, "failed to save media", http.StatusInternalServerError)
+			return
+		}
 
-			slog.Info("Detailed info added", "id", id)
-
-		}(prepared, media, id)
+		slog.Info("Detailed info added", "id", id)
 	}
 
 }

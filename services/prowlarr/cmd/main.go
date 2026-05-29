@@ -10,7 +10,6 @@ import (
 
 	"github.com/kingbenny101/kbarr/services/prowlarr/internal/db"
 	"github.com/kingbenny101/kbarr/services/prowlarr/internal/service"
-	"github.com/kingbenny101/kbarr/shared/config"
 	"github.com/kingbenny101/kbarr/shared/logger"
 	proto "github.com/kingbenny101/kbarr/shared/proto"
 	"google.golang.org/grpc"
@@ -22,11 +21,6 @@ func main() {
 
 	if err := db.Init(); err != nil {
 		slog.Error("Failed to initialize database", "error", err)
-		os.Exit(1)
-	}
-
-	if err := config.EnsureDefaults(db.DB); err != nil {
-		slog.Error("Failed to ensure default settings", "error", err)
 		os.Exit(1)
 	}
 

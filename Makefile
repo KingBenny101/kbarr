@@ -1,4 +1,4 @@
-.PHONY: db db-down run-anidb run-prowlarr run-downloader run-core run-frontend up down build-frontend generate release
+.PHONY: db db-down dev dev-down run-anidb run-prowlarr run-downloader run-core run-frontend up down build-frontend generate release
 
 # Start only Postgres (for local dev)
 db:
@@ -22,6 +22,13 @@ run-core:
 
 run-frontend:
 	cd frontend && npm run dev
+
+# Run all services with tmux (for local dev)
+dev:
+	./scripts/dev.sh
+
+dev-down:
+	tmux kill-session -t kbarr
 
 # Production stack (uses pre-built images from ghcr.io)
 up:

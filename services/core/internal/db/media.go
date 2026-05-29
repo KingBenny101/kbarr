@@ -118,11 +118,11 @@ func GetMediaByID(id string) (models.Media, error) {
 }
 
 func listMedia(ctx context.Context) ([]Medium, error) {
-	var items []Medium
-	if err := DB.NewSelect().Model(&items).WhereAllWithDeleted().Scan(ctx); err != nil {
-		return nil, err
-	}
-	return items, nil
+    var items []Medium
+    if err := DB.NewSelect().Model(&items).Scan(ctx); err != nil {
+        return nil, err
+    }
+    return items, nil
 }
 
 func getMediaByID(ctx context.Context, id int64) (*Medium, error) {
