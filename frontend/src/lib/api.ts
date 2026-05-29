@@ -1,5 +1,4 @@
-export const API_URL = import.meta.env.VITE_API_URL || "";
-export const ANIDB_URL = import.meta.env.VITE_ANIDB_URL || "http://localhost:8081";
+export const API_URL = "";
 
 export function resolvePosterUrl(posterUrl?: string | null): string {
     if (!posterUrl) {
@@ -10,5 +9,5 @@ export function resolvePosterUrl(posterUrl?: string | null): string {
         return posterUrl;
     }
 
-    return `${ANIDB_URL}${posterUrl}`;
+    return posterUrl; // already a relative path like /api/images/filename
 }
