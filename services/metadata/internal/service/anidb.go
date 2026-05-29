@@ -238,35 +238,46 @@ func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duratio
 }
 
 func (s *AniDBService) fetchAnimeDetails(aid uint, cfg *config.Config) (*models.AnimeDetails, []byte, error) {
-	apiURL := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%d", anidbHTTPAPI, cfg.AniDBClient, cfg.AniDBVersion, aid)
+    apiURL := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%d", anidbHTTPAPI, cfg.AniDBClient, cfg.AniDBVersion, aid)
 
-	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", cfg.AniDBClient, cfg.AniDBVersion))
+    req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+    if err != nil {
+        return nil, nil, fmt.Errorf("failed to create request: %w", err)
+    }
+    req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", cfg.AniDBClient, cfg.AniDBVersion))
 
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to call anidb api: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, nil, fmt.Errorf("anidb api returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
+    resp, err := s.httpClient.Do(req)
+    if err != nil {
+        return nil, nil, fmt.Errorf("failed to call anidb api: %w", err)
+    }
+    defer resp.Body.Close()
 
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read anidb response: %w", err)
-	}
+    if resp.StatusCode != http.StatusOK {
+        body, _ := io.ReadAll(resp.Body)
+        return nil, nil, fmt.Errorf("anidb api returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+    }
 
-	var details models.AnimeDetails
-	if err := xml.Unmarshal(raw, &details); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode anidb response: %w", err)
-	}
+    var reader io.Reader = resp.Body
+    if resp.Header.Get("Content-Encoding") == "gzip" {
+        gz, err := gzip.NewReader(resp.Body)
+        if err != nil {
+            return nil, nil, fmt.Errorf("failed to create gzip reader: %w", err)
+        }
+        defer gz.Close()
+        reader = gz
+    }
 
-	return &details, raw, nil
+    raw, err := io.ReadAll(reader)
+    if err != nil {
+        return nil, nil, fmt.Errorf("failed to read anidb response: %w", err)
+    }
+
+    var details models.AnimeDetails
+    if err := xml.Unmarshal(raw, &details); err != nil {
+        return nil, nil, fmt.Errorf("failed to decode anidb response: %w", err)
+    }
+
+    return &details, raw, nil
 }
 
 func validateAniDBSettings(client, version string) error {
