@@ -1,14 +1,18 @@
 # kbarr
 
-A self-hosted media management application in the spirit of Sonarr and Radarr. 
+A self-hosted anime management application in the spirit of Sonarr and Radarr.
 
 Built as a hobby project to learn Go.
 
-Frontend is vibe coded.
+Uses AniDB as the source for anime metadata.
 
 ## Getting Started
 
 Follow the [Installation Guide](installation.md).
+
+## AI Usage
+
+Vibe coded while listening to songs.
 
 ## License
 

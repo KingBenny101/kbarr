@@ -1,26 +1,26 @@
 # Installation
 
-Follow these steps to run kbarr locally with Docker Compose.
+Requirements: Docker and Docker Compose.
 
-1. Clone the repository.
+Download the latest release files:
 
-   ```bash
-   git clone https://github.com/KingBenny101/kbarr.git
-   cd kbarr
-   ```
+```bash
+curl -LO https://github.com/kingbenny101/kbarr/releases/latest/download/docker-compose.yml
+curl -LO https://github.com/kingbenny101/kbarr/releases/latest/download/example.env
+cp example.env .env
+```
 
-2. Copy `.env.example` to `.env`.
+Edit `.env` and set `PROWLARR_API_KEY`, then:
 
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+docker compose up -d
+```
 
-3. Open `.env` and set the variables for your environment. The defaults in `.env.example` are a good starting point for local development.
+kbarr is now running at http://localhost:8282.
 
-4. Start the stack.
+To update to the latest version:
 
-   ```bash
-   docker compose up
-   ```
-
-When the services are ready, the application will be available at `http://localhost:8282`.
+```bash
+docker compose pull
+docker compose up -d
+```
