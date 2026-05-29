@@ -9,16 +9,16 @@ db-down:
 
 # Run individual services locally with air
 run-metadata:
-	cd services/metadata && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+	cd services/metadata && set -a && source ../../.env && set +a && air
 
 run-indexer:
-	cd services/indexer && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+	cd services/indexer && set -a && source ../../.env && set +a && air
 
 run-downloader:
-	cd services/downloader && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+	cd services/downloader && set -a && source ../../.env && set +a && air
 
 run-core:
-	cd services/core && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+	cd services/core && set -a && source ../../.env && set +a && air
 
 run-frontend:
 	cd frontend && npm run dev

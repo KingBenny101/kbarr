@@ -24,13 +24,16 @@ services:
     env_file:
       - .env
     environment:
-      DB_URL: ${DB_URL}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       DOWNLOADER_SERVICE_PORT: ${DOWNLOADER_SERVICE_PORT:-8083}
       QBITTORRENT_URL: ${QBITTORRENT_URL:-http://host.docker.internal:8080}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose:
       - "8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -50,44 +53,54 @@ services:
     env_file:
       - .env
     environment:
-      DB_URL: ${DB_URL}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       METADATA_SERVICE_PORT: ${METADATA_SERVICE_PORT:-8081}
-      KBARR_DATA_DIR: ${KBARR_DATA_DIR:-/app/data}
+      KBARR_DATA_DIR: /app/data
     expose:
       - "8081"
     volumes:
-      - ${DATA_DIR_HOST:-./data}:${KBARR_DATA_DIR:-/app/data}
+      - ${DATA_DIR_HOST:-./data}:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   indexer:
     image: ghcr.io/kingbenny101/kbarr-indexer:latest
     env_file:
       - .env
     environment:
-      DB_URL: ${DB_URL}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       INDEXER_SERVICE_PORT: ${INDEXER_SERVICE_PORT:-8082}
     expose:
       - "8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   core:
     image: ghcr.io/kingbenny101/kbarr-core:latest
     env_file:
       - .env
     environment:
-      DB_URL: ${DB_URL}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       PORT: ${PORT:-8282}
-      KBARR_DATA_DIR: ${KBARR_DATA_DIR:-/app/data}
-      METADATA_GRPC_ADDR: ${METADATA_GRPC_ADDR:-metadata:8081}
-      INDEXER_GRPC_ADDR: ${INDEXER_GRPC_ADDR:-indexer:8082}
-      DOWNLOADER_GRPC_ADDR: ${DOWNLOADER_GRPC_ADDR:-downloader:8083}
+      KBARR_DATA_DIR: /app/data
+      METADATA_GRPC_ADDR: metadata:8081
+      INDEXER_GRPC_ADDR: indexer:8082
+      DOWNLOADER_GRPC_ADDR: downloader:8083
     depends_on:
+      postgres:
+        condition: service_healthy
       metadata:
         condition: service_started
       indexer:
         condition: service_started
+      downloader:
+        condition: service_started
     ports:
       - "${PORT:-8282}:${PORT:-8282}"
     volumes:
-      - ${DATA_DIR_HOST:-./data}:${KBARR_DATA_DIR:-/app/data}
+      - ${DATA_DIR_HOST:-./data}:/app/data
 
 volumes:
   pg_data:
