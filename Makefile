@@ -1,4 +1,4 @@
-.PHONY: db db-down migrate run-anidb run-prowlarr run-downloader run-core run-frontend up down build-frontend generate release
+.PHONY: db db-down run-anidb run-prowlarr run-downloader run-core run-frontend up down build-frontend generate release
 
 # Start only Postgres (for local dev)
 db:
@@ -6,10 +6,6 @@ db:
 
 db-down:
 	docker compose stop postgres
-
-# Run migrations against local Postgres
-migrate:
-	docker compose up --no-deps migrate-core migrate-settings migrate-anidb migrate-indexer migrate-downloader
 
 # Run individual services locally with air
 run-anidb:
@@ -41,7 +37,6 @@ build-frontend:
 
 generate:
 	cd shared/proto && go generate
-	cd services/core && sqlc generate
 
 release:
 	./scripts/release.sh

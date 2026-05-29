@@ -4,43 +4,25 @@ import (
 	"context"
 	"fmt"
 
-	dbgen "github.com/kingbenny101/kbarr/services/core/internal/db/generated"
 	"github.com/kingbenny101/kbarr/shared/models"
 )
 
 func InsertMonitor(m models.Monitor) error {
-	if err := ensureQueries(); err != nil {
+	if err := ensureDB(); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	count, err := Queries.CountMonitorExactMatch(ctx, dbgen.CountMonitorExactMatchParams{
-		LibraryID:     toNullInt64FromUint(m.LibraryID),
-		Season:        toNullInt64(int64(m.Season)),
-		EpisodeNumber: toNullInt64(int64(m.EpisodeNumber)),
-		IsEpisode:     toNullBool(m.IsEpisode),
-		IsSeason:      toNullBool(m.IsSeason),
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to check monitor existence: %w", err)
+	count := countMonitorExactMatch(ctx, int64Ptr(int64(m.LibraryID)), int64Ptr(int64(m.Season)), int64Ptr(int64(m.EpisodeNumber)), boolPtr(m.IsEpisode))
+	if count < 0 {
+		return fmt.Errorf("failed to check monitor existence")
 	}
 
 	if count > 0 {
 		return nil // Already monitored
 	}
 
-	_, err = Queries.CreateMonitor(ctx, dbgen.CreateMonitorParams{
-		LibraryID:     toNullInt64FromUint(m.LibraryID),
-		Title:         toNullString(m.Title),
-		EpisodeTitle:  toNullString(m.EpisodeTitle),
-		Season:        toNullInt64(int64(m.Season)),
-		EpisodeNumber: toNullInt64(int64(m.EpisodeNumber)),
-		IsEpisode:     toNullBool(m.IsEpisode),
-		IsSeason:      toNullBool(m.IsSeason),
-		AnidbID:       toNullString(m.AniDBID),
-		Column9:       m.Status,
-	})
+	_, err := createMonitor(ctx, int64Ptr(int64(m.LibraryID)), stringPtr(m.Title), stringPtr(m.EpisodeTitle), int64Ptr(int64(m.Season)), int64Ptr(int64(m.EpisodeNumber)), boolPtr(m.IsEpisode), boolPtr(m.IsSeason), stringPtr(m.AniDBID), stringPtr(m.Status))
 	if err != nil {
 		return fmt.Errorf("failed to insert monitor entry: %w", err)
 	}
@@ -57,93 +39,143 @@ func InsertMonitorsBulk(ms []models.Monitor) error {
 }
 
 func DeleteMonitor(id uint) error {
-	if err := ensureQueries(); err != nil {
+	if err := ensureDB(); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	if err := Queries.SoftDeleteMonitorByID(ctx, int64(id)); err != nil {
+	if err := softDeleteMonitorByID(ctx, int64(id)); err != nil {
 		return fmt.Errorf("failed to delete monitor entry: %w", err)
 	}
 	return nil
 }
 
 func DeleteMonitorsByLibraryID(libraryID uint) error {
-	if err := ensureQueries(); err != nil {
+	if err := ensureDB(); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	if err := Queries.SoftDeleteMonitorsByLibraryID(ctx, toNullInt64FromUint(libraryID)); err != nil {
+	if err := softDeleteMonitorsByLibraryID(ctx, int64Ptr(int64(libraryID))); err != nil {
 		return fmt.Errorf("failed to delete monitor entries for library ID %d: %w", libraryID, err)
 	}
 	return nil
 }
 
 func DeleteMonitorsBySeason(libraryID uint, season int) error {
-	if err := ensureQueries(); err != nil {
+	if err := ensureDB(); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	if err := Queries.SoftDeleteMonitorsByLibraryIDAndSeason(ctx, dbgen.SoftDeleteMonitorsByLibraryIDAndSeasonParams{
-		LibraryID: toNullInt64FromUint(libraryID),
-		Season:    toNullInt64(int64(season)),
-	}); err != nil {
+	if err := softDeleteMonitorsByLibraryIDAndSeason(ctx, int64Ptr(int64(libraryID)), int64Ptr(int64(season))); err != nil {
 		return fmt.Errorf("failed to delete monitor entries for library ID %d season %d: %w", libraryID, season, err)
 	}
 	return nil
 }
 
 func GetAllMonitored() ([]models.Monitor, error) {
-	if err := ensureQueries(); err != nil {
+	if err := ensureDB(); err != nil {
 		return nil, err
 	}
 
 	ctx := context.Background()
-	rows, err := Queries.ListMonitors(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query monitor entries: %w", err)
-	}
+	rows := listMonitors(ctx)
 
 	monitors := make([]models.Monitor, 0, len(rows))
 	for _, row := range rows {
-		monitors = append(monitors, toMonitorModel(row))
+		monitors = append(monitors, monitorToModel(row))
 	}
 
 	return monitors, nil
 }
 
 func GetMonitorsByLibraryID(libraryID uint) ([]models.Monitor, error) {
-	if err := ensureQueries(); err != nil {
+	if err := ensureDB(); err != nil {
 		return nil, err
 	}
 
 	ctx := context.Background()
-	rows, err := Queries.ListMonitorsByLibraryID(ctx, toNullInt64FromUint(libraryID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to query monitor entries by library ID %d: %w", libraryID, err)
-	}
+	rows := listMonitorsByLibraryID(ctx, int64Ptr(int64(libraryID)))
 
 	monitors := make([]models.Monitor, 0, len(rows))
 	for _, row := range rows {
-		monitors = append(monitors, toMonitorModel(row))
+		monitors = append(monitors, monitorToModel(row))
 	}
 
 	return monitors, nil
 }
 
 func UnmonitorByDetails(libraryID uint, anidbID string) error {
-	if err := ensureQueries(); err != nil {
+	if err := ensureDB(); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	if err := Queries.SoftDeleteMonitorsByLibraryIDAndAniDBID(ctx, dbgen.SoftDeleteMonitorsByLibraryIDAndAniDBIDParams{
-		LibraryID: toNullInt64FromUint(libraryID),
-		AnidbID:   toNullString(anidbID),
-	}); err != nil {
+	if err := softDeleteMonitorsByLibraryIDAndAniDBID(ctx, int64Ptr(int64(libraryID)), stringPtr(anidbID)); err != nil {
 		return fmt.Errorf("failed to unmonitor: %w", err)
 	}
 	return nil
+}
+
+func listMonitors(ctx context.Context) []Monitor {
+	var items []Monitor
+	if err := DB.NewSelect().Model(&items).Scan(ctx); err != nil {
+		return nil
+	}
+	return items
+}
+
+func listMonitorsByLibraryID(ctx context.Context, libraryID *int64) []Monitor {
+	var items []Monitor
+	if err := DB.NewSelect().Model(&items).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Scan(ctx); err != nil {
+		return nil
+	}
+	return items
+}
+
+func createMonitor(ctx context.Context, libraryID *int64, title *string, episodeTitle *string, season *int64, episodeNumber *int64, isEpisode *bool, isSeason *bool, anidbID *string, status *string) (*Monitor, error) {
+	item := &Monitor{
+		LibraryID:     libraryID,
+		Title:         title,
+		EpisodeTitle:  episodeTitle,
+		Season:        season,
+		EpisodeNumber: episodeNumber,
+		IsEpisode:     isEpisode,
+		IsSeason:      isSeason,
+		AnidbID:       anidbID,
+		Status:        status,
+	}
+	if _, err := DB.NewInsert().Model(item).Returning("*").Exec(ctx); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func softDeleteMonitorByID(ctx context.Context, id int64) error {
+	_, err := DB.NewDelete().Model((*Monitor)(nil)).Where("id = ?", id).Exec(ctx)
+	return err
+}
+
+func softDeleteMonitorsByLibraryID(ctx context.Context, libraryID *int64) error {
+	_, err := DB.NewDelete().Model((*Monitor)(nil)).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Exec(ctx)
+	return err
+}
+
+func softDeleteMonitorsByLibraryIDAndSeason(ctx context.Context, libraryID *int64, season *int64) error {
+	_, err := DB.NewDelete().Model((*Monitor)(nil)).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Where("season IS NOT DISTINCT FROM ?", season).Exec(ctx)
+	return err
+}
+
+func softDeleteMonitorsByLibraryIDAndAniDBID(ctx context.Context, libraryID *int64, anidbID *string) error {
+	_, err := DB.NewDelete().Model((*Monitor)(nil)).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Where("anidb_id IS NOT DISTINCT FROM ?", anidbID).Exec(ctx)
+	return err
+}
+
+func countMonitorExactMatch(ctx context.Context, libraryID *int64, season *int64, episodeNumber *int64, isEpisode *bool) int64 {
+	count, err := DB.NewSelect().Model((*Monitor)(nil)).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Where("season IS NOT DISTINCT FROM ?", season).Where("episode_number IS NOT DISTINCT FROM ?", episodeNumber).Where("is_episode IS NOT DISTINCT FROM ?", isEpisode).Count(ctx)
+	if err != nil {
+		return -1
+	}
+	return int64(count)
 }

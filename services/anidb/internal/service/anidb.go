@@ -2,7 +2,6 @@ package service
 
 import (
 	"compress/gzip"
-	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/kingbenny101/kbarr/shared/config"
 	"github.com/kingbenny101/kbarr/shared/models"
+	"github.com/uptrace/bun"
 )
 
 const (
@@ -25,14 +25,14 @@ const (
 )
 
 type AniDBService struct {
-	db         *sql.DB
+	db         *bun.DB
 	httpClient *http.Client
 
 	mu         sync.RWMutex
 	titlesDump *models.AnimeTitlesDump
 }
 
-func New(db *sql.DB) *AniDBService {
+func New(db *bun.DB) *AniDBService {
 	return &AniDBService{
 		db:         db,
 		httpClient: &http.Client{Timeout: 45 * time.Second},

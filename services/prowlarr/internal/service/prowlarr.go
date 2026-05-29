@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/kingbenny101/kbarr/shared/config"
 	proto "github.com/kingbenny101/kbarr/shared/proto"
+	"github.com/uptrace/bun"
 )
 
 type cachedSearch struct {
@@ -21,14 +21,14 @@ type cachedSearch struct {
 }
 
 type ProwlarrService struct {
-	db         *sql.DB
+	db         *bun.DB
 	httpClient *http.Client
 
 	mu    sync.RWMutex
 	cache map[string]cachedSearch
 }
 
-func New(db *sql.DB) *ProwlarrService {
+func New(db *bun.DB) *ProwlarrService {
 	return &ProwlarrService{
 		db:         db,
 		httpClient: &http.Client{Timeout: 30 * time.Second},

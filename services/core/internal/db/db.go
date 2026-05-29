@@ -3,27 +3,19 @@ package db
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
-	dbgen "github.com/kingbenny101/kbarr/services/core/internal/db/generated"
 	"github.com/kingbenny101/kbarr/shared/config"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/uptrace/bun/extra/bundebug"
 )
 
-var (
-	Pool    *pgxpool.Pool
-	DB      *sql.DB
-	Queries *dbgen.Queries
-)
+var DB *bun.DB
 
 func Init() error {
 	dbURL := os.Getenv("DB_URL")
@@ -31,87 +23,56 @@ func Init() error {
 		return fmt.Errorf("DB_URL environment variable is required")
 	}
 
+	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dbURL)))
+	DB = bun.NewDB(sqldb, pgdialect.New())
+
+	if os.Getenv("KBARR_ENV") == "dev" {
+		DB.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
+	}
+
 	ctx := context.Background()
 	var err error
 
 	const maxAttempts = 120
-	connected := false
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		poolConfig, openErr := pgxpool.ParseConfig(dbURL)
-		if openErr != nil {
-			err = openErr
-		} else {
-			if poolConfig.ConnConfig.RuntimeParams == nil {
-				poolConfig.ConnConfig.RuntimeParams = make(map[string]string)
-			}
-			poolConfig.ConnConfig.RuntimeParams["search_path"] = "public"
-
-			pool, poolErr := pgxpool.NewWithConfig(ctx, poolConfig)
-			if poolErr != nil {
-				err = poolErr
-			} else {
-				err = pool.Ping(ctx)
-				if err == nil {
-					Pool = pool
-					DB = stdlib.OpenDBFromPool(pool)
-					connected = true
-					break
-				}
-				pool.Close()
-			}
+		err = DB.DB.PingContext(ctx)
+		if err == nil {
+			break
 		}
 
 		slog.Warn("PostgreSQL not ready", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
 		time.Sleep(1 * time.Second)
 	}
 
-	if !connected {
+	if err != nil {
 		return fmt.Errorf("failed to open database after %d attempts: %w", maxAttempts, err)
 	}
 
 	slog.Info("Connected to PostgreSQL")
 
-	if err := runMigrations(dbURL); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
-	}
+	DB.RegisterModel((*Medium)(nil), (*Detailed)(nil), (*Episode)(nil), (*Monitor)(nil), (*SearchQueue)(nil), (*Setting)(nil))
 
-	Queries = dbgen.New(DB)
+	models := []any{
+		(*Medium)(nil),
+		(*Detailed)(nil),
+		(*Episode)(nil),
+		(*Monitor)(nil),
+		(*SearchQueue)(nil),
+		(*Setting)(nil),
+	}
+	for _, model := range models {
+		if _, err := DB.NewCreateTable().Model(model).IfNotExists().Exec(ctx); err != nil {
+			return fmt.Errorf("failed to create table for %T: %w", model, err)
+		}
+	}
 
 	slog.Info("Tables ready")
 
+	// TODO: update shared/config.EnsureDefaults to accept *bun.DB instead of *sql.DB.
 	if err := config.EnsureDefaults(DB); err != nil {
 		return fmt.Errorf("failed to initialize settings defaults: %w", err)
 	}
 	slog.Info("Settings defaults ready")
-
-	return nil
-}
-
-func runMigrations(dbURL string) error {
-	migrationsPath, err := filepath.Abs("../../migrations/core")
-	if err != nil {
-		return fmt.Errorf("failed to resolve migrations path: %w", err)
-	}
-
-	migrationSource := "file://" + filepath.ToSlash(migrationsPath)
-	m, err := migrate.New(migrationSource, dbURL)
-	if err != nil {
-		return fmt.Errorf("failed to create migration runner: %w", err)
-	}
-
-	defer func() {
-		srcErr, dbErr := m.Close()
-		if srcErr != nil {
-			slog.Warn("Failed to close migration source", "error", srcErr)
-		}
-		if dbErr != nil {
-			slog.Warn("Failed to close migration database handle", "error", dbErr)
-		}
-	}()
-
-	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return err
-	}
 
 	return nil
 }

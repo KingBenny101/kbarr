@@ -25,12 +25,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := config.EnsureDefaults(db.SQLDB); err != nil {
+	if err := config.EnsureDefaults(db.DB); err != nil {
 		slog.Error("Failed to ensure default settings", "error", err)
 		os.Exit(1)
 	}
 
-	svc := service.New(db.SQLDB)
+	svc := service.New(db.DB)
 
 	port := os.Getenv("PROWLARR_SERVICE_PORT")
 	if port == "" {

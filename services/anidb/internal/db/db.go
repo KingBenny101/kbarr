@@ -10,11 +10,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
 var (
 	Pool  *pgxpool.Pool
 	SQLDB *sql.DB
+	DB    *bun.DB
 )
 
 func Init() error {
@@ -45,6 +48,7 @@ func Init() error {
 				if err == nil {
 					Pool = pool
 					SQLDB = stdlib.OpenDBFromPool(pool)
+					DB = bun.NewDB(SQLDB, pgdialect.New())
 					slog.Info("Connected to PostgreSQL")
 					return nil
 				}

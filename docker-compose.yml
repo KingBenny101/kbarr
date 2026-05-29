@@ -19,66 +19,6 @@ services:
       retries: 10
       start_period: 5s
 
-  migrate-core:
-    image: migrate/migrate
-    env_file:
-      - .env
-    volumes:
-      - ./migrations/core:/migrations:ro,z
-    command: ["-path", "/migrations", "-database", "${DB_URL}&x-migrations-table=schema_migrations_core", "up"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  migrate-anidb:
-    image: migrate/migrate
-    env_file:
-      - .env
-    volumes:
-      - ./migrations/anidb:/migrations:ro,z
-    command: ["-path", "/migrations", "-database", "${DB_URL}&x-migrations-table=schema_migrations_anidb", "up"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  migrate-indexer:
-    image: migrate/migrate
-    env_file:
-      - .env
-    volumes:
-      - ./migrations/indexer:/migrations:ro,z
-    command: ["-path", "/migrations", "-database", "${DB_URL}&x-migrations-table=schema_migrations_indexer", "up"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  migrate-downloader:
-    image: migrate/migrate
-    env_file:
-      - .env
-    volumes:
-      - ./migrations/downloader:/migrations:ro,z
-    command: ["-path", "/migrations", "-database", "${DB_URL}&x-migrations-table=schema_migrations_downloader", "up"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  migrate-settings:
-    image: migrate/migrate
-    env_file:
-      - .env
-    volumes:
-      - ./migrations/settings:/migrations:ro,z
-    command: ["-path", "/migrations", "-database", "${DB_URL}&x-migrations-table=schema_migrations_settings", "up"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
   downloader:
     image: ghcr.io/kingbenny101/kbarr-downloader:latest
     env_file:
@@ -87,17 +27,6 @@ services:
       DB_URL: ${DB_URL}
       DOWNLOADER_SERVICE_PORT: ${DOWNLOADER_SERVICE_PORT:-8083}
       QBITTORRENT_URL: ${QBITTORRENT_URL:-http://host.docker.internal:8080}
-    depends_on:
-      migrate-core:
-        condition: service_completed_successfully
-      migrate-anidb:
-        condition: service_completed_successfully
-      migrate-indexer:
-        condition: service_completed_successfully
-      migrate-downloader:
-        condition: service_completed_successfully
-      migrate-settings:
-        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose:
@@ -124,17 +53,6 @@ services:
       DB_URL: ${DB_URL}
       ANIDB_SERVICE_PORT: ${ANIDB_SERVICE_PORT:-8081}
       KBARR_DATA_DIR: ${KBARR_DATA_DIR:-/app/data}
-    depends_on:
-      migrate-core:
-        condition: service_completed_successfully
-      migrate-anidb:
-        condition: service_completed_successfully
-      migrate-indexer:
-        condition: service_completed_successfully
-      migrate-downloader:
-        condition: service_completed_successfully
-      migrate-settings:
-        condition: service_completed_successfully
     expose:
       - "8081"
     volumes:
@@ -147,17 +65,6 @@ services:
     environment:
       DB_URL: ${DB_URL}
       PROWLARR_SERVICE_PORT: ${PROWLARR_SERVICE_PORT:-8082}
-    depends_on:
-      migrate-core:
-        condition: service_completed_successfully
-      migrate-anidb:
-        condition: service_completed_successfully
-      migrate-indexer:
-        condition: service_completed_successfully
-      migrate-downloader:
-        condition: service_completed_successfully
-      migrate-settings:
-        condition: service_completed_successfully
     expose:
       - "8082"
 
@@ -173,16 +80,6 @@ services:
       PROWLARR_GRPC_ADDR: ${PROWLARR_GRPC_ADDR:-prowlarr:8082}
       DOWNLOADER_GRPC_ADDR: ${DOWNLOADER_GRPC_ADDR:-downloader:8083}
     depends_on:
-      migrate-core:
-        condition: service_completed_successfully
-      migrate-anidb:
-        condition: service_completed_successfully
-      migrate-indexer:
-        condition: service_completed_successfully
-      migrate-downloader:
-        condition: service_completed_successfully
-      migrate-settings:
-        condition: service_completed_successfully
       anidb:
         condition: service_started
       prowlarr:

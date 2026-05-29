@@ -2,11 +2,12 @@ package config
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/uptrace/bun"
 )
 
 type Config struct {
@@ -33,18 +34,20 @@ var DefaultSettings = map[string]string{
 	"autoMonitorOnAdd":    "false",
 }
 
-func EnsureDefaults(db *sql.DB) error {
+type Setting struct {
+	bun.BaseModel `bun:"table:settings,alias:s"`
+	Key           string  `bun:"key,notnull,unique"`
+	Value         *string `bun:"value"`
+}
+
+func EnsureDefaults(db *bun.DB) error {
 	if db == nil {
 		return fmt.Errorf("database is not initialized")
 	}
 
 	ctx := context.Background()
 	for key, value := range DefaultSettings {
-		_, err := db.ExecContext(ctx, `
-INSERT INTO settings (key, value, deleted_at)
-VALUES ($1, $2, NULL)
-ON CONFLICT (key) DO NOTHING
-`, key, value)
+		_, err := db.NewInsert().Model(&Setting{Key: key, Value: &value}).On("CONFLICT (key) DO NOTHING").Exec(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to initialize default setting %s: %w", key, err)
 		}
@@ -53,7 +56,7 @@ ON CONFLICT (key) DO NOTHING
 	return nil
 }
 
-func SetSetting(db *sql.DB, key, value string) error {
+func SetSetting(db *bun.DB, key, value string) error {
 	if db == nil {
 		return fmt.Errorf("database is not initialized")
 	}
@@ -61,14 +64,8 @@ func SetSetting(db *sql.DB, key, value string) error {
 		return err
 	}
 
-	_, err := db.ExecContext(context.Background(), `
-INSERT INTO settings (key, value, created_at, updated_at)
-VALUES ($1, $2, NOW(), NOW())
-ON CONFLICT (key) DO UPDATE
-SET value = EXCLUDED.value,
-    updated_at = NOW(),
-    deleted_at = NULL
-`, key, value)
+	s := Setting{Key: key, Value: &value}
+	_, err := db.NewInsert().Model(&s).On("CONFLICT (key) DO UPDATE").Set("value = EXCLUDED.value").Set("deleted_at = NULL").Exec(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to upsert setting %s: %w", key, err)
 	}
@@ -76,40 +73,29 @@ SET value = EXCLUDED.value,
 	return nil
 }
 
-func GetSettingsMap(db *sql.DB) (map[string]string, error) {
+func GetSettingsMap(db *bun.DB) (map[string]string, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database is not initialized")
 	}
 
-	rows, err := db.QueryContext(context.Background(), `
-SELECT key, COALESCE(value, '')
-FROM settings
-WHERE deleted_at IS NULL
-ORDER BY key ASC
-`)
-	if err != nil {
+	var settings []Setting
+	if err := db.NewSelect().Model(&settings).Where("deleted_at IS NULL").Scan(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to list settings: %w", err)
 	}
-	defer rows.Close()
 
 	values := make(map[string]string, len(DefaultSettings))
-	for rows.Next() {
-		var key string
-		var value string
-		if err := rows.Scan(&key, &value); err != nil {
-			return nil, fmt.Errorf("failed to scan setting row: %w", err)
+	for _, setting := range settings {
+		if setting.Value != nil {
+			values[setting.Key] = *setting.Value
+		} else {
+			values[setting.Key] = ""
 		}
-		values[key] = value
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to iterate settings rows: %w", err)
 	}
 
 	return values, nil
 }
 
-func Load(db *sql.DB) *Config {
+func Load(db *bun.DB) *Config {
 	serverPort := getEnv("PORT", getEnv("KBARR_PORT", "8080"))
 	serverAddr := ":" + serverPort
 
