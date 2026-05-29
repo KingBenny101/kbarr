@@ -5,7 +5,6 @@ RUN apk add --no-cache ca-certificates nodejs npm
 
 COPY VERSION ./VERSION
 COPY shared ./shared
-COPY migrations ./migrations
 COPY frontend ./frontend
 COPY services/core ./services/core
 
@@ -23,6 +22,5 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /out/kbarr .
 COPY VERSION .
-COPY --from=builder /workspace/migrations /migrations
 EXPOSE 8080
 CMD ["./kbarr"]
