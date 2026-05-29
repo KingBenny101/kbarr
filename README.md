@@ -10,17 +10,15 @@ Uses AniDB as the source for anime metadata.
 
 Requirements: Docker and Docker Compose.
 
-You also need qBittorrent running separately and reachable at the default URL
-(`http://host.docker.internal:8080` in Docker, `http://localhost:8080` for local
-`air` runs unless you override `QBITTORRENT_URL`).
+Download the latest release files:
 
 ```bash
-curl -O https://raw.githubusercontent.com/kingbenny101/kbarr/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/kingbenny101/kbarr/main/.env.example
+curl -LO https://github.com/kingbenny101/kbarr/releases/latest/download/docker-compose.yml
+curl -LO https://github.com/kingbenny101/kbarr/releases/latest/download/.env.example
 cp .env.example .env
 ```
 
-Edit .env and set PROWLARR_API_KEY, then:
+Edit `.env` and set `PROWLARR_API_KEY`, then:
 
 ```bash
 docker compose up -d
