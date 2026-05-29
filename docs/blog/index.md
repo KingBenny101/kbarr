@@ -4,8 +4,8 @@ Welcome to the kbarr blog. This is a place for project updates, design notes, an
 
 ## Posts
 
-- [First post: Why I built kbarr](2026-05-29-first-post.md)
-- [Architecture notes and next steps](2026-06-01-architecture-notes.md)
+- [First post](2026-05-29-first-post.md)
+- [Architecture notes](2026-05-29-architecture-notes.md)
 
 ---
 
