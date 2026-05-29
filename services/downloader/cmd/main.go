@@ -11,7 +11,7 @@ import (
 	"github.com/kingbenny101/kbarr/services/downloader/internal/db"
 	"github.com/kingbenny101/kbarr/services/downloader/internal/service"
 	"github.com/kingbenny101/kbarr/shared/logger"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	downloader "github.com/kingbenny101/kbarr/shared/proto/downloader"
 	"google.golang.org/grpc"
 )
 
@@ -39,7 +39,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterDownloaderServer(grpcServer, service.NewGrpcServer(svc))
+	downloader.RegisterDownloaderServer(grpcServer, service.NewGrpcServer(svc))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package kbarr;
+package indexer;
 
-option go_package = "github.com/kingbenny101/kbarr/shared/proto;proto";
+option go_package = "github.com/kingbenny101/kbarr/shared/proto/indexer;indexer";
 
-service ProwlarrService {
+service IndexerService {
   rpc Search(ProwlarrSearchRequest) returns (ProwlarrSearchResponse);
 }
 

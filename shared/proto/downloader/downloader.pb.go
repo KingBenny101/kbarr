@@ -4,7 +4,7 @@
 // 	protoc        v3.19.6
 // source: downloader.proto
 
-package proto
+package downloader
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -520,7 +520,7 @@ const file_downloader_proto_rawDesc = "" +
 	"\n" +
 	"GetTorrent\x12\x1a.downloader.TorrentRequest\x1a\x1b.downloader.TorrentResponse\x12Q\n" +
 	"\fListTorrents\x12\x1f.downloader.ListTorrentsRequest\x1a .downloader.ListTorrentsResponse\x12T\n" +
-	"\rRemoveTorrent\x12 .downloader.RemoveTorrentRequest\x1a!.downloader.RemoveTorrentResponseB\x1fZ\x1dkbarr/shared/proto/downloaderb\x06proto3"
+	"\rRemoveTorrent\x12 .downloader.RemoveTorrentRequest\x1a!.downloader.RemoveTorrentResponseBBZ@github.com/kingbenny101/kbarr/shared/proto/downloader;downloaderb\x06proto3"
 
 var (
 	file_downloader_proto_rawDescOnce sync.Once

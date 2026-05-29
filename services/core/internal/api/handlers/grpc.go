@@ -4,7 +4,8 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/shared/models"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
+	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -17,8 +18,8 @@ type ProwlarrSearchResult struct {
 	Peers       int    `json:"leechers"`
 }
 
-func toAniDBMediaProto(media models.Media) *proto.AniDBMedia {
-	return &proto.AniDBMedia{
+func toAniDBMediaProto(media models.Media) *metadatapb.AniDBMedia {
+	return &metadatapb.AniDBMedia{
 		Id:        uint64(media.ID),
 		CreatedAt: toTimestamp(media.CreatedAt),
 		UpdatedAt: toTimestamp(media.UpdatedAt),
@@ -29,7 +30,7 @@ func toAniDBMediaProto(media models.Media) *proto.AniDBMedia {
 	}
 }
 
-func toDetailedModel(detailed *proto.AniDBDetailed) models.Detailed {
+func toDetailedModel(detailed *metadatapb.AniDBDetailed) models.Detailed {
 	if detailed == nil {
 		return models.Detailed{}
 	}
@@ -77,7 +78,7 @@ func toDetailedModel(detailed *proto.AniDBDetailed) models.Detailed {
 	return result
 }
 
-func toProwlarrSearchResults(results []*proto.ProwlarrSearchResult) []ProwlarrSearchResult {
+func toProwlarrSearchResults(results []*indexerpb.ProwlarrSearchResult) []ProwlarrSearchResult {
 	if len(results) == 0 {
 		return []ProwlarrSearchResult{}
 	}

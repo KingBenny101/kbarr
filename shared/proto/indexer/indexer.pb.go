@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.19.6
-// source: prowlarr.proto
+// source: indexer.proto
 
-package proto
+package indexer
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -30,7 +30,7 @@ type ProwlarrSearchRequest struct {
 
 func (x *ProwlarrSearchRequest) Reset() {
 	*x = ProwlarrSearchRequest{}
-	mi := &file_prowlarr_proto_msgTypes[0]
+	mi := &file_indexer_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +42,7 @@ func (x *ProwlarrSearchRequest) String() string {
 func (*ProwlarrSearchRequest) ProtoMessage() {}
 
 func (x *ProwlarrSearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_prowlarr_proto_msgTypes[0]
+	mi := &file_indexer_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +55,7 @@ func (x *ProwlarrSearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProwlarrSearchRequest.ProtoReflect.Descriptor instead.
 func (*ProwlarrSearchRequest) Descriptor() ([]byte, []int) {
-	return file_prowlarr_proto_rawDescGZIP(), []int{0}
+	return file_indexer_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ProwlarrSearchRequest) GetQuery() string {
@@ -79,7 +79,7 @@ type ProwlarrSearchResult struct {
 
 func (x *ProwlarrSearchResult) Reset() {
 	*x = ProwlarrSearchResult{}
-	mi := &file_prowlarr_proto_msgTypes[1]
+	mi := &file_indexer_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -91,7 +91,7 @@ func (x *ProwlarrSearchResult) String() string {
 func (*ProwlarrSearchResult) ProtoMessage() {}
 
 func (x *ProwlarrSearchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_prowlarr_proto_msgTypes[1]
+	mi := &file_indexer_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -104,7 +104,7 @@ func (x *ProwlarrSearchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProwlarrSearchResult.ProtoReflect.Descriptor instead.
 func (*ProwlarrSearchResult) Descriptor() ([]byte, []int) {
-	return file_prowlarr_proto_rawDescGZIP(), []int{1}
+	return file_indexer_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ProwlarrSearchResult) GetTitle() string {
@@ -158,7 +158,7 @@ type ProwlarrSearchResponse struct {
 
 func (x *ProwlarrSearchResponse) Reset() {
 	*x = ProwlarrSearchResponse{}
-	mi := &file_prowlarr_proto_msgTypes[2]
+	mi := &file_indexer_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -170,7 +170,7 @@ func (x *ProwlarrSearchResponse) String() string {
 func (*ProwlarrSearchResponse) ProtoMessage() {}
 
 func (x *ProwlarrSearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prowlarr_proto_msgTypes[2]
+	mi := &file_indexer_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -183,7 +183,7 @@ func (x *ProwlarrSearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProwlarrSearchResponse.ProtoReflect.Descriptor instead.
 func (*ProwlarrSearchResponse) Descriptor() ([]byte, []int) {
-	return file_prowlarr_proto_rawDescGZIP(), []int{2}
+	return file_indexer_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ProwlarrSearchResponse) GetResults() []*ProwlarrSearchResult {
@@ -193,11 +193,11 @@ func (x *ProwlarrSearchResponse) GetResults() []*ProwlarrSearchResult {
 	return nil
 }
 
-var File_prowlarr_proto protoreflect.FileDescriptor
+var File_indexer_proto protoreflect.FileDescriptor
 
-const file_prowlarr_proto_rawDesc = "" +
+const file_indexer_proto_rawDesc = "" +
 	"\n" +
-	"\x0eprowlarr.proto\x12\x05kbarr\"-\n" +
+	"\rindexer.proto\x12\aindexer\"-\n" +
 	"\x15ProwlarrSearchRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\"\xa9\x01\n" +
 	"\x14ProwlarrSearchResult\x12\x14\n" +
@@ -206,34 +206,34 @@ const file_prowlarr_proto_rawDesc = "" +
 	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
 	"\aindexer\x18\x04 \x01(\tR\aindexer\x12\x14\n" +
 	"\x05seeds\x18\x05 \x01(\x05R\x05seeds\x12\x14\n" +
-	"\x05peers\x18\x06 \x01(\x05R\x05peers\"O\n" +
-	"\x16ProwlarrSearchResponse\x125\n" +
-	"\aresults\x18\x01 \x03(\v2\x1b.kbarr.ProwlarrSearchResultR\aresults2X\n" +
-	"\x0fProwlarrService\x12E\n" +
-	"\x06Search\x12\x1c.kbarr.ProwlarrSearchRequest\x1a\x1d.kbarr.ProwlarrSearchResponseB2Z0github.com/kingbenny101/kbarr/shared/proto;protob\x06proto3"
+	"\x05peers\x18\x06 \x01(\x05R\x05peers\"Q\n" +
+	"\x16ProwlarrSearchResponse\x127\n" +
+	"\aresults\x18\x01 \x03(\v2\x1d.indexer.ProwlarrSearchResultR\aresults2[\n" +
+	"\x0eIndexerService\x12I\n" +
+	"\x06Search\x12\x1e.indexer.ProwlarrSearchRequest\x1a\x1f.indexer.ProwlarrSearchResponseB<Z:github.com/kingbenny101/kbarr/shared/proto/indexer;indexerb\x06proto3"
 
 var (
-	file_prowlarr_proto_rawDescOnce sync.Once
-	file_prowlarr_proto_rawDescData []byte
+	file_indexer_proto_rawDescOnce sync.Once
+	file_indexer_proto_rawDescData []byte
 )
 
-func file_prowlarr_proto_rawDescGZIP() []byte {
-	file_prowlarr_proto_rawDescOnce.Do(func() {
-		file_prowlarr_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_prowlarr_proto_rawDesc), len(file_prowlarr_proto_rawDesc)))
+func file_indexer_proto_rawDescGZIP() []byte {
+	file_indexer_proto_rawDescOnce.Do(func() {
+		file_indexer_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_indexer_proto_rawDesc), len(file_indexer_proto_rawDesc)))
 	})
-	return file_prowlarr_proto_rawDescData
+	return file_indexer_proto_rawDescData
 }
 
-var file_prowlarr_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_prowlarr_proto_goTypes = []any{
-	(*ProwlarrSearchRequest)(nil),  // 0: kbarr.ProwlarrSearchRequest
-	(*ProwlarrSearchResult)(nil),   // 1: kbarr.ProwlarrSearchResult
-	(*ProwlarrSearchResponse)(nil), // 2: kbarr.ProwlarrSearchResponse
+var file_indexer_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_indexer_proto_goTypes = []any{
+	(*ProwlarrSearchRequest)(nil),  // 0: indexer.ProwlarrSearchRequest
+	(*ProwlarrSearchResult)(nil),   // 1: indexer.ProwlarrSearchResult
+	(*ProwlarrSearchResponse)(nil), // 2: indexer.ProwlarrSearchResponse
 }
-var file_prowlarr_proto_depIdxs = []int32{
-	1, // 0: kbarr.ProwlarrSearchResponse.results:type_name -> kbarr.ProwlarrSearchResult
-	0, // 1: kbarr.ProwlarrService.Search:input_type -> kbarr.ProwlarrSearchRequest
-	2, // 2: kbarr.ProwlarrService.Search:output_type -> kbarr.ProwlarrSearchResponse
+var file_indexer_proto_depIdxs = []int32{
+	1, // 0: indexer.ProwlarrSearchResponse.results:type_name -> indexer.ProwlarrSearchResult
+	0, // 1: indexer.IndexerService.Search:input_type -> indexer.ProwlarrSearchRequest
+	2, // 2: indexer.IndexerService.Search:output_type -> indexer.ProwlarrSearchResponse
 	2, // [2:3] is the sub-list for method output_type
 	1, // [1:2] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -241,26 +241,26 @@ var file_prowlarr_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_prowlarr_proto_init() }
-func file_prowlarr_proto_init() {
-	if File_prowlarr_proto != nil {
+func init() { file_indexer_proto_init() }
+func file_indexer_proto_init() {
+	if File_indexer_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_prowlarr_proto_rawDesc), len(file_prowlarr_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_indexer_proto_rawDesc), len(file_indexer_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_prowlarr_proto_goTypes,
-		DependencyIndexes: file_prowlarr_proto_depIdxs,
-		MessageInfos:      file_prowlarr_proto_msgTypes,
+		GoTypes:           file_indexer_proto_goTypes,
+		DependencyIndexes: file_indexer_proto_depIdxs,
+		MessageInfos:      file_indexer_proto_msgTypes,
 	}.Build()
-	File_prowlarr_proto = out.File
-	file_prowlarr_proto_goTypes = nil
-	file_prowlarr_proto_depIdxs = nil
+	File_indexer_proto = out.File
+	file_indexer_proto_goTypes = nil
+	file_indexer_proto_depIdxs = nil
 }

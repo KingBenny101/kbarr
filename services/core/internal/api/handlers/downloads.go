@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	downloaderpb "github.com/kingbenny101/kbarr/shared/proto/downloader"
 )
 
-func HandleAddTorrent(w http.ResponseWriter, r *http.Request, downloaderClient proto.DownloaderClient) {
-	var request proto.AddTorrentRequest
+func HandleAddTorrent(w http.ResponseWriter, r *http.Request, downloaderClient downloaderpb.DownloaderClient) {
+	var request downloaderpb.AddTorrentRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
@@ -31,16 +31,16 @@ func HandleAddTorrent(w http.ResponseWriter, r *http.Request, downloaderClient p
 
 	w.Header().Set("Content-Type", "application/json")
 	if response == nil {
-		response = &proto.AddTorrentResponse{}
+		response = &downloaderpb.AddTorrentResponse{}
 	}
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-func HandleListTorrents(w http.ResponseWriter, r *http.Request, downloaderClient proto.DownloaderClient) {
+func HandleListTorrents(w http.ResponseWriter, r *http.Request, downloaderClient downloaderpb.DownloaderClient) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	response, err := downloaderClient.ListTorrents(ctx, &proto.ListTorrentsRequest{Category: r.URL.Query().Get("category")})
+	response, err := downloaderClient.ListTorrents(ctx, &downloaderpb.ListTorrentsRequest{Category: r.URL.Query().Get("category")})
 	if err != nil {
 		slog.Error("Downloader list torrents failed", "error", err)
 		http.Error(w, "failed to list torrents", http.StatusInternalServerError)
@@ -49,12 +49,12 @@ func HandleListTorrents(w http.ResponseWriter, r *http.Request, downloaderClient
 
 	w.Header().Set("Content-Type", "application/json")
 	if response == nil {
-		response = &proto.ListTorrentsResponse{Torrents: []*proto.TorrentResponse{}}
+		response = &downloaderpb.ListTorrentsResponse{Torrents: []*downloaderpb.TorrentResponse{}}
 	}
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-func HandleGetTorrent(w http.ResponseWriter, r *http.Request, downloaderClient proto.DownloaderClient) {
+func HandleGetTorrent(w http.ResponseWriter, r *http.Request, downloaderClient downloaderpb.DownloaderClient) {
 	hash := chi.URLParam(r, "hash")
 	if hash == "" {
 		http.Error(w, "missing torrent hash", http.StatusBadRequest)
@@ -64,7 +64,7 @@ func HandleGetTorrent(w http.ResponseWriter, r *http.Request, downloaderClient p
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	response, err := downloaderClient.GetTorrent(ctx, &proto.TorrentRequest{Hash: hash})
+	response, err := downloaderClient.GetTorrent(ctx, &downloaderpb.TorrentRequest{Hash: hash})
 	if err != nil {
 		slog.Error("Downloader get torrent failed", "error", err)
 		http.Error(w, "failed to get torrent", http.StatusInternalServerError)
@@ -73,12 +73,12 @@ func HandleGetTorrent(w http.ResponseWriter, r *http.Request, downloaderClient p
 
 	w.Header().Set("Content-Type", "application/json")
 	if response == nil {
-		response = &proto.TorrentResponse{}
+		response = &downloaderpb.TorrentResponse{}
 	}
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-func HandleRemoveTorrent(w http.ResponseWriter, r *http.Request, downloaderClient proto.DownloaderClient) {
+func HandleRemoveTorrent(w http.ResponseWriter, r *http.Request, downloaderClient downloaderpb.DownloaderClient) {
 	hash := chi.URLParam(r, "hash")
 	if hash == "" {
 		http.Error(w, "missing torrent hash", http.StatusBadRequest)
@@ -94,7 +94,7 @@ func HandleRemoveTorrent(w http.ResponseWriter, r *http.Request, downloaderClien
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	response, err := downloaderClient.RemoveTorrent(ctx, &proto.RemoveTorrentRequest{Hash: hash, DeleteFiles: deleteFiles})
+	response, err := downloaderClient.RemoveTorrent(ctx, &downloaderpb.RemoveTorrentRequest{Hash: hash, DeleteFiles: deleteFiles})
 	if err != nil {
 		slog.Error("Downloader remove torrent failed", "error", err)
 		http.Error(w, "failed to remove torrent", http.StatusInternalServerError)
@@ -103,7 +103,7 @@ func HandleRemoveTorrent(w http.ResponseWriter, r *http.Request, downloaderClien
 
 	w.Header().Set("Content-Type", "application/json")
 	if response == nil {
-		response = &proto.RemoveTorrentResponse{}
+		response = &downloaderpb.RemoveTorrentResponse{}
 	}
 	_ = json.NewEncoder(w).Encode(response)
 }

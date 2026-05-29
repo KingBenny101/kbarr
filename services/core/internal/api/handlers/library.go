@@ -12,10 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
 	"github.com/kingbenny101/kbarr/shared/models"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
+	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 )
 
-func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.AniDBServiceClient) {
+func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient metadatapb.MetadataServiceClient) {
 	var media models.Media
 	err := json.NewDecoder(r.Body).Decode(&media)
 	if err != nil {
@@ -46,7 +47,7 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, anidbClient proto.An
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
-	prepared, err := anidbClient.PrepareDetailedFromMedia(ctx, toAniDBMediaProto(media))
+	prepared, err := metadataClient.PrepareDetailedFromMedia(ctx, toAniDBMediaProto(media))
 	if err != nil {
 		slog.Error("Failed to get anime details from AniDB", "error", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -149,7 +150,7 @@ func HandleUpdateMonitorStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func HandleTriggerSearch(w http.ResponseWriter, r *http.Request, prowlarrClient proto.ProwlarrServiceClient) {
+func HandleTriggerSearch(w http.ResponseWriter, r *http.Request, indexerClient indexerpb.IndexerServiceClient) {
 	id := chi.URLParam(r, "id")
 
 	slog.Info("Trigger search for media ID", "id", id)
@@ -164,7 +165,7 @@ func HandleTriggerSearch(w http.ResponseWriter, r *http.Request, prowlarrClient 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	resultsResponse, err := prowlarrClient.Search(ctx, &proto.ProwlarrSearchRequest{Query: media.Title})
+	resultsResponse, err := indexerClient.Search(ctx, &indexerpb.ProwlarrSearchRequest{Query: media.Title})
 	if err != nil {
 		slog.Error("Prowlarr search failed", "error", err)
 		http.Error(w, fmt.Sprintf("search failed: %v", err), http.StatusInternalServerError)

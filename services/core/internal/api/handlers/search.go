@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 )
 
-func HandleMediaSearch(w http.ResponseWriter, r *http.Request, anidbClient proto.AniDBServiceClient) {
+func HandleMediaSearch(w http.ResponseWriter, r *http.Request, metadataClient metadatapb.MetadataServiceClient) {
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		http.Error(w, "missing query parameter q", http.StatusBadRequest)
@@ -22,7 +22,7 @@ func HandleMediaSearch(w http.ResponseWriter, r *http.Request, anidbClient proto
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
-	response, err := anidbClient.SearchTitles(ctx, &proto.AniDBSearchTitlesRequest{Query: query})
+	response, err := metadataClient.SearchTitles(ctx, &metadatapb.AniDBSearchTitlesRequest{Query: query})
 	if err != nil {
 		slog.Warn("Failed to search titles via service", "error", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -32,7 +32,7 @@ func HandleMediaSearch(w http.ResponseWriter, r *http.Request, anidbClient proto
 
 	results := response.GetResults()
 	if len(results) == 0 {
-		results = []*proto.AniDBSearchResult{}
+		results = []*metadatapb.AniDBSearchResult{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

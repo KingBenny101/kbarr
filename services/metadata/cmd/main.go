@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kingbenny101/kbarr/services/anidb/internal/db"
-	"github.com/kingbenny101/kbarr/services/anidb/internal/service"
+	"github.com/kingbenny101/kbarr/services/metadata/internal/db"
+	"github.com/kingbenny101/kbarr/services/metadata/internal/service"
 	"github.com/kingbenny101/kbarr/shared/logger"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 	"google.golang.org/grpc"
 )
 
@@ -46,7 +46,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterAniDBServiceServer(grpcServer, service.NewGRPCServer(svc))
+	metadatapb.RegisterMetadataServiceServer(grpcServer, service.NewGRPCServer(svc))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

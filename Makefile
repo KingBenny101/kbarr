@@ -1,4 +1,4 @@
-.PHONY: db db-down dev dev-down run-anidb run-prowlarr run-downloader run-core run-frontend up down build-frontend generate release
+.PHONY: db db-down dev dev-down run-metadata run-indexer run-downloader run-core run-frontend up down build-frontend generate release
 
 # Start only Postgres (for local dev)
 db:
@@ -8,11 +8,11 @@ db-down:
 	docker compose stop postgres
 
 # Run individual services locally with air
-run-anidb:
-	cd services/anidb && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+run-metadata:
+	cd services/metadata && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
 
-run-prowlarr:
-	cd services/prowlarr && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
+run-indexer:
+	cd services/indexer && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air
 
 run-downloader:
 	cd services/downloader && set -a && source ../../.env && source ../../.env.local 2>/dev/null; set +a && air

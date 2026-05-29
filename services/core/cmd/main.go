@@ -15,7 +15,9 @@ import (
 	coreversion "github.com/kingbenny101/kbarr/services/core/internal/version"
 	"github.com/kingbenny101/kbarr/shared/config"
 	"github.com/kingbenny101/kbarr/shared/logger"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	downloaderpb "github.com/kingbenny101/kbarr/shared/proto/downloader"
+	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
+	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -40,19 +42,19 @@ func main() {
 	}
 	slog.Info("kbarr version", "version", appVersion)
 
-	anidbConn, err := grpc.NewClient(resolveGRPCAddr("ANIDB_GRPC_ADDR", "localhost:8081"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	metadataConn, err := grpc.NewClient(resolveGRPCAddr("METADATA_GRPC_ADDR", "localhost:8081"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("Failed to connect to AniDB gRPC service", "error", err)
 		os.Exit(1)
 	}
-	defer anidbConn.Close()
+	defer metadataConn.Close()
 
-	prowlarrConn, err := grpc.NewClient(resolveGRPCAddr("PROWLARR_GRPC_ADDR", "localhost:8082"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	indexerConn, err := grpc.NewClient(resolveGRPCAddr("INDEXER_GRPC_ADDR", "localhost:8082"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("Failed to connect to Prowlarr gRPC service", "error", err)
 		os.Exit(1)
 	}
-	defer prowlarrConn.Close()
+	defer indexerConn.Close()
 
 	downloaderConn, err := grpc.NewClient(resolveGRPCAddr("DOWNLOADER_GRPC_ADDR", "downloader:8083"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -62,7 +64,7 @@ func main() {
 	defer downloaderConn.Close()
 
 	// API Router
-	router := api.NewRouter(proto.NewAniDBServiceClient(anidbConn), proto.NewProwlarrServiceClient(prowlarrConn), proto.NewDownloaderClient(downloaderConn), appVersion)
+	router := api.NewRouter(metadatapb.NewMetadataServiceClient(metadataConn), indexerpb.NewIndexerServiceClient(indexerConn), downloaderpb.NewDownloaderClient(downloaderConn), appVersion)
 
 	server := &http.Server{
 		Addr:    cfg.ServerAddr,

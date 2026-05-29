@@ -4,7 +4,7 @@
 // - protoc             v3.19.6
 // source: downloader.proto
 
-package proto
+package downloader
 
 import (
 	context "context"

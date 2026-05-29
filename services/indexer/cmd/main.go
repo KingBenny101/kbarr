@@ -8,10 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kingbenny101/kbarr/services/prowlarr/internal/db"
-	"github.com/kingbenny101/kbarr/services/prowlarr/internal/service"
+	"github.com/kingbenny101/kbarr/services/indexer/internal/db"
+	"github.com/kingbenny101/kbarr/services/indexer/internal/service"
 	"github.com/kingbenny101/kbarr/shared/logger"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
 	"google.golang.org/grpc"
 )
 
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterProwlarrServiceServer(grpcServer, service.NewGRPCServer(svc))
+	indexerpb.RegisterIndexerServiceServer(grpcServer, service.NewGRPCServer(svc))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

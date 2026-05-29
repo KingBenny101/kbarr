@@ -7,18 +7,20 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/kingbenny101/kbarr/services/core/internal/api/handlers"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	downloaderpb "github.com/kingbenny101/kbarr/shared/proto/downloader"
+	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
+	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 )
 
 type Server struct {
-	anidb      proto.AniDBServiceClient
-	prowlarr   proto.ProwlarrServiceClient
-	downloader proto.DownloaderClient
+	anidb      metadatapb.MetadataServiceClient
+	prowlarr   indexerpb.IndexerServiceClient
+	downloader downloaderpb.DownloaderClient
 	version    string
 }
 
-func NewRouter(anidbClient proto.AniDBServiceClient, prowlarrClient proto.ProwlarrServiceClient, downloaderClient proto.DownloaderClient, version string) http.Handler {
-	router := &Server{anidb: anidbClient, prowlarr: prowlarrClient, downloader: downloaderClient, version: version}
+func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient indexerpb.IndexerServiceClient, downloaderClient downloaderpb.DownloaderClient, version string) http.Handler {
+	router := &Server{anidb: metadataClient, prowlarr: indexerClient, downloader: downloaderClient, version: version}
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)

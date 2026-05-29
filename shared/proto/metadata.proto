@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-package kbarr;
+package metadata;
 
-option go_package = "github.com/kingbenny101/kbarr/shared/proto;proto";
+option go_package = "github.com/kingbenny101/kbarr/shared/proto/metadata;metadata";
 
 import "google/protobuf/timestamp.proto";
 
-service AniDBService {
+service MetadataService {
   rpc SearchTitles(AniDBSearchTitlesRequest) returns (AniDBSearchTitlesResponse);
   rpc GetAnimeDetails(AniDBGetAnimeDetailsRequest) returns (AniDBAnimeDetails);
   rpc PrepareDetailedFromMedia(AniDBMedia) returns (AniDBDetailed);

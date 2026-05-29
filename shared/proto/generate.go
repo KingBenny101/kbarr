@@ -1,3 +1,5 @@
 package proto
 
-//go:generate protoc --go_out=. --go_opt=paths=source_relative "--go_opt=Mdownloader.proto=github.com/kingbenny101/kbarr/shared/proto;proto" --go-grpc_out=. --go-grpc_opt=paths=source_relative "--go-grpc_opt=Mdownloader.proto=github.com/kingbenny101/kbarr/shared/proto;proto" anidb.proto prowlarr.proto downloader.proto
+//go:generate protoc --go_out=./metadata --go_opt=paths=source_relative --go-grpc_out=./metadata --go-grpc_opt=paths=source_relative metadata.proto
+//go:generate protoc --go_out=./indexer --go_opt=paths=source_relative --go-grpc_out=./indexer --go-grpc_opt=paths=source_relative indexer.proto
+//go:generate protoc --go_out=./downloader --go_opt=paths=source_relative --go-grpc_out=./downloader --go-grpc_opt=paths=source_relative downloader.proto

@@ -11,16 +11,16 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/shared/config"
-	proto "github.com/kingbenny101/kbarr/shared/proto"
+	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
 	"github.com/uptrace/bun"
 )
 
 type cachedSearch struct {
-	results   []*proto.ProwlarrSearchResult
+	results   []*indexerpb.ProwlarrSearchResult
 	expiresAt time.Time
 }
 
-type ProwlarrService struct {
+type IndexerService struct {
 	db         *bun.DB
 	httpClient *http.Client
 
@@ -28,18 +28,18 @@ type ProwlarrService struct {
 	cache map[string]cachedSearch
 }
 
-func New(db *bun.DB) *ProwlarrService {
-	return &ProwlarrService{
+func New(db *bun.DB) *IndexerService {
+	return &IndexerService{
 		db:         db,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		cache:      make(map[string]cachedSearch),
 	}
 }
 
-func (s *ProwlarrService) Search(query string) ([]*proto.ProwlarrSearchResult, error) {
+func (s *IndexerService) Search(query string) ([]*indexerpb.ProwlarrSearchResult, error) {
 	cleanedQuery := strings.TrimSpace(query)
 	if cleanedQuery == "" {
-		return []*proto.ProwlarrSearchResult{}, nil
+		return []*indexerpb.ProwlarrSearchResult{}, nil
 	}
 
 	cacheKey := strings.ToLower(cleanedQuery)
@@ -84,9 +84,9 @@ func (s *ProwlarrService) Search(query string) ([]*proto.ProwlarrSearchResult, e
 		return nil, fmt.Errorf("failed to decode prowlarr response: %w", err)
 	}
 
-	results := make([]*proto.ProwlarrSearchResult, 0, len(rawResults))
+	results := make([]*indexerpb.ProwlarrSearchResult, 0, len(rawResults))
 	for _, item := range rawResults {
-		results = append(results, &proto.ProwlarrSearchResult{
+		results = append(results, &indexerpb.ProwlarrSearchResult{
 			Title:       item.Title,
 			DownloadUrl: item.DownloadURL,
 			Size:        item.Size,
@@ -105,7 +105,7 @@ func (s *ProwlarrService) Search(query string) ([]*proto.ProwlarrSearchResult, e
 	return results, nil
 }
 
-func (s *ProwlarrService) getCached(key string) ([]*proto.ProwlarrSearchResult, bool) {
+func (s *IndexerService) getCached(key string) ([]*indexerpb.ProwlarrSearchResult, bool) {
 	s.mu.RLock()
 	cached, ok := s.cache[key]
 	s.mu.RUnlock()
@@ -114,13 +114,13 @@ func (s *ProwlarrService) getCached(key string) ([]*proto.ProwlarrSearchResult, 
 		return nil, false
 	}
 
-	out := make([]*proto.ProwlarrSearchResult, len(cached.results))
+	out := make([]*indexerpb.ProwlarrSearchResult, len(cached.results))
 	copy(out, cached.results)
 	return out, true
 }
 
-func (s *ProwlarrService) setCached(key string, results []*proto.ProwlarrSearchResult, ttl time.Duration) {
-	copied := make([]*proto.ProwlarrSearchResult, len(results))
+func (s *IndexerService) setCached(key string, results []*indexerpb.ProwlarrSearchResult, ttl time.Duration) {
+	copied := make([]*indexerpb.ProwlarrSearchResult, len(results))
 	copy(copied, results)
 
 	s.mu.Lock()

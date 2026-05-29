@@ -1,6 +1,6 @@
 syntax = "proto3";
 package downloader;
-option go_package = "kbarr/shared/proto/downloader";
+option go_package = "github.com/kingbenny101/kbarr/shared/proto/downloader;downloader";
 
 service Downloader {
   rpc AddTorrent(AddTorrentRequest) returns (AddTorrentResponse);

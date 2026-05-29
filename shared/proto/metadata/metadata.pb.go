@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.19.6
-// source: anidb.proto
+// source: metadata.proto
 
-package proto
+package metadata
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -31,7 +31,7 @@ type AniDBSearchTitlesRequest struct {
 
 func (x *AniDBSearchTitlesRequest) Reset() {
 	*x = AniDBSearchTitlesRequest{}
-	mi := &file_anidb_proto_msgTypes[0]
+	mi := &file_metadata_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +43,7 @@ func (x *AniDBSearchTitlesRequest) String() string {
 func (*AniDBSearchTitlesRequest) ProtoMessage() {}
 
 func (x *AniDBSearchTitlesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[0]
+	mi := &file_metadata_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +56,7 @@ func (x *AniDBSearchTitlesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBSearchTitlesRequest.ProtoReflect.Descriptor instead.
 func (*AniDBSearchTitlesRequest) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{0}
+	return file_metadata_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *AniDBSearchTitlesRequest) GetQuery() string {
@@ -77,7 +77,7 @@ type AniDBSearchResult struct {
 
 func (x *AniDBSearchResult) Reset() {
 	*x = AniDBSearchResult{}
-	mi := &file_anidb_proto_msgTypes[1]
+	mi := &file_metadata_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -89,7 +89,7 @@ func (x *AniDBSearchResult) String() string {
 func (*AniDBSearchResult) ProtoMessage() {}
 
 func (x *AniDBSearchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[1]
+	mi := &file_metadata_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -102,7 +102,7 @@ func (x *AniDBSearchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBSearchResult.ProtoReflect.Descriptor instead.
 func (*AniDBSearchResult) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{1}
+	return file_metadata_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *AniDBSearchResult) GetAid() uint64 {
@@ -135,7 +135,7 @@ type AniDBSearchTitlesResponse struct {
 
 func (x *AniDBSearchTitlesResponse) Reset() {
 	*x = AniDBSearchTitlesResponse{}
-	mi := &file_anidb_proto_msgTypes[2]
+	mi := &file_metadata_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -147,7 +147,7 @@ func (x *AniDBSearchTitlesResponse) String() string {
 func (*AniDBSearchTitlesResponse) ProtoMessage() {}
 
 func (x *AniDBSearchTitlesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[2]
+	mi := &file_metadata_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -160,7 +160,7 @@ func (x *AniDBSearchTitlesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBSearchTitlesResponse.ProtoReflect.Descriptor instead.
 func (*AniDBSearchTitlesResponse) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{2}
+	return file_metadata_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AniDBSearchTitlesResponse) GetResults() []*AniDBSearchResult {
@@ -179,7 +179,7 @@ type AniDBGetAnimeDetailsRequest struct {
 
 func (x *AniDBGetAnimeDetailsRequest) Reset() {
 	*x = AniDBGetAnimeDetailsRequest{}
-	mi := &file_anidb_proto_msgTypes[3]
+	mi := &file_metadata_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -191,7 +191,7 @@ func (x *AniDBGetAnimeDetailsRequest) String() string {
 func (*AniDBGetAnimeDetailsRequest) ProtoMessage() {}
 
 func (x *AniDBGetAnimeDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[3]
+	mi := &file_metadata_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -204,7 +204,7 @@ func (x *AniDBGetAnimeDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBGetAnimeDetailsRequest.ProtoReflect.Descriptor instead.
 func (*AniDBGetAnimeDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{3}
+	return file_metadata_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *AniDBGetAnimeDetailsRequest) GetAid() uint64 {
@@ -225,7 +225,7 @@ type AniDBAnimeTitle struct {
 
 func (x *AniDBAnimeTitle) Reset() {
 	*x = AniDBAnimeTitle{}
-	mi := &file_anidb_proto_msgTypes[4]
+	mi := &file_metadata_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -237,7 +237,7 @@ func (x *AniDBAnimeTitle) String() string {
 func (*AniDBAnimeTitle) ProtoMessage() {}
 
 func (x *AniDBAnimeTitle) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[4]
+	mi := &file_metadata_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -250,7 +250,7 @@ func (x *AniDBAnimeTitle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBAnimeTitle.ProtoReflect.Descriptor instead.
 func (*AniDBAnimeTitle) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{4}
+	return file_metadata_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AniDBAnimeTitle) GetLang() string {
@@ -285,7 +285,7 @@ type AniDBRelatedAnime struct {
 
 func (x *AniDBRelatedAnime) Reset() {
 	*x = AniDBRelatedAnime{}
-	mi := &file_anidb_proto_msgTypes[5]
+	mi := &file_metadata_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -297,7 +297,7 @@ func (x *AniDBRelatedAnime) String() string {
 func (*AniDBRelatedAnime) ProtoMessage() {}
 
 func (x *AniDBRelatedAnime) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[5]
+	mi := &file_metadata_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -310,7 +310,7 @@ func (x *AniDBRelatedAnime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBRelatedAnime.ProtoReflect.Descriptor instead.
 func (*AniDBRelatedAnime) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{5}
+	return file_metadata_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AniDBRelatedAnime) GetId() string {
@@ -346,7 +346,7 @@ type AniDBSimilarAnime struct {
 
 func (x *AniDBSimilarAnime) Reset() {
 	*x = AniDBSimilarAnime{}
-	mi := &file_anidb_proto_msgTypes[6]
+	mi := &file_metadata_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -358,7 +358,7 @@ func (x *AniDBSimilarAnime) String() string {
 func (*AniDBSimilarAnime) ProtoMessage() {}
 
 func (x *AniDBSimilarAnime) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[6]
+	mi := &file_metadata_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -371,7 +371,7 @@ func (x *AniDBSimilarAnime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBSimilarAnime.ProtoReflect.Descriptor instead.
 func (*AniDBSimilarAnime) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{6}
+	return file_metadata_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *AniDBSimilarAnime) GetId() string {
@@ -413,7 +413,7 @@ type AniDBRecommendation struct {
 
 func (x *AniDBRecommendation) Reset() {
 	*x = AniDBRecommendation{}
-	mi := &file_anidb_proto_msgTypes[7]
+	mi := &file_metadata_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -425,7 +425,7 @@ func (x *AniDBRecommendation) String() string {
 func (*AniDBRecommendation) ProtoMessage() {}
 
 func (x *AniDBRecommendation) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[7]
+	mi := &file_metadata_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +438,7 @@ func (x *AniDBRecommendation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBRecommendation.ProtoReflect.Descriptor instead.
 func (*AniDBRecommendation) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{7}
+	return file_metadata_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *AniDBRecommendation) GetType() string {
@@ -473,7 +473,7 @@ type AniDBCreator struct {
 
 func (x *AniDBCreator) Reset() {
 	*x = AniDBCreator{}
-	mi := &file_anidb_proto_msgTypes[8]
+	mi := &file_metadata_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -485,7 +485,7 @@ func (x *AniDBCreator) String() string {
 func (*AniDBCreator) ProtoMessage() {}
 
 func (x *AniDBCreator) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[8]
+	mi := &file_metadata_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -498,7 +498,7 @@ func (x *AniDBCreator) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBCreator.ProtoReflect.Descriptor instead.
 func (*AniDBCreator) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{8}
+	return file_metadata_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *AniDBCreator) GetId() string {
@@ -532,7 +532,7 @@ type AniDBVoteRating struct {
 
 func (x *AniDBVoteRating) Reset() {
 	*x = AniDBVoteRating{}
-	mi := &file_anidb_proto_msgTypes[9]
+	mi := &file_metadata_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +544,7 @@ func (x *AniDBVoteRating) String() string {
 func (*AniDBVoteRating) ProtoMessage() {}
 
 func (x *AniDBVoteRating) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[9]
+	mi := &file_metadata_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +557,7 @@ func (x *AniDBVoteRating) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBVoteRating.ProtoReflect.Descriptor instead.
 func (*AniDBVoteRating) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{9}
+	return file_metadata_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AniDBVoteRating) GetVotes() string {
@@ -584,7 +584,7 @@ type AniDBCountRating struct {
 
 func (x *AniDBCountRating) Reset() {
 	*x = AniDBCountRating{}
-	mi := &file_anidb_proto_msgTypes[10]
+	mi := &file_metadata_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -596,7 +596,7 @@ func (x *AniDBCountRating) String() string {
 func (*AniDBCountRating) ProtoMessage() {}
 
 func (x *AniDBCountRating) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[10]
+	mi := &file_metadata_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -609,7 +609,7 @@ func (x *AniDBCountRating) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBCountRating.ProtoReflect.Descriptor instead.
 func (*AniDBCountRating) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{10}
+	return file_metadata_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AniDBCountRating) GetCount() string {
@@ -637,7 +637,7 @@ type AniDBRatings struct {
 
 func (x *AniDBRatings) Reset() {
 	*x = AniDBRatings{}
-	mi := &file_anidb_proto_msgTypes[11]
+	mi := &file_metadata_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -649,7 +649,7 @@ func (x *AniDBRatings) String() string {
 func (*AniDBRatings) ProtoMessage() {}
 
 func (x *AniDBRatings) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[11]
+	mi := &file_metadata_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -662,7 +662,7 @@ func (x *AniDBRatings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBRatings.ProtoReflect.Descriptor instead.
 func (*AniDBRatings) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{11}
+	return file_metadata_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *AniDBRatings) GetPermanent() *AniDBCountRating {
@@ -696,7 +696,7 @@ type AniDBResourceExternalEntity struct {
 
 func (x *AniDBResourceExternalEntity) Reset() {
 	*x = AniDBResourceExternalEntity{}
-	mi := &file_anidb_proto_msgTypes[12]
+	mi := &file_metadata_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +708,7 @@ func (x *AniDBResourceExternalEntity) String() string {
 func (*AniDBResourceExternalEntity) ProtoMessage() {}
 
 func (x *AniDBResourceExternalEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[12]
+	mi := &file_metadata_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +721,7 @@ func (x *AniDBResourceExternalEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBResourceExternalEntity.ProtoReflect.Descriptor instead.
 func (*AniDBResourceExternalEntity) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{12}
+	return file_metadata_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *AniDBResourceExternalEntity) GetIdentifier() []string {
@@ -748,7 +748,7 @@ type AniDBResource struct {
 
 func (x *AniDBResource) Reset() {
 	*x = AniDBResource{}
-	mi := &file_anidb_proto_msgTypes[13]
+	mi := &file_metadata_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -760,7 +760,7 @@ func (x *AniDBResource) String() string {
 func (*AniDBResource) ProtoMessage() {}
 
 func (x *AniDBResource) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[13]
+	mi := &file_metadata_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -773,7 +773,7 @@ func (x *AniDBResource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBResource.ProtoReflect.Descriptor instead.
 func (*AniDBResource) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{13}
+	return file_metadata_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *AniDBResource) GetType() string {
@@ -809,7 +809,7 @@ type AniDBTag struct {
 
 func (x *AniDBTag) Reset() {
 	*x = AniDBTag{}
-	mi := &file_anidb_proto_msgTypes[14]
+	mi := &file_metadata_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -821,7 +821,7 @@ func (x *AniDBTag) String() string {
 func (*AniDBTag) ProtoMessage() {}
 
 func (x *AniDBTag) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[14]
+	mi := &file_metadata_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -834,7 +834,7 @@ func (x *AniDBTag) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBTag.ProtoReflect.Descriptor instead.
 func (*AniDBTag) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{14}
+	return file_metadata_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *AniDBTag) GetId() string {
@@ -924,7 +924,7 @@ type AniDBCharacterType struct {
 
 func (x *AniDBCharacterType) Reset() {
 	*x = AniDBCharacterType{}
-	mi := &file_anidb_proto_msgTypes[15]
+	mi := &file_metadata_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +936,7 @@ func (x *AniDBCharacterType) String() string {
 func (*AniDBCharacterType) ProtoMessage() {}
 
 func (x *AniDBCharacterType) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[15]
+	mi := &file_metadata_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -949,7 +949,7 @@ func (x *AniDBCharacterType) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBCharacterType.ProtoReflect.Descriptor instead.
 func (*AniDBCharacterType) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{15}
+	return file_metadata_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *AniDBCharacterType) GetId() string {
@@ -977,7 +977,7 @@ type AniDBSeiyuu struct {
 
 func (x *AniDBSeiyuu) Reset() {
 	*x = AniDBSeiyuu{}
-	mi := &file_anidb_proto_msgTypes[16]
+	mi := &file_metadata_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -989,7 +989,7 @@ func (x *AniDBSeiyuu) String() string {
 func (*AniDBSeiyuu) ProtoMessage() {}
 
 func (x *AniDBSeiyuu) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[16]
+	mi := &file_metadata_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1002,7 +1002,7 @@ func (x *AniDBSeiyuu) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBSeiyuu.ProtoReflect.Descriptor instead.
 func (*AniDBSeiyuu) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{16}
+	return file_metadata_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AniDBSeiyuu) GetId() string {
@@ -1044,7 +1044,7 @@ type AniDBCharacter struct {
 
 func (x *AniDBCharacter) Reset() {
 	*x = AniDBCharacter{}
-	mi := &file_anidb_proto_msgTypes[17]
+	mi := &file_metadata_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1056,7 +1056,7 @@ func (x *AniDBCharacter) String() string {
 func (*AniDBCharacter) ProtoMessage() {}
 
 func (x *AniDBCharacter) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[17]
+	mi := &file_metadata_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1069,7 +1069,7 @@ func (x *AniDBCharacter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBCharacter.ProtoReflect.Descriptor instead.
 func (*AniDBCharacter) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{17}
+	return file_metadata_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AniDBCharacter) GetId() string {
@@ -1152,7 +1152,7 @@ type AniDBEpisodeNumber struct {
 
 func (x *AniDBEpisodeNumber) Reset() {
 	*x = AniDBEpisodeNumber{}
-	mi := &file_anidb_proto_msgTypes[18]
+	mi := &file_metadata_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1164,7 +1164,7 @@ func (x *AniDBEpisodeNumber) String() string {
 func (*AniDBEpisodeNumber) ProtoMessage() {}
 
 func (x *AniDBEpisodeNumber) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[18]
+	mi := &file_metadata_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1177,7 +1177,7 @@ func (x *AniDBEpisodeNumber) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBEpisodeNumber.ProtoReflect.Descriptor instead.
 func (*AniDBEpisodeNumber) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{18}
+	return file_metadata_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AniDBEpisodeNumber) GetType() string {
@@ -1209,7 +1209,7 @@ type AniDBAnimeEpisode struct {
 
 func (x *AniDBAnimeEpisode) Reset() {
 	*x = AniDBAnimeEpisode{}
-	mi := &file_anidb_proto_msgTypes[19]
+	mi := &file_metadata_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1221,7 +1221,7 @@ func (x *AniDBAnimeEpisode) String() string {
 func (*AniDBAnimeEpisode) ProtoMessage() {}
 
 func (x *AniDBAnimeEpisode) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[19]
+	mi := &file_metadata_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1234,7 +1234,7 @@ func (x *AniDBAnimeEpisode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBAnimeEpisode.ProtoReflect.Descriptor instead.
 func (*AniDBAnimeEpisode) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{19}
+	return file_metadata_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AniDBAnimeEpisode) GetId() string {
@@ -1313,7 +1313,7 @@ type AniDBAnimeDetails struct {
 
 func (x *AniDBAnimeDetails) Reset() {
 	*x = AniDBAnimeDetails{}
-	mi := &file_anidb_proto_msgTypes[20]
+	mi := &file_metadata_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1325,7 +1325,7 @@ func (x *AniDBAnimeDetails) String() string {
 func (*AniDBAnimeDetails) ProtoMessage() {}
 
 func (x *AniDBAnimeDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[20]
+	mi := &file_metadata_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1338,7 +1338,7 @@ func (x *AniDBAnimeDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBAnimeDetails.ProtoReflect.Descriptor instead.
 func (*AniDBAnimeDetails) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{20}
+	return file_metadata_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AniDBAnimeDetails) GetAid() uint64 {
@@ -1489,7 +1489,7 @@ type AniDBMedia struct {
 
 func (x *AniDBMedia) Reset() {
 	*x = AniDBMedia{}
-	mi := &file_anidb_proto_msgTypes[21]
+	mi := &file_metadata_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1501,7 +1501,7 @@ func (x *AniDBMedia) String() string {
 func (*AniDBMedia) ProtoMessage() {}
 
 func (x *AniDBMedia) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[21]
+	mi := &file_metadata_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1514,7 +1514,7 @@ func (x *AniDBMedia) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBMedia.ProtoReflect.Descriptor instead.
 func (*AniDBMedia) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{21}
+	return file_metadata_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AniDBMedia) GetId() uint64 {
@@ -1584,7 +1584,7 @@ type AniDBDetailedEpisode struct {
 
 func (x *AniDBDetailedEpisode) Reset() {
 	*x = AniDBDetailedEpisode{}
-	mi := &file_anidb_proto_msgTypes[22]
+	mi := &file_metadata_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1596,7 +1596,7 @@ func (x *AniDBDetailedEpisode) String() string {
 func (*AniDBDetailedEpisode) ProtoMessage() {}
 
 func (x *AniDBDetailedEpisode) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[22]
+	mi := &file_metadata_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1609,7 +1609,7 @@ func (x *AniDBDetailedEpisode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBDetailedEpisode.ProtoReflect.Descriptor instead.
 func (*AniDBDetailedEpisode) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{22}
+	return file_metadata_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *AniDBDetailedEpisode) GetId() uint64 {
@@ -1705,7 +1705,7 @@ type AniDBDetailed struct {
 
 func (x *AniDBDetailed) Reset() {
 	*x = AniDBDetailed{}
-	mi := &file_anidb_proto_msgTypes[23]
+	mi := &file_metadata_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1717,7 +1717,7 @@ func (x *AniDBDetailed) String() string {
 func (*AniDBDetailed) ProtoMessage() {}
 
 func (x *AniDBDetailed) ProtoReflect() protoreflect.Message {
-	mi := &file_anidb_proto_msgTypes[23]
+	mi := &file_metadata_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1730,7 +1730,7 @@ func (x *AniDBDetailed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AniDBDetailed.ProtoReflect.Descriptor instead.
 func (*AniDBDetailed) Descriptor() ([]byte, []int) {
-	return file_anidb_proto_rawDescGZIP(), []int{23}
+	return file_metadata_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *AniDBDetailed) GetId() uint64 {
@@ -1838,19 +1838,19 @@ func (x *AniDBDetailed) GetEpisodes() []*AniDBDetailedEpisode {
 	return nil
 }
 
-var File_anidb_proto protoreflect.FileDescriptor
+var File_metadata_proto protoreflect.FileDescriptor
 
-const file_anidb_proto_rawDesc = "" +
+const file_metadata_proto_rawDesc = "" +
 	"\n" +
-	"\vanidb.proto\x12\x05kbarr\x1a\x1fgoogle/protobuf/timestamp.proto\"0\n" +
+	"\x0emetadata.proto\x12\bmetadata\x1a\x1fgoogle/protobuf/timestamp.proto\"0\n" +
 	"\x18AniDBSearchTitlesRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\"Q\n" +
 	"\x11AniDBSearchResult\x12\x10\n" +
 	"\x03aid\x18\x01 \x01(\x04R\x03aid\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
-	"\x05added\x18\x03 \x01(\bR\x05added\"O\n" +
-	"\x19AniDBSearchTitlesResponse\x122\n" +
-	"\aresults\x18\x01 \x03(\v2\x18.kbarr.AniDBSearchResultR\aresults\"/\n" +
+	"\x05added\x18\x03 \x01(\bR\x05added\"R\n" +
+	"\x19AniDBSearchTitlesResponse\x125\n" +
+	"\aresults\x18\x01 \x03(\v2\x1b.metadata.AniDBSearchResultR\aresults\"/\n" +
 	"\x1bAniDBGetAnimeDetailsRequest\x12\x10\n" +
 	"\x03aid\x18\x01 \x01(\x04R\x03aid\"O\n" +
 	"\x0fAniDBAnimeTitle\x12\x12\n" +
@@ -1879,19 +1879,19 @@ const file_anidb_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value\">\n" +
 	"\x10AniDBCountRating\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\tR\x05count\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xad\x01\n" +
-	"\fAniDBRatings\x125\n" +
-	"\tpermanent\x18\x01 \x01(\v2\x17.kbarr.AniDBCountRatingR\tpermanent\x125\n" +
-	"\ttemporary\x18\x02 \x01(\v2\x17.kbarr.AniDBCountRatingR\ttemporary\x12/\n" +
-	"\x06review\x18\x03 \x01(\v2\x17.kbarr.AniDBCountRatingR\x06review\"O\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xb6\x01\n" +
+	"\fAniDBRatings\x128\n" +
+	"\tpermanent\x18\x01 \x01(\v2\x1a.metadata.AniDBCountRatingR\tpermanent\x128\n" +
+	"\ttemporary\x18\x02 \x01(\v2\x1a.metadata.AniDBCountRatingR\ttemporary\x122\n" +
+	"\x06review\x18\x03 \x01(\v2\x1a.metadata.AniDBCountRatingR\x06review\"O\n" +
 	"\x1bAniDBResourceExternalEntity\x12\x1e\n" +
 	"\n" +
 	"identifier\x18\x01 \x03(\tR\n" +
 	"identifier\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\"p\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\"s\n" +
 	"\rAniDBResource\x12\x12\n" +
-	"\x04type\x18\x01 \x01(\tR\x04type\x12K\n" +
-	"\x0fexternal_entity\x18\x02 \x01(\v2\".kbarr.AniDBResourceExternalEntityR\x0eexternalEntity\"\xb8\x02\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12N\n" +
+	"\x0fexternal_entity\x18\x02 \x01(\v2%.metadata.AniDBResourceExternalEntityR\x0eexternalEntity\"\xb8\x02\n" +
 	"\bAniDBTag\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tparent_id\x18\x02 \x01(\tR\bparentId\x12\x16\n" +
@@ -1911,30 +1911,30 @@ const file_anidb_proto_rawDesc = "" +
 	"\vAniDBSeiyuu\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\apicture\x18\x02 \x01(\tR\apicture\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\"\xd2\x02\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"\xdb\x02\n" +
 	"\x0eAniDBCharacter\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x16\n" +
-	"\x06update\x18\x03 \x01(\tR\x06update\x12.\n" +
-	"\x06rating\x18\x04 \x01(\v2\x16.kbarr.AniDBVoteRatingR\x06rating\x12\x12\n" +
+	"\x06update\x18\x03 \x01(\tR\x06update\x121\n" +
+	"\x06rating\x18\x04 \x01(\v2\x19.metadata.AniDBVoteRatingR\x06rating\x12\x12\n" +
 	"\x04name\x18\x05 \x01(\tR\x04name\x12\x16\n" +
-	"\x06gender\x18\x06 \x01(\tR\x06gender\x12@\n" +
-	"\x0echaracter_type\x18\a \x01(\v2\x19.kbarr.AniDBCharacterTypeR\rcharacterType\x12 \n" +
+	"\x06gender\x18\x06 \x01(\tR\x06gender\x12C\n" +
+	"\x0echaracter_type\x18\a \x01(\v2\x1c.metadata.AniDBCharacterTypeR\rcharacterType\x12 \n" +
 	"\vdescription\x18\b \x01(\tR\vdescription\x12\x18\n" +
-	"\apicture\x18\t \x01(\tR\apicture\x12*\n" +
+	"\apicture\x18\t \x01(\tR\apicture\x12-\n" +
 	"\x06seiyuu\x18\n" +
-	" \x03(\v2\x12.kbarr.AniDBSeiyuuR\x06seiyuu\">\n" +
+	" \x03(\v2\x15.metadata.AniDBSeiyuuR\x06seiyuu\">\n" +
 	"\x12AniDBEpisodeNumber\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xfe\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\x87\x02\n" +
 	"\x11AniDBAnimeEpisode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06update\x18\x02 \x01(\tR\x06update\x12.\n" +
-	"\x05ep_no\x18\x03 \x01(\v2\x19.kbarr.AniDBEpisodeNumberR\x04epNo\x12\x16\n" +
+	"\x06update\x18\x02 \x01(\tR\x06update\x121\n" +
+	"\x05ep_no\x18\x03 \x01(\v2\x1c.metadata.AniDBEpisodeNumberR\x04epNo\x12\x16\n" +
 	"\x06length\x18\x04 \x01(\tR\x06length\x12\x19\n" +
-	"\bair_date\x18\x05 \x01(\tR\aairDate\x12.\n" +
-	"\x06rating\x18\x06 \x01(\v2\x16.kbarr.AniDBVoteRatingR\x06rating\x12.\n" +
-	"\x06titles\x18\a \x03(\v2\x16.kbarr.AniDBAnimeTitleR\x06titles\"\xa0\x06\n" +
+	"\bair_date\x18\x05 \x01(\tR\aairDate\x121\n" +
+	"\x06rating\x18\x06 \x01(\v2\x19.metadata.AniDBVoteRatingR\x06rating\x121\n" +
+	"\x06titles\x18\a \x03(\v2\x19.metadata.AniDBAnimeTitleR\x06titles\"\xbe\x06\n" +
 	"\x11AniDBAnimeDetails\x12\x10\n" +
 	"\x03aid\x18\x01 \x01(\x04R\x03aid\x12\x1e\n" +
 	"\n" +
@@ -1944,22 +1944,22 @@ const file_anidb_proto_rawDesc = "" +
 	"\repisode_count\x18\x04 \x01(\x05R\fepisodeCount\x12\x1d\n" +
 	"\n" +
 	"start_date\x18\x05 \x01(\tR\tstartDate\x12\x19\n" +
-	"\bend_date\x18\x06 \x01(\tR\aendDate\x12.\n" +
-	"\x06titles\x18\a \x03(\v2\x16.kbarr.AniDBAnimeTitleR\x06titles\x12=\n" +
-	"\rrelated_anime\x18\b \x03(\v2\x18.kbarr.AniDBRelatedAnimeR\frelatedAnime\x12=\n" +
-	"\rsimilar_anime\x18\t \x03(\v2\x18.kbarr.AniDBSimilarAnimeR\fsimilarAnime\x12D\n" +
+	"\bend_date\x18\x06 \x01(\tR\aendDate\x121\n" +
+	"\x06titles\x18\a \x03(\v2\x19.metadata.AniDBAnimeTitleR\x06titles\x12@\n" +
+	"\rrelated_anime\x18\b \x03(\v2\x1b.metadata.AniDBRelatedAnimeR\frelatedAnime\x12@\n" +
+	"\rsimilar_anime\x18\t \x03(\v2\x1b.metadata.AniDBSimilarAnimeR\fsimilarAnime\x12G\n" +
 	"\x0frecommendations\x18\n" +
-	" \x03(\v2\x1a.kbarr.AniDBRecommendationR\x0frecommendations\x12\x10\n" +
-	"\x03url\x18\v \x01(\tR\x03url\x12/\n" +
-	"\bcreators\x18\f \x03(\v2\x13.kbarr.AniDBCreatorR\bcreators\x12 \n" +
-	"\vdescription\x18\r \x01(\tR\vdescription\x12-\n" +
-	"\aratings\x18\x0e \x01(\v2\x13.kbarr.AniDBRatingsR\aratings\x12\x18\n" +
-	"\apicture\x18\x0f \x01(\tR\apicture\x122\n" +
-	"\tresources\x18\x10 \x03(\v2\x14.kbarr.AniDBResourceR\tresources\x12#\n" +
-	"\x04tags\x18\x11 \x03(\v2\x0f.kbarr.AniDBTagR\x04tags\x124\n" +
-	"\bepisodes\x18\x12 \x03(\v2\x18.kbarr.AniDBAnimeEpisodeR\bepisodes\x125\n" +
+	" \x03(\v2\x1d.metadata.AniDBRecommendationR\x0frecommendations\x12\x10\n" +
+	"\x03url\x18\v \x01(\tR\x03url\x122\n" +
+	"\bcreators\x18\f \x03(\v2\x16.metadata.AniDBCreatorR\bcreators\x12 \n" +
+	"\vdescription\x18\r \x01(\tR\vdescription\x120\n" +
+	"\aratings\x18\x0e \x01(\v2\x16.metadata.AniDBRatingsR\aratings\x12\x18\n" +
+	"\apicture\x18\x0f \x01(\tR\apicture\x125\n" +
+	"\tresources\x18\x10 \x03(\v2\x17.metadata.AniDBResourceR\tresources\x12&\n" +
+	"\x04tags\x18\x11 \x03(\v2\x12.metadata.AniDBTagR\x04tags\x127\n" +
+	"\bepisodes\x18\x12 \x03(\v2\x1b.metadata.AniDBAnimeEpisodeR\bepisodes\x128\n" +
 	"\n" +
-	"characters\x18\x13 \x03(\v2\x15.kbarr.AniDBCharacterR\n" +
+	"characters\x18\x13 \x03(\v2\x18.metadata.AniDBCharacterR\n" +
 	"characters\"\x94\x02\n" +
 	"\n" +
 	"AniDBMedia\x12\x0e\n" +
@@ -1989,7 +1989,7 @@ const file_anidb_proto_rawDesc = "" +
 	"\x05ep_no\x18\b \x01(\tR\x04epNo\x12\x14\n" +
 	"\x05title\x18\t \x01(\tR\x05title\x12\x19\n" +
 	"\bair_date\x18\n" +
-	" \x01(\tR\aairDate\"\xc3\x04\n" +
+	" \x01(\tR\aairDate\"\xc6\x04\n" +
 	"\rAniDBDetailed\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x129\n" +
 	"\n" +
@@ -2010,91 +2010,91 @@ const file_anidb_proto_rawDesc = "" +
 	"\n" +
 	"poster_url\x18\f \x01(\tR\tposterUrl\x12%\n" +
 	"\x0etotal_episodes\x18\r \x01(\x05R\rtotalEpisodes\x12#\n" +
-	"\rtotal_seasons\x18\x0e \x01(\x05R\ftotalSeasons\x127\n" +
-	"\bepisodes\x18\x0f \x03(\v2\x1b.kbarr.AniDBDetailedEpisodeR\bepisodes2\xf7\x01\n" +
-	"\fAniDBService\x12Q\n" +
-	"\fSearchTitles\x12\x1f.kbarr.AniDBSearchTitlesRequest\x1a .kbarr.AniDBSearchTitlesResponse\x12O\n" +
-	"\x0fGetAnimeDetails\x12\".kbarr.AniDBGetAnimeDetailsRequest\x1a\x18.kbarr.AniDBAnimeDetails\x12C\n" +
-	"\x18PrepareDetailedFromMedia\x12\x11.kbarr.AniDBMedia\x1a\x14.kbarr.AniDBDetailedB2Z0github.com/kingbenny101/kbarr/shared/proto;protob\x06proto3"
+	"\rtotal_seasons\x18\x0e \x01(\x05R\ftotalSeasons\x12:\n" +
+	"\bepisodes\x18\x0f \x03(\v2\x1e.metadata.AniDBDetailedEpisodeR\bepisodes2\x8c\x02\n" +
+	"\x0fMetadataService\x12W\n" +
+	"\fSearchTitles\x12\".metadata.AniDBSearchTitlesRequest\x1a#.metadata.AniDBSearchTitlesResponse\x12U\n" +
+	"\x0fGetAnimeDetails\x12%.metadata.AniDBGetAnimeDetailsRequest\x1a\x1b.metadata.AniDBAnimeDetails\x12I\n" +
+	"\x18PrepareDetailedFromMedia\x12\x14.metadata.AniDBMedia\x1a\x17.metadata.AniDBDetailedB>Z<github.com/kingbenny101/kbarr/shared/proto/metadata;metadatab\x06proto3"
 
 var (
-	file_anidb_proto_rawDescOnce sync.Once
-	file_anidb_proto_rawDescData []byte
+	file_metadata_proto_rawDescOnce sync.Once
+	file_metadata_proto_rawDescData []byte
 )
 
-func file_anidb_proto_rawDescGZIP() []byte {
-	file_anidb_proto_rawDescOnce.Do(func() {
-		file_anidb_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_anidb_proto_rawDesc), len(file_anidb_proto_rawDesc)))
+func file_metadata_proto_rawDescGZIP() []byte {
+	file_metadata_proto_rawDescOnce.Do(func() {
+		file_metadata_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_metadata_proto_rawDesc), len(file_metadata_proto_rawDesc)))
 	})
-	return file_anidb_proto_rawDescData
+	return file_metadata_proto_rawDescData
 }
 
-var file_anidb_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
-var file_anidb_proto_goTypes = []any{
-	(*AniDBSearchTitlesRequest)(nil),    // 0: kbarr.AniDBSearchTitlesRequest
-	(*AniDBSearchResult)(nil),           // 1: kbarr.AniDBSearchResult
-	(*AniDBSearchTitlesResponse)(nil),   // 2: kbarr.AniDBSearchTitlesResponse
-	(*AniDBGetAnimeDetailsRequest)(nil), // 3: kbarr.AniDBGetAnimeDetailsRequest
-	(*AniDBAnimeTitle)(nil),             // 4: kbarr.AniDBAnimeTitle
-	(*AniDBRelatedAnime)(nil),           // 5: kbarr.AniDBRelatedAnime
-	(*AniDBSimilarAnime)(nil),           // 6: kbarr.AniDBSimilarAnime
-	(*AniDBRecommendation)(nil),         // 7: kbarr.AniDBRecommendation
-	(*AniDBCreator)(nil),                // 8: kbarr.AniDBCreator
-	(*AniDBVoteRating)(nil),             // 9: kbarr.AniDBVoteRating
-	(*AniDBCountRating)(nil),            // 10: kbarr.AniDBCountRating
-	(*AniDBRatings)(nil),                // 11: kbarr.AniDBRatings
-	(*AniDBResourceExternalEntity)(nil), // 12: kbarr.AniDBResourceExternalEntity
-	(*AniDBResource)(nil),               // 13: kbarr.AniDBResource
-	(*AniDBTag)(nil),                    // 14: kbarr.AniDBTag
-	(*AniDBCharacterType)(nil),          // 15: kbarr.AniDBCharacterType
-	(*AniDBSeiyuu)(nil),                 // 16: kbarr.AniDBSeiyuu
-	(*AniDBCharacter)(nil),              // 17: kbarr.AniDBCharacter
-	(*AniDBEpisodeNumber)(nil),          // 18: kbarr.AniDBEpisodeNumber
-	(*AniDBAnimeEpisode)(nil),           // 19: kbarr.AniDBAnimeEpisode
-	(*AniDBAnimeDetails)(nil),           // 20: kbarr.AniDBAnimeDetails
-	(*AniDBMedia)(nil),                  // 21: kbarr.AniDBMedia
-	(*AniDBDetailedEpisode)(nil),        // 22: kbarr.AniDBDetailedEpisode
-	(*AniDBDetailed)(nil),               // 23: kbarr.AniDBDetailed
+var file_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_metadata_proto_goTypes = []any{
+	(*AniDBSearchTitlesRequest)(nil),    // 0: metadata.AniDBSearchTitlesRequest
+	(*AniDBSearchResult)(nil),           // 1: metadata.AniDBSearchResult
+	(*AniDBSearchTitlesResponse)(nil),   // 2: metadata.AniDBSearchTitlesResponse
+	(*AniDBGetAnimeDetailsRequest)(nil), // 3: metadata.AniDBGetAnimeDetailsRequest
+	(*AniDBAnimeTitle)(nil),             // 4: metadata.AniDBAnimeTitle
+	(*AniDBRelatedAnime)(nil),           // 5: metadata.AniDBRelatedAnime
+	(*AniDBSimilarAnime)(nil),           // 6: metadata.AniDBSimilarAnime
+	(*AniDBRecommendation)(nil),         // 7: metadata.AniDBRecommendation
+	(*AniDBCreator)(nil),                // 8: metadata.AniDBCreator
+	(*AniDBVoteRating)(nil),             // 9: metadata.AniDBVoteRating
+	(*AniDBCountRating)(nil),            // 10: metadata.AniDBCountRating
+	(*AniDBRatings)(nil),                // 11: metadata.AniDBRatings
+	(*AniDBResourceExternalEntity)(nil), // 12: metadata.AniDBResourceExternalEntity
+	(*AniDBResource)(nil),               // 13: metadata.AniDBResource
+	(*AniDBTag)(nil),                    // 14: metadata.AniDBTag
+	(*AniDBCharacterType)(nil),          // 15: metadata.AniDBCharacterType
+	(*AniDBSeiyuu)(nil),                 // 16: metadata.AniDBSeiyuu
+	(*AniDBCharacter)(nil),              // 17: metadata.AniDBCharacter
+	(*AniDBEpisodeNumber)(nil),          // 18: metadata.AniDBEpisodeNumber
+	(*AniDBAnimeEpisode)(nil),           // 19: metadata.AniDBAnimeEpisode
+	(*AniDBAnimeDetails)(nil),           // 20: metadata.AniDBAnimeDetails
+	(*AniDBMedia)(nil),                  // 21: metadata.AniDBMedia
+	(*AniDBDetailedEpisode)(nil),        // 22: metadata.AniDBDetailedEpisode
+	(*AniDBDetailed)(nil),               // 23: metadata.AniDBDetailed
 	(*timestamppb.Timestamp)(nil),       // 24: google.protobuf.Timestamp
 }
-var file_anidb_proto_depIdxs = []int32{
-	1,  // 0: kbarr.AniDBSearchTitlesResponse.results:type_name -> kbarr.AniDBSearchResult
-	10, // 1: kbarr.AniDBRatings.permanent:type_name -> kbarr.AniDBCountRating
-	10, // 2: kbarr.AniDBRatings.temporary:type_name -> kbarr.AniDBCountRating
-	10, // 3: kbarr.AniDBRatings.review:type_name -> kbarr.AniDBCountRating
-	12, // 4: kbarr.AniDBResource.external_entity:type_name -> kbarr.AniDBResourceExternalEntity
-	9,  // 5: kbarr.AniDBCharacter.rating:type_name -> kbarr.AniDBVoteRating
-	15, // 6: kbarr.AniDBCharacter.character_type:type_name -> kbarr.AniDBCharacterType
-	16, // 7: kbarr.AniDBCharacter.seiyuu:type_name -> kbarr.AniDBSeiyuu
-	18, // 8: kbarr.AniDBAnimeEpisode.ep_no:type_name -> kbarr.AniDBEpisodeNumber
-	9,  // 9: kbarr.AniDBAnimeEpisode.rating:type_name -> kbarr.AniDBVoteRating
-	4,  // 10: kbarr.AniDBAnimeEpisode.titles:type_name -> kbarr.AniDBAnimeTitle
-	4,  // 11: kbarr.AniDBAnimeDetails.titles:type_name -> kbarr.AniDBAnimeTitle
-	5,  // 12: kbarr.AniDBAnimeDetails.related_anime:type_name -> kbarr.AniDBRelatedAnime
-	6,  // 13: kbarr.AniDBAnimeDetails.similar_anime:type_name -> kbarr.AniDBSimilarAnime
-	7,  // 14: kbarr.AniDBAnimeDetails.recommendations:type_name -> kbarr.AniDBRecommendation
-	8,  // 15: kbarr.AniDBAnimeDetails.creators:type_name -> kbarr.AniDBCreator
-	11, // 16: kbarr.AniDBAnimeDetails.ratings:type_name -> kbarr.AniDBRatings
-	13, // 17: kbarr.AniDBAnimeDetails.resources:type_name -> kbarr.AniDBResource
-	14, // 18: kbarr.AniDBAnimeDetails.tags:type_name -> kbarr.AniDBTag
-	19, // 19: kbarr.AniDBAnimeDetails.episodes:type_name -> kbarr.AniDBAnimeEpisode
-	17, // 20: kbarr.AniDBAnimeDetails.characters:type_name -> kbarr.AniDBCharacter
-	24, // 21: kbarr.AniDBMedia.created_at:type_name -> google.protobuf.Timestamp
-	24, // 22: kbarr.AniDBMedia.updated_at:type_name -> google.protobuf.Timestamp
-	24, // 23: kbarr.AniDBMedia.deleted_at:type_name -> google.protobuf.Timestamp
-	24, // 24: kbarr.AniDBDetailedEpisode.created_at:type_name -> google.protobuf.Timestamp
-	24, // 25: kbarr.AniDBDetailedEpisode.updated_at:type_name -> google.protobuf.Timestamp
-	24, // 26: kbarr.AniDBDetailedEpisode.deleted_at:type_name -> google.protobuf.Timestamp
-	24, // 27: kbarr.AniDBDetailed.created_at:type_name -> google.protobuf.Timestamp
-	24, // 28: kbarr.AniDBDetailed.updated_at:type_name -> google.protobuf.Timestamp
-	24, // 29: kbarr.AniDBDetailed.deleted_at:type_name -> google.protobuf.Timestamp
-	22, // 30: kbarr.AniDBDetailed.episodes:type_name -> kbarr.AniDBDetailedEpisode
-	0,  // 31: kbarr.AniDBService.SearchTitles:input_type -> kbarr.AniDBSearchTitlesRequest
-	3,  // 32: kbarr.AniDBService.GetAnimeDetails:input_type -> kbarr.AniDBGetAnimeDetailsRequest
-	21, // 33: kbarr.AniDBService.PrepareDetailedFromMedia:input_type -> kbarr.AniDBMedia
-	2,  // 34: kbarr.AniDBService.SearchTitles:output_type -> kbarr.AniDBSearchTitlesResponse
-	20, // 35: kbarr.AniDBService.GetAnimeDetails:output_type -> kbarr.AniDBAnimeDetails
-	23, // 36: kbarr.AniDBService.PrepareDetailedFromMedia:output_type -> kbarr.AniDBDetailed
+var file_metadata_proto_depIdxs = []int32{
+	1,  // 0: metadata.AniDBSearchTitlesResponse.results:type_name -> metadata.AniDBSearchResult
+	10, // 1: metadata.AniDBRatings.permanent:type_name -> metadata.AniDBCountRating
+	10, // 2: metadata.AniDBRatings.temporary:type_name -> metadata.AniDBCountRating
+	10, // 3: metadata.AniDBRatings.review:type_name -> metadata.AniDBCountRating
+	12, // 4: metadata.AniDBResource.external_entity:type_name -> metadata.AniDBResourceExternalEntity
+	9,  // 5: metadata.AniDBCharacter.rating:type_name -> metadata.AniDBVoteRating
+	15, // 6: metadata.AniDBCharacter.character_type:type_name -> metadata.AniDBCharacterType
+	16, // 7: metadata.AniDBCharacter.seiyuu:type_name -> metadata.AniDBSeiyuu
+	18, // 8: metadata.AniDBAnimeEpisode.ep_no:type_name -> metadata.AniDBEpisodeNumber
+	9,  // 9: metadata.AniDBAnimeEpisode.rating:type_name -> metadata.AniDBVoteRating
+	4,  // 10: metadata.AniDBAnimeEpisode.titles:type_name -> metadata.AniDBAnimeTitle
+	4,  // 11: metadata.AniDBAnimeDetails.titles:type_name -> metadata.AniDBAnimeTitle
+	5,  // 12: metadata.AniDBAnimeDetails.related_anime:type_name -> metadata.AniDBRelatedAnime
+	6,  // 13: metadata.AniDBAnimeDetails.similar_anime:type_name -> metadata.AniDBSimilarAnime
+	7,  // 14: metadata.AniDBAnimeDetails.recommendations:type_name -> metadata.AniDBRecommendation
+	8,  // 15: metadata.AniDBAnimeDetails.creators:type_name -> metadata.AniDBCreator
+	11, // 16: metadata.AniDBAnimeDetails.ratings:type_name -> metadata.AniDBRatings
+	13, // 17: metadata.AniDBAnimeDetails.resources:type_name -> metadata.AniDBResource
+	14, // 18: metadata.AniDBAnimeDetails.tags:type_name -> metadata.AniDBTag
+	19, // 19: metadata.AniDBAnimeDetails.episodes:type_name -> metadata.AniDBAnimeEpisode
+	17, // 20: metadata.AniDBAnimeDetails.characters:type_name -> metadata.AniDBCharacter
+	24, // 21: metadata.AniDBMedia.created_at:type_name -> google.protobuf.Timestamp
+	24, // 22: metadata.AniDBMedia.updated_at:type_name -> google.protobuf.Timestamp
+	24, // 23: metadata.AniDBMedia.deleted_at:type_name -> google.protobuf.Timestamp
+	24, // 24: metadata.AniDBDetailedEpisode.created_at:type_name -> google.protobuf.Timestamp
+	24, // 25: metadata.AniDBDetailedEpisode.updated_at:type_name -> google.protobuf.Timestamp
+	24, // 26: metadata.AniDBDetailedEpisode.deleted_at:type_name -> google.protobuf.Timestamp
+	24, // 27: metadata.AniDBDetailed.created_at:type_name -> google.protobuf.Timestamp
+	24, // 28: metadata.AniDBDetailed.updated_at:type_name -> google.protobuf.Timestamp
+	24, // 29: metadata.AniDBDetailed.deleted_at:type_name -> google.protobuf.Timestamp
+	22, // 30: metadata.AniDBDetailed.episodes:type_name -> metadata.AniDBDetailedEpisode
+	0,  // 31: metadata.MetadataService.SearchTitles:input_type -> metadata.AniDBSearchTitlesRequest
+	3,  // 32: metadata.MetadataService.GetAnimeDetails:input_type -> metadata.AniDBGetAnimeDetailsRequest
+	21, // 33: metadata.MetadataService.PrepareDetailedFromMedia:input_type -> metadata.AniDBMedia
+	2,  // 34: metadata.MetadataService.SearchTitles:output_type -> metadata.AniDBSearchTitlesResponse
+	20, // 35: metadata.MetadataService.GetAnimeDetails:output_type -> metadata.AniDBAnimeDetails
+	23, // 36: metadata.MetadataService.PrepareDetailedFromMedia:output_type -> metadata.AniDBDetailed
 	34, // [34:37] is the sub-list for method output_type
 	31, // [31:34] is the sub-list for method input_type
 	31, // [31:31] is the sub-list for extension type_name
@@ -2102,26 +2102,26 @@ var file_anidb_proto_depIdxs = []int32{
 	0,  // [0:31] is the sub-list for field type_name
 }
 
-func init() { file_anidb_proto_init() }
-func file_anidb_proto_init() {
-	if File_anidb_proto != nil {
+func init() { file_metadata_proto_init() }
+func file_metadata_proto_init() {
+	if File_metadata_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_anidb_proto_rawDesc), len(file_anidb_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metadata_proto_rawDesc), len(file_metadata_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_anidb_proto_goTypes,
-		DependencyIndexes: file_anidb_proto_depIdxs,
-		MessageInfos:      file_anidb_proto_msgTypes,
+		GoTypes:           file_metadata_proto_goTypes,
+		DependencyIndexes: file_metadata_proto_depIdxs,
+		MessageInfos:      file_metadata_proto_msgTypes,
 	}.Build()
-	File_anidb_proto = out.File
-	file_anidb_proto_goTypes = nil
-	file_anidb_proto_depIdxs = nil
+	File_metadata_proto = out.File
+	file_metadata_proto_goTypes = nil
+	file_metadata_proto_depIdxs = nil
 }
