@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react"
-import { Badge, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core"
-import { IconCalendar, IconClock } from "@tabler/icons-react"
+import { Group, SimpleGrid, Stack, Text, Title } from "@mantine/core"
 import { API_URL } from "@/lib/api"
 import { showToast } from "@/lib/notifications"
 import { SectionCard } from "@/components/SectionCard"
+import { StatusPill } from "@/components/StatusPill"
 
-interface WorkerStatus {
+interface ServiceHealth {
     name: string
-    last_run: string
-    next_run: string
+    display_name: string
+    address: string
     running: boolean
+    error?: string
 }
 
 export function WorkersPage() {
-    const [workers, setWorkers] = useState<WorkerStatus[]>([])
+    const [services, setServices] = useState<ServiceHealth[]>([])
     const [loading, setLoading] = useState(true)
 
     const fetchWorkers = async () => {
@@ -21,7 +22,7 @@ export function WorkersPage() {
             const response = await fetch(`${API_URL}/api/workers`)
             if (!response.ok) throw new Error("Failed to fetch worker statuses")
             const data = await response.json()
-            setWorkers(data || [])
+            setServices(data || [])
         } catch (error) {
             console.error(error)
             showToast("Failed to load worker statuses", "error")
@@ -36,66 +37,35 @@ export function WorkersPage() {
         return () => clearInterval(interval)
     }, [])
 
-    const formatDate = (dateStr: string) => {
-        if (!dateStr || dateStr.startsWith("0001-01-01")) return "Never"
-        return new Date(dateStr).toLocaleString()
-    }
-
-    const getWorkerDisplayName = (name: string) => {
-        switch (name) {
-            case "anidb":
-                return "AniDB Sync"
-            default:
-                return name
-        }
-    }
-
     return (
         <Stack gap="lg">
             <Stack gap={4}>
-                <Title order={1}>Background workers</Title>
+                <Title order={1}>Workers</Title>
+                <Text c="dimmed">Status of background workers</Text>
             </Stack>
 
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                 {loading ? (
                     <SectionCard withBorder radius="xl" style={{ minHeight: 140 }}>
-                        <Text c="dimmed" ta="center" py="xl">Loading worker status...</Text>
+                        <Text c="dimmed" ta="center" py="xl">Loading service health...</Text>
                     </SectionCard>
-                ) : workers.length === 0 ? (
+                ) : services.length === 0 ? (
                     <SectionCard withBorder radius="xl" style={{ minHeight: 140 }}>
-                        <Text c="dimmed" ta="center" py="xl">No workers active.</Text>
+                        <Text c="dimmed" ta="center" py="xl">No service health data available.</Text>
                     </SectionCard>
                 ) : (
-                    workers.map((worker) => (
-                        <SectionCard key={worker.name} withBorder radius="xl">
-                            <Group justify="space-between" align="start" mb="md">
-                                <Title order={4}>{getWorkerDisplayName(worker.name)}</Title>
-                                <Badge color={worker.running ? "green" : "gray"} variant="light">
-                                    {worker.running ? "Active" : "Stopped"}
-                                </Badge>
+                    services.map((service) => (
+                        <SectionCard key={service.name} withBorder radius="xl" >
+                            <Group justify="space-between" align="center" mb="md">
+                                <Title order={4}>{service.display_name}</Title>
+                                <StatusPill label={service.running ? "Online" : "Offline"} tone={service.running ? "green" : "red"} />
                             </Group>
 
-                            <Stack gap="sm">
-                                <Group gap="sm" align="start">
-                                    <IconClock size={18} style={{ marginTop: 3, color: "var(--mantine-color-dimmed)" }} />
-                                    <div>
-                                        <Text size="xs" c="dimmed">
-                                            Last Run
-                                        </Text>
-                                        <Text fw={600}>{formatDate(worker.last_run)}</Text>
-                                    </div>
-                                </Group>
-
-                                <Group gap="sm" align="start">
-                                    <IconCalendar size={18} style={{ marginTop: 3, color: "var(--mantine-color-dimmed)" }} />
-                                    <div>
-                                        <Text size="xs" c="dimmed">
-                                            Next Run
-                                        </Text>
-                                        <Text fw={600}>{formatDate(worker.next_run)}</Text>
-                                    </div>
-                                </Group>
-                            </Stack>
+                            {service.error ? (
+                                <Text size="xs" c="red">
+                                    {service.error}
+                                </Text>
+                            ) : null}
                         </SectionCard>
                     ))
                 )}

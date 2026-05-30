@@ -13,14 +13,17 @@ import (
 )
 
 type Server struct {
-	anidb      metadatapb.MetadataServiceClient
-	prowlarr   indexerpb.IndexerServiceClient
-	downloader downloaderpb.DownloaderClient
-	version    string
+	anidb          metadatapb.MetadataServiceClient
+	prowlarr       indexerpb.IndexerServiceClient
+	downloader     downloaderpb.DownloaderClient
+	version        string
+	metadataAddr   string
+	indexerAddr    string
+	downloaderAddr string
 }
 
-func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient indexerpb.IndexerServiceClient, downloaderClient downloaderpb.DownloaderClient, version string) http.Handler {
-	router := &Server{anidb: metadataClient, prowlarr: indexerClient, downloader: downloaderClient, version: version}
+func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient indexerpb.IndexerServiceClient, downloaderClient downloaderpb.DownloaderClient, version string, metadataAddr, indexerAddr, downloaderAddr string) http.Handler {
+	router := &Server{anidb: metadataClient, prowlarr: indexerClient, downloader: downloaderClient, version: version, metadataAddr: metadataAddr, indexerAddr: indexerAddr, downloaderAddr: downloaderAddr}
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -72,7 +75,7 @@ func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient in
 	r.Post("/api/unmonitor/season", handlers.HandleUnmonitorSeason)
 
 	// Compatibility endpoint for legacy UI; core no longer runs workers.
-	r.Get("/api/workers", handlers.HandleGetWorkers)
+	r.Get("/api/workers", handlers.HandleGetWorkers(router.metadataAddr, router.indexerAddr, router.downloaderAddr))
 
 	// Poster/image cache served from the shared data volume.
 	r.Get("/api/images/{imageName}", handlers.HandleGetImage)

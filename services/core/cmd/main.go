@@ -42,21 +42,25 @@ func main() {
 	}
 	slog.Info("kbarr version", "version", appVersion)
 
-	metadataConn, err := grpc.NewClient(resolveGRPCAddr("METADATA_GRPC_ADDR", "localhost:8081"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	metadataAddr := resolveGRPCAddr("METADATA_GRPC_ADDR", "localhost:8081")
+	indexerAddr := resolveGRPCAddr("INDEXER_GRPC_ADDR", "localhost:8082")
+	downloaderAddr := resolveGRPCAddr("DOWNLOADER_GRPC_ADDR", "downloader:8083")
+
+	metadataConn, err := grpc.NewClient(metadataAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("Failed to connect to AniDB gRPC service", "error", err)
 		os.Exit(1)
 	}
 	defer metadataConn.Close()
 
-	indexerConn, err := grpc.NewClient(resolveGRPCAddr("INDEXER_GRPC_ADDR", "localhost:8082"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	indexerConn, err := grpc.NewClient(indexerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("Failed to connect to Prowlarr gRPC service", "error", err)
 		os.Exit(1)
 	}
 	defer indexerConn.Close()
 
-	downloaderConn, err := grpc.NewClient(resolveGRPCAddr("DOWNLOADER_GRPC_ADDR", "downloader:8083"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	downloaderConn, err := grpc.NewClient(downloaderAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("Failed to connect to Downloader gRPC service", "error", err)
 		os.Exit(1)
@@ -64,7 +68,7 @@ func main() {
 	defer downloaderConn.Close()
 
 	// API Router
-	router := api.NewRouter(metadatapb.NewMetadataServiceClient(metadataConn), indexerpb.NewIndexerServiceClient(indexerConn), downloaderpb.NewDownloaderClient(downloaderConn), appVersion)
+	router := api.NewRouter(metadatapb.NewMetadataServiceClient(metadataConn), indexerpb.NewIndexerServiceClient(indexerConn), downloaderpb.NewDownloaderClient(downloaderConn), appVersion, metadataAddr, indexerAddr, downloaderAddr)
 
 	server := &http.Server{
 		Addr:    cfg.ServerAddr,
