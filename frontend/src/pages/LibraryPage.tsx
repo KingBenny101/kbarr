@@ -11,7 +11,7 @@ export function LibraryPage() {
     const [medias, setMedias] = useState<Media[]>([])
     const [currentPage, setCurrentPage] = useState(1)
     const navigate = useNavigate()
-    const itemsPerPage = 18
+    const itemsPerPage = 4
 
     useEffect(() => {
         fetch(`${API_URL}/api/library`)
@@ -40,7 +40,7 @@ export function LibraryPage() {
                 />
             ) : (
                 <Stack gap="lg">
-                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3, xl: 4 }} spacing="md">
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
                         {paginatedResults.map((media) => (
                             <UnstyledButton key={media.ID} onClick={() => navigate(`/media/${media.ID}`)} style={{ borderRadius: 24, textAlign: "left" }}>
                                 <SectionCard withBorder radius="xl" p={0} style={{ overflow: "hidden", cursor: "pointer" }}>
@@ -55,11 +55,11 @@ export function LibraryPage() {
                                             <IconPlayerPlayFilled size={30} opacity={0.5} />
                                         </Center>
                                     )}
-                                    <Stack gap={4} p="md">
-                                        <Title order={5} lineClamp={2}>
+                                    <Stack gap={0} p="xs">
+                                        <Title order={6} lineClamp={2}>
                                             {media.title}
                                         </Title>
-                                        <Text size="xs" c="dimmed">
+                                        <Text size="10px" c="dimmed">
                                             AniDB ID {media.aid}
                                         </Text>
                                     </Stack>
