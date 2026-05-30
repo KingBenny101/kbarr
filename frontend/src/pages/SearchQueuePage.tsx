@@ -59,13 +59,7 @@ export function SearchQueuePage() {
     return (
         <Stack gap="lg">
             <Stack gap={4}>
-                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    System
-                </Text>
                 <Title order={1}>Search queue</Title>
-                <Text c="dimmed" maw={720}>
-                    Pending searches from the monitor worker appear here while Prowlarr works through them.
-                </Text>
             </Stack>
 
             <SectionCard withBorder radius="xl">

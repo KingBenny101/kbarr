@@ -60,13 +60,7 @@ export function SearchPage() {
     return (
         <Stack gap="lg">
             <Stack gap={4}>
-                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    Search
-                </Text>
-                <Title order={1}>Find anime and add it to the library</Title>
-                <Text c="dimmed" maw={680}>
-                    Query AniDB results, open the source entry, and add titles without leaving the page.
-                </Text>
+                <Title order={1}>Search</Title>
             </Stack>
 
             <Group align="end" wrap="nowrap">

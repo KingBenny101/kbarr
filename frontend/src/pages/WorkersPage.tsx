@@ -53,13 +53,7 @@ export function WorkersPage() {
     return (
         <Stack gap="lg">
             <Stack gap={4}>
-                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    System
-                </Text>
                 <Title order={1}>Background workers</Title>
-                <Text c="dimmed" maw={720}>
-                    Live status for recurring jobs that keep AniDB sync and monitoring moving.
-                </Text>
             </Stack>
 
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">

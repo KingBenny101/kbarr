@@ -64,13 +64,7 @@ export function MonitorPage() {
     return (
         <Stack gap="lg">
             <Stack gap={4}>
-                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    System
-                </Text>
                 <Title order={1}>Monitored items</Title>
-                <Text c="dimmed" maw={720}>
-                    Seasons and episodes tracked by kbarr for downstream search and download actions.
-                </Text>
             </Stack>
 
             <SectionCard withBorder radius="xl">

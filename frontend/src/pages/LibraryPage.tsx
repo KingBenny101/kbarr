@@ -29,13 +29,7 @@ export function LibraryPage() {
     return (
         <Stack gap="lg">
             <Stack gap={4}>
-                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    Library
-                </Text>
-                <Title order={1}>Your anime collection</Title>
-                <Text c="dimmed" maw={680}>
-                    Browse everything you have added so far. Cards are intentionally quiet and image-first so the content stays readable.
-                </Text>
+                <Title order={1}>Library</Title>
             </Stack>
 
             {medias.length === 0 ? (
