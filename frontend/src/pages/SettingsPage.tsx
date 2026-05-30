@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Navigate, useLocation } from "react-router-dom"
-import { Alert, Button, Group, Loader, Stack, Text, Title } from "@mantine/core"
+import { Alert, Button, Group, Loader, Stack, Title } from "@mantine/core"
 import { API_URL } from "@/lib/api"
 import { showToast } from "@/lib/notifications"
-import { AnidbSettings } from "./settings/AnidbSettings"
+import { MetadataSettings } from "./settings/MetadataSettings"
 import { GeneralSettings } from "./settings/GeneralSettings"
-import { ProwlarrSettings } from "./settings/ProwlarrSettings"
+import { IndexerSettings } from "./settings/IndexerSettings"
 
 interface Settings {
     anidbClient: string
@@ -107,13 +107,7 @@ export function SettingsPage() {
     return (
         <Stack gap="lg" pb={80}>
             <Stack gap={4}>
-                <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    Configuration
-                </Text>
                 <Title order={1}>Settings</Title>
-                <Text c="dimmed" maw={720}>
-                    Keep the sync and monitoring behavior aligned with your local setup.
-                </Text>
             </Stack>
 
             <Stack gap="lg">
@@ -125,8 +119,8 @@ export function SettingsPage() {
                         setMonitorSyncInterval={(value) => updateSetting("monitorSyncInterval", value)}
                     />
                 ) : null}
-                {path.includes("anidb") ? (
-                    <AnidbSettings
+                {path.includes("metadata") ? (
+                    <MetadataSettings
                         client={settings.anidbClient}
                         setClient={(value) => updateSetting("anidbClient", value)}
                         version={settings.anidbVersion}
@@ -135,8 +129,8 @@ export function SettingsPage() {
                         setInterval={(value) => updateSetting("anidbSyncInterval", value)}
                     />
                 ) : null}
-                {path.includes("prowlarr") ? (
-                    <ProwlarrSettings
+                {path.includes("indexer") ? (
+                    <IndexerSettings
                         url={settings.prowlarrUrl}
                         setUrl={(value) => updateSetting("prowlarrUrl", value)}
                         apiKey={settings.prowlarrApiKey}

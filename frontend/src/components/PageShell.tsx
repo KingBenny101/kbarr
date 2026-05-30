@@ -23,8 +23,8 @@ const navigation = [
     {
         group: "Settings", items: [
             { label: "General", to: "/settings/general", icon: <IconSettings size={18} />, match: (p: string | string[]) => p === "/settings" || p.includes("general") },
-            { label: "AniDB", to: "/settings/anidb", icon: <IconSettings size={18} />, match: (p: string | string[]) => p.includes("anidb") },
-            { label: "Prowlarr", to: "/settings/prowlarr", icon: <IconSettings size={18} />, match: (p: string | string[]) => p.includes("prowlarr") },
+            { label: "Metadata", to: "/settings/metadata", icon: <IconSettings size={18} />, match: (p: string | string[]) => p.includes("metadata") },
+            { label: "Indexer", to: "/settings/indexer", icon: <IconSettings size={18} />, match: (p: string | string[]) => p.includes("indexer") },
         ]
     },
 ]

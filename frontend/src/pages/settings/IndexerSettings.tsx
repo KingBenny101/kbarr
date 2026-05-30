@@ -1,6 +1,6 @@
 import { Card, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core"
 
-interface ProwlarrSettingsProps {
+interface IndexerSettingsProps {
     url: string
     setUrl: (val: string) => void
     apiKey: string
@@ -10,13 +10,13 @@ interface ProwlarrSettingsProps {
     initialApiKey?: string
 }
 
-export function ProwlarrSettings({ url, setUrl, apiKey, setApiKey, interval, setInterval, initialApiKey }: ProwlarrSettingsProps) {
+export function IndexerSettings({ url, setUrl, apiKey, setApiKey, interval, setInterval, initialApiKey }: IndexerSettingsProps) {
     return (
         <Card withBorder radius="md" p="lg">
             <Stack gap="md">
                 <div>
-                    <Title order={3}>Prowlarr settings</Title>
-                    <Text size="sm" c="dimmed">Configure the Prowlarr instance used for monitoring and searches.</Text>
+                    <Title order={3}>Indexer settings</Title>
+                    <Text size="sm" c="dimmed">Configure the indexer used for monitoring and searches.</Text>
                 </div>
 
                 <TextInput label="URL" value={url} onChange={(event) => setUrl(event.currentTarget.value)} placeholder="http://localhost:9696" />

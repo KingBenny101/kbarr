@@ -1,6 +1,6 @@
 import { Card, Stack, Text, TextInput, Title } from "@mantine/core"
 
-interface AnidbSettingsProps {
+interface MetadataSettingsProps {
     client: string
     setClient: (val: string) => void
     version: string
@@ -9,13 +9,13 @@ interface AnidbSettingsProps {
     setInterval: (val: string) => void
 }
 
-export function AnidbSettings({ client, setClient, version, setVersion, interval, setInterval }: AnidbSettingsProps) {
+export function MetadataSettings({ client, setClient, version, setVersion, interval, setInterval }: MetadataSettingsProps) {
     return (
         <Card withBorder radius="md" p="lg">
             <Stack gap="md">
                 <div>
-                    <Title order={3}>AniDB settings</Title>
-                    <Text size="sm" c="dimmed">Configure how the client identifies itself to AniDB.</Text>
+                    <Title order={3}>Metadata settings</Title>
+                    <Text size="sm" c="dimmed">Configure how the service syncs metadata (AniDB).</Text>
                 </div>
 
                 <TextInput label="Client name" value={client} onChange={(event) => setClient(event.currentTarget.value)} placeholder="kbarr" />
