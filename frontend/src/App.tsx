@@ -1,3 +1,5 @@
+import '@mantine/core/styles.css';
+import { MantineProvider } from '@mantine/core';
 import { Navigate, Route, Routes } from "react-router-dom"
 import { PageShell } from "@/components/PageShell"
 import { LibraryPage } from "@/pages/LibraryPage"
@@ -10,17 +12,20 @@ import { WorkersPage } from "@/pages/WorkersPage"
 
 export default function App() {
     return (
-        <PageShell>
-            <Routes>
-                <Route path="/" element={<LibraryPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/settings/*" element={<SettingsPage />} />
-                <Route path="/media/:id" element={<MediaDetailPage />} />
-                <Route path="/monitored" element={<MonitorPage />} />
-                <Route path="/workers" element={<WorkersPage />} />
-                <Route path="/search-queue" element={<SearchQueuePage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </PageShell>
+        <MantineProvider>
+            <PageShell>
+                <Routes>
+                    <Route path="/" element={<LibraryPage />} />
+                    <Route path="/search" element={<SearchPage />} />
+                    <Route path="/settings/*" element={<SettingsPage />} />
+                    <Route path="/media/:id" element={<MediaDetailPage />} />
+                    <Route path="/monitored" element={<MonitorPage />} />
+                    <Route path="/workers" element={<WorkersPage />} />
+                    <Route path="/search-queue" element={<SearchQueuePage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </PageShell>
+        </MantineProvider>
     )
 }
+
