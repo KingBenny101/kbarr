@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ActionIcon, Button, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconExternalLink, IconSearch } from "@tabler/icons-react"
 import { API_URL } from "@/lib/api"
@@ -8,24 +8,71 @@ import { EmptyState } from "@/components/EmptyState"
 import { SectionCard } from "@/components/SectionCard"
 import { StatusPill } from "@/components/StatusPill"
 
+const SEARCH_CACHE_KEY = "kbarr.search.cache"
+
+type SearchCache = {
+    query: string
+    results: Media[]
+}
+
+function readSearchCache(): SearchCache | null {
+    if (typeof window === "undefined") return null
+
+    try {
+        const rawCache = window.localStorage.getItem(SEARCH_CACHE_KEY)
+        if (!rawCache) return null
+
+        const parsed = JSON.parse(rawCache) as SearchCache
+        if (!Array.isArray(parsed.results)) return null
+
+        return {
+            query: typeof parsed.query === "string" ? parsed.query : "",
+            results: parsed.results,
+        }
+    } catch {
+        return null
+    }
+}
+
 export function SearchPage() {
-    const [query, setQuery] = useState("")
-    const [medias, setMedias] = useState<Media[]>([])
+    const [cachedSearch] = useState(() => readSearchCache())
+    const [query, setQuery] = useState(() => cachedSearch?.query ?? "")
+    const [lastSearchQuery, setLastSearchQuery] = useState(() => cachedSearch?.query ?? "")
+    const [medias, setMedias] = useState<Media[]>(() => cachedSearch?.results ?? [])
+    const [hasSearched, setHasSearched] = useState(() => cachedSearch !== null)
     const [searching, setSearching] = useState(false)
     const [adding, setAdding] = useState<number | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 12
 
+    useEffect(() => {
+        if (typeof window === "undefined") return
+
+        try {
+            if (!hasSearched) {
+                window.localStorage.removeItem(SEARCH_CACHE_KEY)
+                return
+            }
+
+            window.localStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify({ query: lastSearchQuery, results: medias } satisfies SearchCache))
+        } catch (error) {
+            console.error("Failed to cache search results:", error)
+        }
+    }, [hasSearched, lastSearchQuery, medias])
+
     const totalPages = Math.ceil(medias.length / itemsPerPage)
     const paginatedResults = medias.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
     const handleSearch = async () => {
-        if (!query.trim()) return
+        const trimmedQuery = query.trim()
+        if (!trimmedQuery) return
         setCurrentPage(1)
         setSearching(true)
         try {
-            const response = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(query)}`)
+            const response = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(trimmedQuery)}`)
             const data = (await response.json()) as Media[]
+            setHasSearched(true)
+            setLastSearchQuery(trimmedQuery)
             setMedias(data || [])
         } catch (error) {
             console.error("Search failed:", error)
@@ -118,11 +165,11 @@ export function SearchPage() {
                 </Stack>
             ) : null}
 
-            {!searching && query && medias.length === 0 ? (
-                <EmptyState icon={<IconSearch size={28} />} title="No results found" description={`Nothing matched “${query}”. Try a different title or spelling.`} />
+            {!searching && hasSearched && medias.length === 0 ? (
+                <EmptyState icon={<IconSearch size={28} />} title="No results found" description={`Nothing matched “${lastSearchQuery || query}”. Try a different title or spelling.`} />
             ) : null}
 
-            {!query && !searching ? (
+            {!searching && !hasSearched ? (
                 <EmptyState icon={<IconSearch size={28} />} title="Start searching" description="Use the search field above to discover anime to add to your library." />
             ) : null}
         </Stack>
