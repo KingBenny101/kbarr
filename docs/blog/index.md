@@ -6,6 +6,7 @@ Welcome to the kbarr blog. This is a place for project updates, design notes, an
 
 - [First post](2026-05-29-first-post.md)
 - [Architecture notes](2026-05-29-architecture-notes.md)
+- [Frontend shit](2026-06-15-frontend-shit.md)
 
 ---
 

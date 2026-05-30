@@ -128,6 +128,7 @@ nav:
       - Overview: blog/index.md
       - 'First post': blog/2026-05-29-first-post.md
       - 'Architecture notes': blog/2026-05-29-architecture-notes.md
+      - 'Frontend shit': blog/2026-05-30-frontend-shit.md
   - Documentation:
       - API Reference:
           - System: api/system.md
