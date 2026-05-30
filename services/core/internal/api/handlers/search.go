@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kingbenny101/kbarr/services/core/internal/db"
 	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 )
 
@@ -33,6 +34,24 @@ func HandleMediaSearch(w http.ResponseWriter, r *http.Request, metadataClient me
 	results := response.GetResults()
 	if len(results) == 0 {
 		results = []*metadatapb.AniDBSearchResult{}
+	}
+
+	mediaList, err := db.GetAllMedia()
+	if err != nil {
+		slog.Warn("Failed to load media list for search annotations", "error", err)
+	} else {
+		addedMedia := make(map[uint64]struct{}, len(mediaList))
+		for _, media := range mediaList {
+			addedMedia[uint64(media.AID)] = struct{}{}
+		}
+
+		for _, result := range results {
+			if result == nil {
+				continue
+			}
+			_, ok := addedMedia[result.GetAid()]
+			result.Added = ok
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
