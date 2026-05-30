@@ -187,7 +187,7 @@ export function MediaDetailPage() {
                 </Button>
             </Group>
 
-            <Grid gutter="lg">
+            <Grid>
                 <Grid.Col span={{ base: 12, md: 8 }}>
                     <Stack gap="lg">
                         <SectionCard withBorder radius="md">
