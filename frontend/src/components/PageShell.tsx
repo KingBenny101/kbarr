@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { AppShell, Burger, Group, NavLink, Text } from "@mantine/core"
+import { AppShell, Burger, Box, Group, NavLink, Text } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
 import { IconLibraryPhoto, IconSearch, IconListCheck, IconTimeline, IconActivity, IconSettings } from "@tabler/icons-react"
 import { Link, useLocation } from "react-router-dom"
@@ -42,31 +42,32 @@ export function PageShell({ children }: { children: React.ReactNode }) {
     }, [])
 
     return (
-        <AppShell header={{ height: 56 }} navbar={{ width: 260, breakpoint: "sm", collapsed: { mobile: !opened } }} padding="md">
-            <AppShell.Header>
-                <Group h="100%" px="md" justify="space-between">
-                    <Group gap="xs" align="center">
-                        <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                        <Text fw={700} size="xl" style={{ lineHeight: 1 }}>
-                            kbarr <Text component="span" size="xs" c="dimmed">v{version}</Text>
-                        </Text>
-                    </Group>
+        <AppShell navbar={{ width: 260, breakpoint: "sm", collapsed: { mobile: !opened } }} padding="md">
+            <AppShell.Navbar pt="xs" px="md" pb="md" style={{ display: "flex", flexDirection: "column" }}>
+                <Group mb="md">
+                    <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+                </Group>
+
+                <Box style={{ flex: 1 }}>
+                    {navigation.map(({ group, items }) => (
+                        <div key={group} style={{ marginBottom: "24px" }}>
+                            <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb="sm">{group}</Text>
+                            {items.map(({ to, label, icon, match }) => {
+                                const active = match ? match(pathname) : pathname === to
+                                return (
+                                    <NavLink key={to} component={Link} to={to} label={label} leftSection={icon} active={active} variant={active ? "filled" : "subtle"} color="gray" onClick={close} />
+                                )
+                            })}
+                        </div>
+                    ))}
+                </Box>
+
+                <Group mt="md" justify="space-between" align="center" wrap="nowrap">
+                    <Text fw={700} size="xl" style={{ lineHeight: 1 }}>
+                        kbarr <Text component="span" size="xs" c="dimmed">v{version}</Text>
+                    </Text>
                     <ColorModeToggle />
                 </Group>
-            </AppShell.Header>
-
-            <AppShell.Navbar p="md">
-                {navigation.map(({ group, items }) => (
-                    <div key={group} style={{ marginBottom: "24px" }}>
-                        <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb="sm">{group}</Text>
-                        {items.map(({ to, label, icon, match }) => {
-                            const active = match ? match(pathname) : pathname === to
-                            return (
-                                <NavLink key={to} component={Link} to={to} label={label} leftSection={icon} active={active} variant={active ? "filled" : "subtle"} color="gray" onClick={close} />
-                            )
-                        })}
-                    </div>
-                ))}
             </AppShell.Navbar>
 
             <AppShell.Main>{children}</AppShell.Main>
