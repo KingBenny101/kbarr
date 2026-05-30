@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
-import { ActionIcon, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
+import { ActionIcon, Card, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
 import { IconInfoCircle, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 import { API_URL } from "@/lib/api"
 import { showToast } from "@/lib/notifications"
-import { SectionCard } from "@/components/SectionCard"
 import { StatusPill } from "@/components/StatusPill"
 
 interface QueueItem {
@@ -62,7 +61,7 @@ export function SearchQueuePage() {
                 <Title order={1}>Search queue</Title>
             </Stack>
 
-            <SectionCard withBorder radius="xl">
+            <Card withBorder radius="xl">
                 <Stack gap="md">
                     <Group justify="space-between">
                         <Title order={3}>Queue status</Title>
@@ -121,16 +120,16 @@ export function SearchQueuePage() {
                         </Table>
                     </ScrollArea>
                 </Stack>
-            </SectionCard>
+            </Card>
 
-            <SectionCard withBorder radius="xl">
+            <Card withBorder radius="xl">
                 <Group align="start" wrap="nowrap">
                     <IconInfoCircle size={20} style={{ flexShrink: 0, marginTop: 2, color: "var(--mantine-color-dimmed)" }} />
                     <Text c="dimmed">
                         Items are added to this queue when they are monitored. A background worker picks them up and searches for them sequentially in Prowlarr.
                     </Text>
                 </Group>
-            </SectionCard>
+            </Card>
         </Stack>
     )
 }

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react"
-import { Group, SimpleGrid, Stack, Text, Title } from "@mantine/core"
+import { Card, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core"
 import { API_URL } from "@/lib/api"
 import { showToast } from "@/lib/notifications"
-import { SectionCard } from "@/components/SectionCard"
 import { StatusPill } from "@/components/StatusPill"
 
 interface ServiceHealth {
@@ -46,27 +45,30 @@ export function WorkersPage() {
 
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                 {loading ? (
-                    <SectionCard withBorder radius="xl" style={{ minHeight: 140 }}>
+                    <Card withBorder radius="xl" style={{ minHeight: 140 }}>
                         <Text c="dimmed" ta="center" py="xl">Loading service health...</Text>
-                    </SectionCard>
+                    </Card>
                 ) : services.length === 0 ? (
-                    <SectionCard withBorder radius="xl" style={{ minHeight: 140 }}>
+                    <Card withBorder radius="xl" style={{ minHeight: 140 }}>
                         <Text c="dimmed" ta="center" py="xl">No service health data available.</Text>
-                    </SectionCard>
+                    </Card>
                 ) : (
                     services.map((service) => (
-                        <SectionCard key={service.name} withBorder radius="xl" >
-                            <Group justify="space-between" align="center" mb="md">
+                        <Card key={service.name} withBorder radius="xl" >
+                            <Group justify="space-between" align="center">
                                 <Title order={4}>{service.display_name}</Title>
                                 <StatusPill label={service.running ? "Online" : "Offline"} tone={service.running ? "green" : "red"} />
                             </Group>
+
 
                             {service.error ? (
                                 <Text size="xs" c="red">
                                     {service.error}
                                 </Text>
                             ) : null}
-                        </SectionCard>
+
+
+                        </Card>
                     ))
                 )}
             </SimpleGrid>

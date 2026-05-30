@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
-import { ActionIcon, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
+import { ActionIcon, Card, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
 import { IconExternalLink, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 import { API_URL } from "@/lib/api"
 import { showToast } from "@/lib/notifications"
-import { SectionCard } from "@/components/SectionCard"
 import { StatusPill } from "@/components/StatusPill"
 
 interface MonitorEntry {
@@ -67,7 +66,7 @@ export function MonitorPage() {
                 <Title order={1}>Monitored items</Title>
             </Stack>
 
-            <SectionCard withBorder radius="xl">
+            <Card withBorder radius="xl">
                 <Stack gap="md">
                     <Group justify="space-between" align="center">
                         <div>
@@ -159,7 +158,7 @@ export function MonitorPage() {
                         </Group>
                     ) : null}
                 </Stack>
-            </SectionCard>
+            </Card>
         </Stack>
     )
 }

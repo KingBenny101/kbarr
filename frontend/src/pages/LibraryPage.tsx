@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Center, Group, Pagination, SimpleGrid, Stack, Text, Title, UnstyledButton } from "@mantine/core"
+import { Center, Group, Pagination, SimpleGrid, Stack, Text, Title, UnstyledButton, Card } from "@mantine/core"
 import { IconPlayerPlayFilled } from "@tabler/icons-react"
 import { API_URL, resolvePosterUrl } from "@/lib/api"
 import type { Media } from "@/types/media"
 import { EmptyState } from "@/components/EmptyState"
-import { SectionCard } from "@/components/SectionCard"
 
 export function LibraryPage() {
     const [medias, setMedias] = useState<Media[]>([])
@@ -43,7 +42,7 @@ export function LibraryPage() {
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
                         {paginatedResults.map((media) => (
                             <UnstyledButton key={media.ID} onClick={() => navigate(`/media/${media.ID}`)} style={{ borderRadius: 24, textAlign: "left" }}>
-                                <SectionCard withBorder radius="xl" p={0} style={{ overflow: "hidden", cursor: "pointer" }}>
+                                <Card withBorder radius="xl" p={0} style={{ overflow: "hidden", cursor: "pointer" }}>
                                     {media.poster_url ? (
                                         <img
                                             src={resolvePosterUrl(media.poster_url)}
@@ -63,7 +62,7 @@ export function LibraryPage() {
                                             AniDB ID {media.aid}
                                         </Text>
                                     </Stack>
-                                </SectionCard>
+                                </Card>
                             </UnstyledButton>
                         ))}
                     </SimpleGrid>

@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react"
-import { ActionIcon, Button, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
+import { ActionIcon, Button, Card, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconExternalLink, IconSearch } from "@tabler/icons-react"
 import { API_URL } from "@/lib/api"
 import { showToast } from "@/lib/notifications"
 import type { Media } from "@/types/media"
 import { EmptyState } from "@/components/EmptyState"
-import { SectionCard } from "@/components/SectionCard"
 import { StatusPill } from "@/components/StatusPill"
 
 const SEARCH_CACHE_KEY = "kbarr.search.cache"
@@ -129,7 +128,7 @@ export function SearchPage() {
                 <Stack gap="lg">
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                         {paginatedResults.map((result) => (
-                            <SectionCard key={result.aid} withBorder radius="xl">
+                            <Card key={result.aid} withBorder radius="xl">
                                 <Stack gap="sm" justify="space-between" h="100%">
                                     <Stack gap={6}>
                                         <Group justify="space-between" align="start" wrap="nowrap">
@@ -152,7 +151,7 @@ export function SearchPage() {
                                         {result.added ? "Added" : "Add to Library"}
                                     </Button>
                                 </Stack>
-                            </SectionCard>
+                            </Card>
                         ))}
                     </SimpleGrid>
 

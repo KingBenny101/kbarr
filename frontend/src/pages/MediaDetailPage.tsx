@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ActionIcon, Anchor, Button, Checkbox, Grid, Group, Image, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
+import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
 import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconTrash } from "@tabler/icons-react"
 import { API_URL, resolvePosterUrl } from "@/lib/api"
 import { showToast } from "@/lib/notifications"
 import type { Episode, MediaDetails } from "@/types/media"
-import { SectionCard } from "@/components/SectionCard"
 import { StatusPill } from "@/components/StatusPill"
 
 interface MonitoredItem {
@@ -190,25 +189,25 @@ export function MediaDetailPage() {
             <Grid>
                 <Grid.Col span={{ base: 12, md: 8 }}>
                     <Stack gap="lg">
-                        <SectionCard withBorder radius="md">
+                        <Card withBorder radius="md">
                             <Stack gap="sm">
                                 <Title order={3}>Overview</Title>
                                 <Text c="dimmed" lh={1.7}>
                                     {media.description || "No description available."}
                                 </Text>
                             </Stack>
-                        </SectionCard>
+                        </Card>
 
-                        <SectionCard withBorder radius="md">
+                        <Card withBorder radius="md">
                             <Stack gap="sm">
                                 <Title order={3}>Information</Title>
                                 <SimpleKeyValue label="AniDB ID" value={String(media.aid)} />
                                 {media.total_episodes > 0 ? <SimpleKeyValue label="Episodes" value={String(media.total_episodes)} /> : null}
                                 {media.total_seasons > 0 ? <SimpleKeyValue label="Seasons" value={String(media.total_seasons)} /> : null}
                             </Stack>
-                        </SectionCard>
+                        </Card>
 
-                        <SectionCard withBorder radius="md">
+                        <Card withBorder radius="md">
                             <Stack gap="md">
                                 <Group align="start" justify="space-between">
                                     <div>
@@ -241,10 +240,10 @@ export function MediaDetailPage() {
 
                                 <Button color="gray" onClick={handleBulkMonitor}>Apply changes</Button>
                             </Stack>
-                        </SectionCard>
+                        </Card>
 
                         {media.episodes?.length ? (
-                            <SectionCard withBorder radius="xl">
+                            <Card withBorder radius="xl">
                                 <Stack gap="md">
                                     <Title order={3}>Episodes</Title>
                                     <EpisodeTable episodes={visibleEpisodes} monitoredItems={monitoredItems} />
@@ -261,7 +260,7 @@ export function MediaDetailPage() {
                                         </Group>
                                     ) : null}
                                 </Stack>
-                            </SectionCard>
+                            </Card>
                         ) : null}
 
                         <Group>
@@ -292,11 +291,11 @@ export function MediaDetailPage() {
 
                 <Grid.Col span={{ base: 12, md: 4 }}>
                     <Stack gap="lg" pos="sticky" top={96}>
-                        <SectionCard withBorder radius="xl" p={0} style={{ overflow: "hidden" }}>
+                        <Card withBorder radius="xl" p={0} style={{ overflow: "hidden" }}>
                             <Image src={resolvePosterUrl(media.poster_url)} alt={media.title} radius="xl" />
-                        </SectionCard>
+                        </Card>
 
-                        <SectionCard withBorder radius="xl">
+                        <Card withBorder radius="xl">
                             <Stack gap={6}>
                                 <Text size="sm" c="dimmed" tt="uppercase" fw={700}>Metadata</Text>
                                 <SimpleKeyValue label="Created" value={media.CreatedAt ? new Date(media.CreatedAt).toLocaleString() : "Unknown"} />
@@ -304,7 +303,7 @@ export function MediaDetailPage() {
                                 <SimpleKeyValue label="Genres" value={media.genres || "Unknown"} />
                                 <SimpleKeyValue label="Release" value={media.release_date || "Unknown"} />
                             </Stack>
-                        </SectionCard>
+                        </Card>
                     </Stack>
                 </Grid.Col>
             </Grid>
