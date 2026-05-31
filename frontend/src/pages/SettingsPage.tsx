@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Navigate, useLocation } from "react-router-dom"
-import { Alert, Button, Group, Loader, Stack, Title } from "@mantine/core"
-import { API_URL } from "@/lib/api"
-import { showToast } from "@/lib/notifications"
-import { MetadataSettings } from "./settings/MetadataSettings"
-import { GeneralSettings } from "./settings/GeneralSettings"
-import { IndexerSettings } from "./settings/IndexerSettings"
+import { Alert, Button, Card, Checkbox, Group, Loader, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core"
+import { API_URL, showToast } from "@/utils"
 
 interface Settings {
     anidbClient: string
@@ -60,8 +56,8 @@ export function SettingsPage() {
         [initialSettings, settings],
     )
 
-    const updateSetting = (key: keyof Settings, value: string) => {
-        setSettings((previous) => (previous ? { ...previous, [key]: value } : previous))
+    const update = (key: keyof Settings, value: string) => {
+        setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
     }
 
     const handleSave = async () => {
@@ -72,14 +68,8 @@ export function SettingsPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    anidbClient: settings.anidbClient,
-                    anidbVersion: settings.anidbVersion,
-                    anidbSyncInterval: settings.anidbSyncInterval,
-                    prowlarrUrl: settings.prowlarrUrl,
+                    ...settings,
                     prowlarrApiKey: settings.prowlarrApiKey.trim() || "error",
-                    prowlarrInterval: settings.prowlarrInterval,
-                    autoMonitorOnAdd: settings.autoMonitorOnAdd,
-                    monitorSyncInterval: settings.monitorSyncInterval,
                 }),
             })
             if (response.ok) {
@@ -106,46 +96,88 @@ export function SettingsPage() {
 
     return (
         <Stack gap="lg" pb={80}>
-            <Stack gap={4}>
-                <Title order={1}>Settings</Title>
-            </Stack>
+            <Title order={1}>
+                {path.includes("metadata") ? "Metadata" : path.includes("indexer") ? "Indexer" : "General"}
+            </Title>
 
-            <Stack gap="lg">
-                {path.includes("general") ? (
-                    <GeneralSettings
-                        autoMonitorOnAdd={settings.autoMonitorOnAdd}
-                        setAutoMonitorOnAdd={(value) => updateSetting("autoMonitorOnAdd", value)}
-                        monitorSyncInterval={settings.monitorSyncInterval}
-                        setMonitorSyncInterval={(value) => updateSetting("monitorSyncInterval", value)}
-                    />
-                ) : null}
-                {path.includes("metadata") ? (
-                    <MetadataSettings
-                        client={settings.anidbClient}
-                        setClient={(value) => updateSetting("anidbClient", value)}
-                        version={settings.anidbVersion}
-                        setVersion={(value) => updateSetting("anidbVersion", value)}
-                        interval={settings.anidbSyncInterval}
-                        setInterval={(value) => updateSetting("anidbSyncInterval", value)}
-                    />
-                ) : null}
-                {path.includes("indexer") ? (
-                    <IndexerSettings
-                        url={settings.prowlarrUrl}
-                        setUrl={(value) => updateSetting("prowlarrUrl", value)}
-                        apiKey={settings.prowlarrApiKey}
-                        setApiKey={(value) => updateSetting("prowlarrApiKey", value)}
-                        interval={settings.prowlarrInterval}
-                        setInterval={(value) => updateSetting("prowlarrInterval", value)}
-                        initialApiKey={initialSettings?.prowlarrApiKey}
-                    />
-                ) : null}
-            </Stack>
+            {path.includes("general") ? (
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
+                            <Title order={3}>General settings</Title>
+                            <Text size="sm" c="dimmed">Configure the application-wide behavior.</Text>
+                        </div>
+                        <Group justify="space-between" align="start">
+                            <div>
+                                <Text fw={700}>Auto-monitor on media add</Text>
+                                <Text size="sm" c="dimmed">Automatically mark newly added media as monitored and trigger search.</Text>
+                            </div>
+                            <Checkbox
+                                checked={settings.autoMonitorOnAdd === "true"}
+                                onChange={(e) => update("autoMonitorOnAdd", e.currentTarget.checked ? "true" : "false")}
+                            />
+                        </Group>
+                        <TextInput
+                            label="Monitor sync interval"
+                            description="Interval in minutes for adding monitored items to the search queue. Minimum 1 minute."
+                            value={settings.monitorSyncInterval}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("monitorSyncInterval", e.currentTarget.value) }}
+                            rightSection={<Text size="xs" c="dimmed">min</Text>}
+                        />
+                    </Stack>
+                </Card>
+            ) : null}
+
+            {path.includes("metadata") ? (
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
+                            <Title order={3}>AniDB</Title>
+                            <Text size="sm" c="dimmed">Configure how the service syncs metadata from AniDB.</Text>
+                        </div>
+                        <TextInput label="Client name" value={settings.anidbClient} onChange={(e) => update("anidbClient", e.currentTarget.value)} placeholder="kbarr" />
+                        <TextInput label="Client version" value={settings.anidbVersion} onChange={(e) => update("anidbVersion", e.currentTarget.value)} placeholder="1" />
+                        <TextInput
+                            label="Sync interval (m)"
+                            value={settings.anidbSyncInterval}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("anidbSyncInterval", e.currentTarget.value) }}
+                            placeholder="1440"
+                        />
+                    </Stack>
+                </Card>
+            ) : null}
+
+            {path.includes("indexer") ? (
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
+                            <Title order={3}>Prowlarr</Title>
+                            <Text size="sm" c="dimmed">Configure the Prowlarr indexer used for monitoring and searches.</Text>
+                        </div>
+                        <TextInput label="URL" value={settings.prowlarrUrl} onChange={(e) => update("prowlarrUrl", e.currentTarget.value)} placeholder="http://localhost:9696" />
+                        <PasswordInput
+                            label="API key"
+                            value={settings.prowlarrApiKey}
+                            onChange={(e) => update("prowlarrApiKey", e.currentTarget.value)}
+                            onFocus={() => { if (settings.prowlarrApiKey === initialSettings?.prowlarrApiKey) update("prowlarrApiKey", "") }}
+                            placeholder="api_key_..."
+                        />
+                        <TextInput
+                            label="Scan interval (min)"
+                            value={settings.prowlarrInterval}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrInterval", e.currentTarget.value) }}
+                            placeholder="60"
+                        />
+                    </Stack>
+                </Card>
+            ) : null}
 
             <Group justify="flex-end" style={{ position: "sticky", bottom: 16 }}>
-                <Alert color={isDirty ? "gray" : "gray"} variant="light" style={{ flex: 1, maxWidth: 480 }}>
-                    {isDirty ? "You have unsaved changes." : "No changes pending."}
-                </Alert>
+                {isDirty ? (
+                    <Alert color="gray" variant="light" style={{ flex: 1, maxWidth: 480 }}>
+                        You have unsaved changes.
+                    </Alert>
+                ) : null}
                 <Button color="gray" onClick={handleSave} disabled={!isDirty || saving} loading={saving}>
                     Save changes
                 </Button>

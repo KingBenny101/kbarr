@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
+import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
 import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconTrash } from "@tabler/icons-react"
-import { API_URL, resolvePosterUrl } from "@/lib/api"
-import { showToast } from "@/lib/notifications"
-import type { Episode, MediaDetails } from "@/types/media"
-import { StatusPill } from "@/components/StatusPill"
+import { API_URL, resolvePosterUrl, showToast } from "@/utils"
+import type { Episode, MediaDetails } from "@/types"
+import { StatusPill } from "@/components"
 
 interface MonitoredItem {
     anidb_id: string
@@ -189,7 +188,7 @@ export function MediaDetailPage() {
             <Grid>
                 <Grid.Col span={{ base: 12, md: 8 }}>
                     <Stack gap="lg">
-                        <Card withBorder radius="md">
+                        <Card withBorder radius="xl">
                             <Stack gap="sm">
                                 <Title order={3}>Overview</Title>
                                 <Text c="dimmed" lh={1.7}>
@@ -198,7 +197,7 @@ export function MediaDetailPage() {
                             </Stack>
                         </Card>
 
-                        <Card withBorder radius="md">
+                        <Card withBorder radius="xl">
                             <Stack gap="sm">
                                 <Title order={3}>Information</Title>
                                 <SimpleKeyValue label="AniDB ID" value={String(media.aid)} />
@@ -207,7 +206,7 @@ export function MediaDetailPage() {
                             </Stack>
                         </Card>
 
-                        <Card withBorder radius="md">
+                        <Card withBorder radius="xl">
                             <Stack gap="md">
                                 <Group align="start" justify="space-between">
                                     <div>
@@ -248,15 +247,11 @@ export function MediaDetailPage() {
                                     <Title order={3}>Episodes</Title>
                                     <EpisodeTable episodes={visibleEpisodes} monitoredItems={monitoredItems} />
                                     {totalPages > 1 ? (
-                                        <Group justify="space-between">
+                                        <Group justify="space-between" align="center">
                                             <Text size="sm" c="dimmed">
                                                 Showing {(page - 1) * itemsPerPage + 1} to {Math.min(page * itemsPerPage, media.episodes.length)} of {media.episodes.length} episodes
                                             </Text>
-                                            <Group gap="xs">
-                                                <Button variant="default" onClick={() => setPage((previous) => Math.max(1, previous - 1))} disabled={page === 1}>Previous</Button>
-                                                <Button variant="default">{page} / {totalPages}</Button>
-                                                <Button variant="default" onClick={() => setPage((previous) => Math.min(totalPages, previous + 1))} disabled={page === totalPages}>Next</Button>
-                                            </Group>
+                                            <Pagination value={page} onChange={setPage} total={totalPages} color="gray" />
                                         </Group>
                                     ) : null}
                                 </Stack>
@@ -264,9 +259,7 @@ export function MediaDetailPage() {
                         ) : null}
 
                         <Group>
-                            <Button component="a" href={`https://anidb.net/anime/${media.aid}`} target="_blank" rel="noreferrer" variant="light" color="gray" leftSection={<IconExternalLink size={16} />}>
-                                AniDB entry
-                            </Button>
+                        
 
                             <Button
                                 color="red"
@@ -370,34 +363,22 @@ function EpisodeTable({ episodes, monitoredItems }: { episodes: Episode[]; monit
 
 function episodeTypeLabel(type: number) {
     switch (type) {
-        case 1:
-            return "Regular"
-        case 2:
-            return "Special"
-        case 3:
-            return "Credit"
-        case 4:
-            return "Trailer"
-        case 5:
-            return "Parody"
-        default:
-            return "Other"
+        case 1: return "Regular"
+        case 2: return "Special"
+        case 3: return "Credit"
+        case 4: return "Trailer"
+        case 5: return "Parody"
+        default: return "Other"
     }
 }
 
 function episodeTypeTone(type: number) {
     switch (type) {
-        case 1:
-            return "blue"
-        case 2:
-            return "violet"
-        case 3:
-            return "green"
-        case 4:
-            return "gray"
-        case 5:
-            return "red"
-        default:
-            return "gray"
+        case 1: return "blue"
+        case 2: return "violet"
+        case 3: return "green"
+        case 4: return "gray"
+        case 5: return "red"
+        default: return "gray"
     }
 }

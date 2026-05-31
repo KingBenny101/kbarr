@@ -2,9 +2,8 @@ import { useEffect, useState } from "react"
 import { ActionIcon, Card, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
 import { IconInfoCircle, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
-import { API_URL } from "@/lib/api"
-import { showToast } from "@/lib/notifications"
-import { StatusPill } from "@/components/StatusPill"
+import { API_URL, showToast } from "@/utils"
+import { StatusPill } from "@/components"
 
 interface QueueItem {
     ID: number
@@ -57,9 +56,7 @@ export function SearchQueuePage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Search queue</Title>
-            </Stack>
+            <Title order={1}>Search queue</Title>
 
             <Card withBorder radius="xl">
                 <Stack gap="md">

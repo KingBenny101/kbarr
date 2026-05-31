@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react"
 import { ActionIcon, Button, Card, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconExternalLink, IconSearch } from "@tabler/icons-react"
-import { API_URL } from "@/lib/api"
-import { showToast } from "@/lib/notifications"
-import type { Media } from "@/types/media"
-import { EmptyState } from "@/components/EmptyState"
-import { StatusPill } from "@/components/StatusPill"
+import { API_URL, showToast } from "@/utils"
+import type { Media } from "@/types"
+import { EmptyState, StatusPill } from "@/components"
 
 const SEARCH_CACHE_KEY = "kbarr.search.cache"
 
@@ -42,7 +40,7 @@ export function SearchPage() {
     const [searching, setSearching] = useState(false)
     const [adding, setAdding] = useState<number | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
-    const itemsPerPage = 12
+    const itemsPerPage = 9
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -105,9 +103,7 @@ export function SearchPage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Search</Title>
-            </Stack>
+            <Title order={1}>Search</Title>
 
             <Group align="end" wrap="nowrap">
                 <TextInput
@@ -165,7 +161,7 @@ export function SearchPage() {
             ) : null}
 
             {!searching && hasSearched && medias.length === 0 ? (
-                <EmptyState icon={<IconSearch size={28} />} title="No results found" description={`Nothing matched “${lastSearchQuery || query}”. Try a different title or spelling.`} />
+                <EmptyState icon={<IconSearch size={28} />} title="No results found" description={`Nothing matched "${lastSearchQuery || query}". Try a different title or spelling.`} />
             ) : null}
 
             {!searching && !hasSearched ? (

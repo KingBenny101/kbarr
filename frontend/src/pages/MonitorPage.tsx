@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
-import { ActionIcon, Card, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
+import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
 import { IconExternalLink, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
-import { API_URL } from "@/lib/api"
-import { showToast } from "@/lib/notifications"
-import { StatusPill } from "@/components/StatusPill"
+import { API_URL, showToast } from "@/utils"
+import { StatusPill } from "@/components"
 
 interface MonitorEntry {
     ID: number
@@ -62,9 +61,7 @@ export function MonitorPage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Monitored items</Title>
-            </Stack>
+            <Title order={1}>Monitored items</Title>
 
             <Card withBorder radius="xl">
                 <Stack gap="md">
@@ -140,21 +137,11 @@ export function MonitorPage() {
                     </ScrollArea>
 
                     {totalPages > 1 ? (
-                        <Group justify="space-between">
+                        <Group justify="space-between" align="center">
                             <Text size="sm" c="dimmed">
                                 Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, monitors.length)} of {monitors.length} items
                             </Text>
-                            <Group gap="xs">
-                                <ActionIcon variant="light" onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))} disabled={currentPage === 1} aria-label="Previous page">
-                                    <IconExternalLink size={16} style={{ transform: "rotate(180deg)" }} />
-                                </ActionIcon>
-                                <Text size="sm" fw={700}>
-                                    {currentPage} / {totalPages}
-                                </Text>
-                                <ActionIcon variant="light" onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))} disabled={currentPage === totalPages} aria-label="Next page">
-                                    <IconExternalLink size={16} />
-                                </ActionIcon>
-                            </Group>
+                            <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} color="gray" />
                         </Group>
                     ) : null}
                 </Stack>

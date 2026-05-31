@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react"
 import { Card, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core"
-import { API_URL } from "@/lib/api"
-import { showToast } from "@/lib/notifications"
-import { StatusPill } from "@/components/StatusPill"
+import { API_URL, showToast } from "@/utils"
+import { StatusPill } from "@/components"
 
 interface ServiceHealth {
     name: string
@@ -38,10 +37,10 @@ export function WorkersPage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
+            <div>
                 <Title order={1}>Workers</Title>
                 <Text c="dimmed">Status of background workers</Text>
-            </Stack>
+            </div>
 
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                 {loading ? (
@@ -54,20 +53,16 @@ export function WorkersPage() {
                     </Card>
                 ) : (
                     services.map((service) => (
-                        <Card key={service.name} withBorder radius="xl" >
+                        <Card key={service.name} withBorder radius="xl">
                             <Group justify="space-between" align="center">
                                 <Title order={4}>{service.display_name}</Title>
                                 <StatusPill label={service.running ? "Online" : "Offline"} tone={service.running ? "green" : "red"} />
                             </Group>
-
-
                             {service.error ? (
                                 <Text size="xs" c="red">
                                     {service.error}
                                 </Text>
                             ) : null}
-
-
                         </Card>
                     ))
                 )}

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Center, Group, Pagination, SimpleGrid, Stack, Text, Title, UnstyledButton, Card } from "@mantine/core"
+import { Card, Center, Group, Pagination, SimpleGrid, Stack, Text, Title } from "@mantine/core"
 import { IconPlayerPlayFilled } from "@tabler/icons-react"
-import { API_URL, resolvePosterUrl } from "@/lib/api"
-import type { Media } from "@/types/media"
-import { EmptyState } from "@/components/EmptyState"
+import { API_URL, resolvePosterUrl } from "@/utils"
+import type { Media } from "@/types"
+import { EmptyState } from "@/components"
 
 export function LibraryPage() {
     const [medias, setMedias] = useState<Media[]>([])
@@ -27,9 +27,7 @@ export function LibraryPage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Library</Title>
-            </Stack>
+            <Title order={1}>Library</Title>
 
             {medias.length === 0 ? (
                 <EmptyState
@@ -41,29 +39,25 @@ export function LibraryPage() {
                 <Stack gap="lg">
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
                         {paginatedResults.map((media) => (
-                            <UnstyledButton key={media.ID} onClick={() => navigate(`/media/${media.ID}`)} style={{ borderRadius: 24, textAlign: "left" }}>
-                                <Card withBorder radius="xl" p={0} style={{ overflow: "hidden", cursor: "pointer" }}>
-                                    {media.poster_url ? (
-                                        <img
-                                            src={resolvePosterUrl(media.poster_url)}
-                                            alt={media.title}
-                                            style={{ width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }}
-                                        />
-                                    ) : (
-                                        <Center style={{ width: "100%", aspectRatio: "3 / 4", background: "rgba(255,255,255,0.04)" }}>
-                                            <IconPlayerPlayFilled size={30} opacity={0.5} />
-                                        </Center>
-                                    )}
-                                    <Stack gap={0} p="xs">
-                                        <Title order={6} lineClamp={2}>
-                                            {media.title}
-                                        </Title>
-                                        <Text size="10px" c="dimmed">
-                                            AniDB ID {media.aid}
-                                        </Text>
-                                    </Stack>
-                                </Card>
-                            </UnstyledButton>
+                            <Card key={media.ID} withBorder radius="xl" p={0} h="100%" style={{ overflow: "hidden", cursor: "pointer" }} onClick={() => navigate(`/media/${media.ID}`)}>
+                                {media.poster_url ? (
+                                    <div style={{ width: "100%", aspectRatio: "3 / 4" }}>
+                                        <img src={resolvePosterUrl(media.poster_url)} alt={media.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                    </div>
+                                ) : (
+                                    <Center style={{ width: "100%", aspectRatio: "3 / 4", background: "rgba(255,255,255,0.04)" }}>
+                                        <IconPlayerPlayFilled size={30} opacity={0.5} />
+                                    </Center>
+                                )}
+                                <Stack gap={0} p="xs" style={{ minHeight: 64 }}>
+                                    <Title order={6} lineClamp={2}>
+                                        {media.title}
+                                    </Title>
+                                    <Text size="10px" c="dimmed">
+                                        AniDB ID {media.aid}
+                                    </Text>
+                                </Stack>
+                            </Card>
                         ))}
                     </SimpleGrid>
 
