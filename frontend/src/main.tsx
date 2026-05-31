@@ -5,6 +5,8 @@ import { ModalsProvider } from "@mantine/modals"
 import { Notifications } from "@mantine/notifications"
 import { BrowserRouter } from "react-router-dom"
 import App from "./App"
+// @ts-ignore
+import "@fontsource-variable/inter"
 import "@mantine/core/styles.css"
 import "@mantine/notifications/styles.css"
 
