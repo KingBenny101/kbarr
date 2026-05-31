@@ -3,20 +3,18 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/kingbenny101/kbarr/services/core/internal/clients"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
 	"github.com/kingbenny101/kbarr/shared/models"
-	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
-	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 )
 
-func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient metadatapb.MetadataServiceClient) {
+func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient *clients.MetadataClient) {
 	var media models.Media
 	err := json.NewDecoder(r.Body).Decode(&media)
 	if err != nil {
@@ -43,11 +41,11 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient metad
 		return
 	}
 
-	slog.Info("Preparing detailed info", "title", media.Title)
+	slog.Info("Preparing detailed info", "title", media.Title, "aid", media.AID)
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
-	prepared, err := metadataClient.PrepareDetailedFromMedia(ctx, toAniDBMediaProto(media))
+	prepared, err := metadataClient.Prepare(ctx, media.AID, media.Title, 0)
 	if err != nil {
 		slog.Error("Failed to get anime details from AniDB", "error", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -56,10 +54,10 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient metad
 			"error": "Failed to fetch anime details from AniDB. Check your AniDB client settings.",
 		})
 		return
-	} else if prepared != nil && prepared.GetPosterUrl() != "" {
-		media.PosterURL = prepared.GetPosterUrl()
-		slog.Info("Set poster URL", "posterURL", media.PosterURL)
+	}
 
+	if prepared.PosterURL != "" {
+		media.PosterURL = prepared.PosterURL
 	}
 
 	id, err := db.InsertMedia(media)
@@ -71,30 +69,21 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient metad
 
 	slog.Info("Media added", "id", id, "title", media.Title)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "Media added successfully!",
-	})
-
-	if prepared != nil {
-		prepared.LibraryId = uint64(id)
-
-		detailed := toDetailedModel(prepared)
-		detailed.LibraryID = uint(id)
-
-		if _, insertErr := db.InsertDetailed(detailed); insertErr != nil {
-			slog.Error("Failed to insert detailed info for media ID", "id", id, "error", insertErr)
-			if deleteErr := db.DeleteMedia(strconv.FormatInt(id, 10)); deleteErr != nil {
-				slog.Error("Failed to rollback media insert after detailed insert failure", "id", id, "error", deleteErr)
-			}
-			http.Error(w, "failed to save media", http.StatusInternalServerError)
-			return
-		}
-
-		slog.Info("Detailed info added", "id", id)
+	detailed := toDetailedModel(prepared, uint(id))
+	if _, err := db.InsertDetailed(detailed); err != nil {
+		slog.Error("Failed to insert detailed info", "id", id, "error", err)
+		_ = db.DeleteMedia(strconv.FormatInt(id, 10))
+		http.Error(w, "failed to save media details", http.StatusInternalServerError)
+		return
 	}
 
+	slog.Info("Detailed info added", "id", id)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Media added successfully!",
+	})
 }
 
 func HandleGetMediaList(w http.ResponseWriter, r *http.Request) {
@@ -150,38 +139,6 @@ func HandleUpdateMonitorStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func HandleTriggerSearch(w http.ResponseWriter, r *http.Request, indexerClient indexerpb.IndexerServiceClient) {
-	id := chi.URLParam(r, "id")
-
-	slog.Info("Trigger search for media ID", "id", id)
-
-	media, err := db.GetMediaByID(id)
-	if err != nil {
-		slog.Error("Failed to fetch media with ID", "id", id, "error", err)
-		http.Error(w, "media not found", http.StatusNotFound)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-
-	resultsResponse, err := indexerClient.Search(ctx, &indexerpb.ProwlarrSearchRequest{Query: media.Title})
-	if err != nil {
-		slog.Error("Prowlarr search failed", "error", err)
-		http.Error(w, fmt.Sprintf("search failed: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	results := toProwlarrSearchResults(resultsResponse.GetResults())
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"media_title":   media.Title,
-		"results_count": len(results),
-		"results":       results,
-	})
-}
-
 func HandleGetDetailedByMediaID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -202,4 +159,38 @@ func HandleGetDetailedByMediaID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(detailed)
+}
+
+func toDetailedModel(d *clients.Detailed, libraryID uint) models.Detailed {
+	if d == nil {
+		return models.Detailed{}
+	}
+
+	result := models.Detailed{
+		AID:             d.AID,
+		LibraryID:       libraryID,
+		Title:           d.Title,
+		AlternateTitles: d.AlternateTitles,
+		Description:     d.Description,
+		ReleaseDate:     d.ReleaseDate,
+		Genres:          d.Genres,
+		PosterURL:       d.PosterURL,
+		TotalEpisodes:   d.TotalEpisodes,
+		TotalSeasons:    d.TotalSeasons,
+	}
+
+	if len(d.Episodes) > 0 {
+		result.Episodes = make([]models.Episode, 0, len(d.Episodes))
+		for _, ep := range d.Episodes {
+			result.Episodes = append(result.Episodes, models.Episode{
+				AniDBID: ep.AniDBID,
+				Type:    ep.Type,
+				EpNo:    ep.EpNo,
+				Title:   ep.Title,
+				AirDate: ep.AirDate,
+			})
+		}
+	}
+
+	return result
 }

@@ -83,6 +83,20 @@ type SearchQueue struct {
 	Status        *string    `bun:"status" json:"status"`
 }
 
+type DownloadQueue struct {
+	bun.BaseModel `bun:"table:download_queue"`
+	ID            int64      `bun:"id,pk,autoincrement" json:"id"`
+	CreatedAt     time.Time  `bun:"created_at,notnull,default:now()" json:"created_at"`
+	UpdatedAt     time.Time  `bun:"updated_at,notnull,default:now()" json:"updated_at"`
+	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at"`
+	MonitorID     *int64     `bun:"monitor_id" json:"monitor_id"`
+	Title         *string    `bun:"title" json:"title"`
+	TorrentURL    *string    `bun:"torrent_url" json:"torrent_url"`
+	SavePath      *string    `bun:"save_path" json:"save_path"`
+	TorrentHash   *string    `bun:"torrent_hash" json:"torrent_hash"`
+	Status        *string    `bun:"status" json:"status"`
+}
+
 type Setting struct {
 	bun.BaseModel `bun:"table:settings,alias:s"`
 	ID            int64      `bun:"id,pk,autoincrement" json:"id"`

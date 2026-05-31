@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kingbenny101/kbarr/services/core/internal/clients"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
-	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
 )
 
-func HandleMediaSearch(w http.ResponseWriter, r *http.Request, metadataClient metadatapb.MetadataServiceClient) {
+func HandleMediaSearch(w http.ResponseWriter, r *http.Request, metadataClient *clients.MetadataClient) {
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		http.Error(w, "missing query parameter q", http.StatusBadRequest)
@@ -23,34 +23,30 @@ func HandleMediaSearch(w http.ResponseWriter, r *http.Request, metadataClient me
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
-	response, err := metadataClient.SearchTitles(ctx, &metadatapb.AniDBSearchTitlesRequest{Query: query})
+	results, err := metadataClient.SearchTitles(ctx, query)
 	if err != nil {
-		slog.Warn("Failed to search titles via service", "error", err)
+		slog.Warn("Failed to search titles via metadata service", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode([]any{})
 		return
 	}
 
-	results := response.GetResults()
 	if len(results) == 0 {
-		results = []*metadatapb.AniDBSearchResult{}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]clients.SearchResult{})
+		return
 	}
 
 	mediaList, err := db.GetAllMedia()
 	if err != nil {
 		slog.Warn("Failed to load media list for search annotations", "error", err)
 	} else {
-		addedMedia := make(map[uint64]struct{}, len(mediaList))
+		addedMedia := make(map[uint]struct{}, len(mediaList))
 		for _, media := range mediaList {
-			addedMedia[uint64(media.AID)] = struct{}{}
+			addedMedia[media.AID] = struct{}{}
 		}
-
-		for _, result := range results {
-			if result == nil {
-				continue
-			}
-			_, ok := addedMedia[result.GetAid()]
-			result.Added = ok
+		for i := range results {
+			_, results[i].Added = addedMedia[results[i].AID]
 		}
 	}
 

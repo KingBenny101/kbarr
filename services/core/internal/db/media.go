@@ -162,3 +162,11 @@ func touchMediaMonitorStatus(ctx context.Context, id int64) error {
 	_, err := DB.NewUpdate().Model((*Medium)(nil)).Set("updated_at = NOW()").Where("id = ?", id).Exec(ctx)
 	return err
 }
+
+func UpdateMediaPosterURL(id int64, posterURL string) error {
+	if err := ensureDB(); err != nil {
+		return err
+	}
+	_, err := DB.NewUpdate().Model((*Medium)(nil)).Set("poster_url = ?", posterURL).Where("id = ?", id).Exec(context.Background())
+	return err
+}

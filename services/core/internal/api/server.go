@@ -7,23 +7,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/kingbenny101/kbarr/services/core/internal/api/handlers"
-	downloaderpb "github.com/kingbenny101/kbarr/shared/proto/downloader"
-	indexerpb "github.com/kingbenny101/kbarr/shared/proto/indexer"
-	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
+	"github.com/kingbenny101/kbarr/services/core/internal/clients"
 )
 
 type Server struct {
-	anidb          metadatapb.MetadataServiceClient
-	prowlarr       indexerpb.IndexerServiceClient
-	downloader     downloaderpb.DownloaderClient
-	version        string
-	metadataAddr   string
-	indexerAddr    string
-	downloaderAddr string
+	metadata *clients.MetadataClient
+	version  string
 }
 
-func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient indexerpb.IndexerServiceClient, downloaderClient downloaderpb.DownloaderClient, version string, metadataAddr, indexerAddr, downloaderAddr string) http.Handler {
-	router := &Server{anidb: metadataClient, prowlarr: indexerClient, downloader: downloaderClient, version: version, metadataAddr: metadataAddr, indexerAddr: indexerAddr, downloaderAddr: downloaderAddr}
+func NewRouter(metadataClient *clients.MetadataClient, version string) http.Handler {
+	router := &Server{metadata: metadataClient, version: version}
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -49,11 +42,9 @@ func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient in
 	r.Get("/api/search-queue", handlers.HandleGetSearchQueue)
 	r.Delete("/api/search-queue/{id}", handlers.HandleDeleteSearchQueueEntry)
 
-	// Downloads
-	r.Post("/api/downloads", router.handleAddTorrent)
-	r.Get("/api/downloads", router.handleListTorrents)
-	r.Get("/api/downloads/{hash}", router.handleGetTorrent)
-	r.Delete("/api/downloads/{hash}", router.handleRemoveTorrent)
+	// Downloads (download_queue table)
+	r.Get("/api/downloads", handlers.HandleListDownloads)
+	r.Delete("/api/downloads/{id}", handlers.HandleDeleteDownload)
 
 	// Library
 	r.Get("/api/library", handlers.HandleGetMediaList)
@@ -64,7 +55,6 @@ func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient in
 	r.Delete("/api/library/{id}", handlers.HandleDeleteMedia)
 
 	r.Put("/api/library/{id}/monitor", handlers.HandleUpdateMonitorStatus)
-	r.Post("/api/library/{id}/search", router.handleTriggerSearch)
 
 	// Monitor
 	r.Get("/api/monitor", handlers.HandleGetMonitoredList)
@@ -74,8 +64,8 @@ func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient in
 	r.Post("/api/unmonitor", handlers.HandleUnmonitor)
 	r.Post("/api/unmonitor/season", handlers.HandleUnmonitorSeason)
 
-	// Compatibility endpoint for legacy UI; core no longer runs workers.
-	r.Get("/api/workers", handlers.HandleGetWorkers(router.metadataAddr, router.indexerAddr, router.downloaderAddr))
+	// Workers / service health
+	r.Get("/api/workers", handlers.HandleGetWorkers())
 
 	// Poster/image cache served from the shared data volume.
 	r.Get("/api/images/{imageName}", handlers.HandleGetImage)
@@ -87,29 +77,9 @@ func NewRouter(metadataClient metadatapb.MetadataServiceClient, indexerClient in
 }
 
 func (r *Server) handleMediaSearch(w http.ResponseWriter, req *http.Request) {
-	handlers.HandleMediaSearch(w, req, r.anidb)
+	handlers.HandleMediaSearch(w, req, r.metadata)
 }
 
 func (r *Server) handleAddMedia(w http.ResponseWriter, req *http.Request) {
-	handlers.HandleAddMedia(w, req, r.anidb)
-}
-
-func (r *Server) handleTriggerSearch(w http.ResponseWriter, req *http.Request) {
-	handlers.HandleTriggerSearch(w, req, r.prowlarr)
-}
-
-func (r *Server) handleAddTorrent(w http.ResponseWriter, req *http.Request) {
-	handlers.HandleAddTorrent(w, req, r.downloader)
-}
-
-func (r *Server) handleListTorrents(w http.ResponseWriter, req *http.Request) {
-	handlers.HandleListTorrents(w, req, r.downloader)
-}
-
-func (r *Server) handleGetTorrent(w http.ResponseWriter, req *http.Request) {
-	handlers.HandleGetTorrent(w, req, r.downloader)
-}
-
-func (r *Server) handleRemoveTorrent(w http.ResponseWriter, req *http.Request) {
-	handlers.HandleRemoveTorrent(w, req, r.downloader)
+	handlers.HandleAddMedia(w, req, r.metadata)
 }
