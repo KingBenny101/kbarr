@@ -32,6 +32,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET /logs", logger.HandleLogs)
 	go func() {
 		slog.Info("Health endpoint listening", "port", "8082")
 		if err := http.ListenAndServe(":8082", mux); err != nil {

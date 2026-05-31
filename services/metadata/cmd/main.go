@@ -42,6 +42,7 @@ func main() {
 	handler := metaapi.NewHandler(svc)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET /logs", logger.HandleLogs)
 	mux.HandleFunc("GET /search", handler.Search)
 	mux.HandleFunc("GET /anime/{aid}", handler.GetAnimeDetails)
 	mux.HandleFunc("POST /prepare", handler.Prepare)
