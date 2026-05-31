@@ -119,14 +119,7 @@ export function SearchQueuePage() {
                 </Stack>
             </Card>
 
-            <Card withBorder radius="xl">
-                <Group align="start" wrap="nowrap">
-                    <IconInfoCircle size={20} style={{ flexShrink: 0, marginTop: 2, color: "var(--mantine-color-dimmed)" }} />
-                    <Text c="dimmed">
-                        Items are added to this queue when they are monitored. A background worker picks them up and searches for them sequentially in Prowlarr.
-                    </Text>
-                </Group>
-            </Card>
+       
         </Stack>
     )
 }

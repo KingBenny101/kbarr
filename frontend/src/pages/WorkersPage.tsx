@@ -6,7 +6,6 @@ import { StatusPill } from "@/components"
 interface ServiceHealth {
     name: string
     display_name: string
-    address: string
     running: boolean
     error?: string
 }
@@ -52,19 +51,19 @@ export function WorkersPage() {
                         <Text c="dimmed" ta="center" py="xl">No service health data available.</Text>
                     </Card>
                 ) : (
-                    services.map((service) => (
-                        <Card key={service.name} withBorder radius="xl">
-                            <Group justify="space-between" align="center">
-                                <Title order={4}>{service.display_name}</Title>
-                                <StatusPill label={service.running ? "Online" : "Offline"} tone={service.running ? "green" : "red"} />
-                            </Group>
-                            {service.error ? (
-                                <Text size="xs" c="red">
-                                    {service.error}
-                                </Text>
-                            ) : null}
-                        </Card>
-                    ))
+                    <>
+                        {services.map((service) => (
+                            <Card key={service.name} withBorder radius="xl">
+                                <Group justify="space-between" align="center">
+                                    <Title order={4}>{service.display_name}</Title>
+                                    <StatusPill label={service.running ? "Online" : "Offline"} tone={service.running ? "green" : "red"} />
+                                </Group>
+                                {service.error && (
+                                    <Text size="xs" c="dimmed" mt="xs">{service.error}</Text>
+                                )}
+                            </Card>
+                        ))}
+                    </>
                 )}
             </SimpleGrid>
         </Stack>
