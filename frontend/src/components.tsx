@@ -1,5 +1,13 @@
-import { Box, Button, Paper, Stack, Text, Title } from "@mantine/core"
+import { Badge, Button, Paper, Stack, Text, Title } from "@mantine/core"
 import type { ReactNode } from "react"
+
+export function StatusPill({ label, tone = "gray" }: { label: string; tone?: "gray" | "yellow" | "blue" | "green" | "red" | "violet" }) {
+    return (
+        <Badge radius="xl" variant="light" color={tone} size="sm">
+            {label}
+        </Badge>
+    )
+}
 
 type EmptyStateProps = {
     icon: ReactNode
@@ -11,11 +19,11 @@ type EmptyStateProps = {
 
 export function EmptyState({ icon, title, description, actionLabel, onAction }: EmptyStateProps) {
     return (
-        <Paper withBorder radius="md" p="lg">
+        <Paper withBorder radius="xl" p="lg">
             <Stack align="center" ta="center" gap="sm">
-                <Box style={{ width: 48, height: 48, borderRadius: 12, display: "grid", placeItems: "center", color: "var(--mantine-color-dimmed)" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, display: "grid", placeItems: "center", color: "var(--mantine-color-dimmed)" }}>
                     {icon}
-                </Box>
+                </div>
                 <Title order={4}>{title}</Title>
                 <Text c="dimmed" maw={420}>
                     {description}
