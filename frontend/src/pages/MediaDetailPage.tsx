@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
 import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconTrash } from "@tabler/icons-react"
-import { API_URL, resolvePosterUrl, showToast } from "@/utils"
+import { API_URL, apiFetch, resolvePosterUrl, showToast } from "@/utils"
 import type { Episode, MediaDetails } from "@/types"
 import { StatusPill } from "@/components"
 
@@ -28,7 +28,7 @@ export function MediaDetailPage() {
     useEffect(() => {
         if (!id) return
         setLoading(true)
-        fetch(`${API_URL}/api/library/${id}`)
+        apiFetch(`${API_URL}/api/library/${id}`)
             .then(async (response) => {
                 if (!response.ok) throw new Error("Failed to fetch media details")
                 return response.json()
@@ -43,7 +43,7 @@ export function MediaDetailPage() {
 
     useEffect(() => {
         if (!media || !id) return
-        fetch(`${API_URL}/api/library/${id}/monitored`)
+        apiFetch(`${API_URL}/api/library/${id}/monitored`)
             .then((response) => response.json())
             .then((data: MonitoredItem[]) => {
                 setMonitoredItems(data || [])
@@ -101,7 +101,7 @@ export function MediaDetailPage() {
         try {
             if (monitorEntireSeason) {
                 const episodeNumbers = media.episodes.map((episode) => Number.parseInt(episode.ep_no, 10)).filter((value) => !Number.isNaN(value))
-                const response = await fetch(`${API_URL}/api/monitor/bulk`, {
+                const response = await apiFetch(`${API_URL}/api/monitor/bulk`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(buildPayload(episodeNumbers)),
@@ -112,7 +112,7 @@ export function MediaDetailPage() {
                 }
             } else if (rangeInput.trim()) {
                 const episodeNumbers = parseRange(rangeInput)
-                const response = await fetch(`${API_URL}/api/monitor/bulk`, {
+                const response = await apiFetch(`${API_URL}/api/monitor/bulk`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(buildPayload(episodeNumbers)),
@@ -122,7 +122,7 @@ export function MediaDetailPage() {
                     setRangeInput("")
                 }
             } else if (monitoredItems.some((item) => item.is_season && item.season === 1)) {
-                const response = await fetch(`${API_URL}/api/unmonitor/season`, {
+                const response = await apiFetch(`${API_URL}/api/unmonitor/season`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ library_id: Number(id), season: 1 }),
@@ -148,7 +148,7 @@ export function MediaDetailPage() {
     const deleteMedia = async () => {
         if (!media || !id) return
         try {
-            const response = await fetch(`${API_URL}/api/library/${id}`, { method: "DELETE" })
+            const response = await apiFetch(`${API_URL}/api/library/${id}`, { method: "DELETE" })
             if (response.ok) {
                 showToast("Media deleted", "success")
                 navigate("/")

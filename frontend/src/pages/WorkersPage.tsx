@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Badge, Card, Code, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core"
 import { IconCircleCheck, IconCircleX } from "@tabler/icons-react"
-import { API_URL, showToast } from "@/utils"
+import { API_URL, apiFetch, showToast } from "@/utils"
 
 interface ServiceHealth {
     name: string
@@ -37,7 +37,7 @@ function LogViewer({ service }: { service: ServiceHealth }) {
 
         const fetchLogs = async () => {
             try {
-                const res = await fetch(`${API_URL}/api/workers/${service.name}/logs`)
+                const res = await apiFetch(`${API_URL}/api/workers/${service.name}/logs`)
                 if (!res.ok) throw new Error()
                 const data: LogEntry[] = await res.json()
                 if (!cancelled) {
@@ -151,7 +151,7 @@ export function WorkersPage() {
 
     const fetchWorkers = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/workers`)
+            const res = await apiFetch(`${API_URL}/api/workers`)
             if (!res.ok) throw new Error()
             const data: ServiceHealth[] = await res.json()
             setServices(data || [])

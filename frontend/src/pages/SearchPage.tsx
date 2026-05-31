@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { ActionIcon, Button, Card, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconExternalLink, IconSearch } from "@tabler/icons-react"
-import { API_URL, showToast } from "@/utils"
+import { API_URL, apiFetch, showToast } from "@/utils"
 import type { Media } from "@/types"
 import { EmptyState, StatusPill } from "@/components"
 
@@ -66,7 +66,7 @@ export function SearchPage() {
         setCurrentPage(1)
         setSearching(true)
         try {
-            const response = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(trimmedQuery)}`)
+            const response = await apiFetch(`${API_URL}/api/search?q=${encodeURIComponent(trimmedQuery)}`)
             const data = (await response.json()) as Media[]
             setHasSearched(true)
             setLastSearchQuery(trimmedQuery)
@@ -81,7 +81,7 @@ export function SearchPage() {
     const handleAdd = async (result: Media) => {
         setAdding(result.aid)
         try {
-            const response = await fetch(`${API_URL}/api/library`, {
+            const response = await apiFetch(`${API_URL}/api/library`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(result),

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
 import { IconExternalLink, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
-import { API_URL, showToast } from "@/utils"
+import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
 
 interface MonitorEntry {
@@ -27,7 +27,7 @@ export function MonitorPage() {
 
     const fetchMonitors = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/monitor`)
+            const response = await apiFetch(`${API_URL}/api/monitor`)
             if (!response.ok) throw new Error("Failed to fetch monitored items")
             const data = await response.json()
             setMonitors(data || [])
@@ -45,7 +45,7 @@ export function MonitorPage() {
 
     const handleDelete = async (id: number) => {
         try {
-            const response = await fetch(`${API_URL}/api/monitor/${id}`, { method: "DELETE" })
+            const response = await apiFetch(`${API_URL}/api/monitor/${id}`, { method: "DELETE" })
             if (!response.ok) throw new Error("Failed to delete monitor entry")
             setMonitors((items) => items.filter((item) => item.ID !== id))
             showToast("Removed from monitor", "success")

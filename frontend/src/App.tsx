@@ -2,9 +2,10 @@ import { useEffect, useState } from "react"
 import { Navigate, Route, Routes, Link, useLocation } from "react-router-dom"
 import { AppShell, Burger, Group, NavLink, Text, ActionIcon, useMantineColorScheme, useComputedColorScheme } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
-import { IconLibraryPhoto, IconSearch, IconListCheck, IconTimeline, IconActivity, IconSettings, IconDatabase, IconPlug, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
-import { API_URL } from "@/utils"
+import { IconLibraryPhoto, IconSearch, IconListCheck, IconTimeline, IconActivity, IconSettings, IconDatabase, IconPlug, IconDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
+import { API_URL, apiFetch, clearToken, getToken } from "@/utils"
 import { LibraryPage } from "@/pages/LibraryPage"
+import { LoginPage } from "@/pages/LoginPage"
 import { MediaDetailPage } from "@/pages/MediaDetailPage"
 import { MonitorPage } from "@/pages/MonitorPage"
 import { SearchPage } from "@/pages/SearchPage"
@@ -31,6 +32,7 @@ const navigation = [
             { label: "General", to: "/settings/general", icon: <IconSettings size={18} />, match: (p: string | string[]) => p === "/settings" || p.includes("general") },
             { label: "Metadata", to: "/settings/metadata", icon: <IconDatabase size={18} />, match: (p: string | string[]) => p.includes("metadata") },
             { label: "Indexer", to: "/settings/indexer", icon: <IconPlug size={18} />, match: (p: string | string[]) => p.includes("indexer") },
+            { label: "Downloader", to: "/settings/downloader", icon: <IconDownload size={18} />, match: (p: string | string[]) => p.includes("downloader") },
         ]
     },
 ]
@@ -39,15 +41,26 @@ function PageShell({ children }: { children: React.ReactNode }) {
     const [opened, { toggle, close }] = useDisclosure(false)
     const pathname = useLocation().pathname
     const [version, setVersion] = useState("0.0.0")
+    const [username, setUsername] = useState("")
     const { toggleColorScheme } = useMantineColorScheme()
     const computedColorScheme = useComputedColorScheme("light")
 
     useEffect(() => {
-        fetch(`${API_URL}/api/version`)
+        apiFetch(`${API_URL}/api/version`)
             .then((res) => res.ok ? res.json() : Promise.reject())
             .then((data) => setVersion(data.version ?? "0.0.0"))
             .catch(() => setVersion("0.0.0"))
+        apiFetch(`${API_URL}/api/auth/me`)
+            .then((res) => res.ok ? res.json() : Promise.reject())
+            .then((data) => setUsername(data.username ?? ""))
+            .catch(() => {})
     }, [])
+
+    const handleLogout = async () => {
+        await apiFetch(`${API_URL}/api/auth/logout`, { method: "POST" })
+        clearToken()
+        window.location.href = "/login"
+    }
 
     return (
         <AppShell
@@ -63,9 +76,16 @@ function PageShell({ children }: { children: React.ReactNode }) {
                             kbarr <Text component="span" size="xs" c="dimmed">v{version}</Text>
                         </Text>
                     </Group>
-                    <ActionIcon variant="subtle" color="gray" onClick={toggleColorScheme} aria-label="Toggle color scheme">
-                        {computedColorScheme === "dark" ? <IconSunFilled size={18} /> : <IconMoonFilled size={18} />}
-                    </ActionIcon>
+                    <Group gap="xs">
+                        {username && <Text size="sm" c="dimmed">{username}</Text>}
+                        <ActionIcon variant="subtle" color="gray" onClick={handleLogout} aria-label="Sign out" title="Sign out">
+                            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                                <polyline points="16 17 21 12 16 7" />
+                                <line x1="21" y1="12" x2="9" y2="12" />
+                            </svg>
+                        </ActionIcon>
+                    </Group>
                 </Group>
             </AppShell.Header>
 
@@ -83,6 +103,11 @@ function PageShell({ children }: { children: React.ReactNode }) {
                         </div>
                     ))}
                 </AppShell.Section>
+                <AppShell.Section>
+                    <ActionIcon variant="subtle" color="gray" onClick={toggleColorScheme} aria-label="Toggle color scheme">
+                        {computedColorScheme === "dark" ? <IconSunFilled size={18} /> : <IconMoonFilled size={18} />}
+                    </ActionIcon>
+                </AppShell.Section>
             </AppShell.Navbar>
 
             <AppShell.Main>{children}</AppShell.Main>
@@ -90,19 +115,39 @@ function PageShell({ children }: { children: React.ReactNode }) {
     )
 }
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+    const token = getToken()
+    const pathname = useLocation().pathname
+
+    if (!token && pathname !== "/login") {
+        return <Navigate to="/login" replace />
+    }
+    if (token && pathname === "/login") {
+        return <Navigate to="/" replace />
+    }
+    return <>{children}</>
+}
+
 export default function App() {
     return (
-        <PageShell>
-            <Routes>
-                <Route path="/" element={<LibraryPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/settings/*" element={<SettingsPage />} />
-                <Route path="/media/:id" element={<MediaDetailPage />} />
-                <Route path="/monitored" element={<MonitorPage />} />
-                <Route path="/workers" element={<WorkersPage />} />
-                <Route path="/search-queue" element={<SearchQueuePage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </PageShell>
+        <Routes>
+            <Route path="/login" element={<AuthGate><LoginPage /></AuthGate>} />
+            <Route path="*" element={
+                <AuthGate>
+                    <PageShell>
+                        <Routes>
+                            <Route path="/" element={<LibraryPage />} />
+                            <Route path="/search" element={<SearchPage />} />
+                            <Route path="/settings/*" element={<SettingsPage />} />
+                            <Route path="/media/:id" element={<MediaDetailPage />} />
+                            <Route path="/monitored" element={<MonitorPage />} />
+                            <Route path="/workers" element={<WorkersPage />} />
+                            <Route path="/search-queue" element={<SearchQueuePage />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </PageShell>
+                </AuthGate>
+            } />
+        </Routes>
     )
 }

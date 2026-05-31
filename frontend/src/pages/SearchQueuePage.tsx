@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { ActionIcon, Card, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
 import { IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
-import { API_URL, showToast } from "@/utils"
+import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
 
 interface QueueItem {
@@ -24,7 +24,7 @@ export function SearchQueuePage() {
 
     const fetchQueue = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/search-queue`)
+            const response = await apiFetch(`${API_URL}/api/search-queue`)
             if (!response.ok) throw new Error("Failed to fetch search queue")
             const data = await response.json()
             setQueue(data || [])
@@ -44,7 +44,7 @@ export function SearchQueuePage() {
 
     const handleDelete = async (id: number) => {
         try {
-            const response = await fetch(`${API_URL}/api/search-queue/${id}`, { method: "DELETE" })
+            const response = await apiFetch(`${API_URL}/api/search-queue/${id}`, { method: "DELETE" })
             if (!response.ok) throw new Error("Failed to delete queue entry")
             setQueue((items) => items.filter((item) => item.ID !== id))
             showToast("Removed from queue", "success")

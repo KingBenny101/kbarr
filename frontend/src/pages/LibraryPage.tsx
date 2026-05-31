@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, Center, Group, Pagination, SimpleGrid, Stack, Text, Title } from "@mantine/core"
 import { IconPlayerPlayFilled } from "@tabler/icons-react"
-import { API_URL, resolvePosterUrl } from "@/utils"
+import { API_URL, apiFetch, resolvePosterUrl } from "@/utils"
 import type { Media } from "@/types"
 import { EmptyState } from "@/components"
 
@@ -13,7 +13,7 @@ export function LibraryPage() {
     const itemsPerPage = 4
 
     useEffect(() => {
-        fetch(`${API_URL}/api/library`)
+        apiFetch(`${API_URL}/api/library`)
             .then((response) => response.json())
             .then((data: Media[]) => setMedias(data || []))
             .catch((error) => console.error("Failed to fetch media list:", error))
