@@ -11,24 +11,29 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/services/core/internal/api"
+	"github.com/kingbenny101/kbarr/services/core/internal/auth"
 	"github.com/kingbenny101/kbarr/services/core/internal/clients"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
 	coreversion "github.com/kingbenny101/kbarr/services/core/internal/version"
-	"github.com/kingbenny101/kbarr/shared/config"
 	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
 func main() {
 	logger.Init()
 	slog.Info("kbarr starting...")
-	slog.Info("Initializing database...")
 	if err := db.Init(); err != nil {
 		slog.Error("Database initialization error", "error", err)
 		os.Exit(1)
 	}
 	slog.Info("Initialization complete.")
 
-	cfg := config.Load(db.DB)
+	authStore := auth.NewStore()
+	if err := auth.EnsureDefaults(db.DB); err != nil {
+		slog.Error("Failed to seed auth defaults", "error", err)
+		os.Exit(1)
+	}
+
+	port := resolveAddr("PORT", "8080")
 
 	appVersion, err := coreversion.Load()
 	if err != nil {
@@ -40,10 +45,10 @@ func main() {
 	metadataAddr := resolveAddr("METADATA_ADDR", "http://localhost:8081")
 	metadataClient := clients.NewMetadataClient(metadataAddr)
 
-	router := api.NewRouter(metadataClient, appVersion)
+	router := api.NewRouter(metadataClient, appVersion, authStore)
 
 	server := &http.Server{
-		Addr:    cfg.ServerAddr,
+		Addr:    ":" + port,
 		Handler: router,
 	}
 
@@ -51,7 +56,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		slog.Info("Server running on", "url", "http://localhost:"+cfg.ServerPort)
+		slog.Info("Server running on", "url", "http://localhost:"+port)
 		_ = server.ListenAndServe()
 	}()
 
