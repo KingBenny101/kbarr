@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kingbenny101/kbarr/services/metadata/internal/models"
 	"github.com/kingbenny101/kbarr/shared/config"
-	"github.com/kingbenny101/kbarr/shared/models"
 	"github.com/uptrace/bun"
 )
 
@@ -111,14 +111,14 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*models.AnimeDetails, error) {
 	return details, nil
 }
 
-func (s *AniDBService) PrepareDetailedFromMedia(media *models.Media) (models.Detailed, error) {
+func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (models.Detailed, error) {
 	detailed := models.Detailed{
-		Title:     media.Title,
-		AID:       media.AID,
-		LibraryID: media.ID,
+		Title:     title,
+		AID:       aid,
+		LibraryID: libraryID,
 	}
 
-	details, err := s.GetAnimeDetails(media.AID)
+	details, err := s.GetAnimeDetails(aid)
 	if err != nil {
 		return models.Detailed{}, fmt.Errorf("failed to get anime details: %w", err)
 	}
@@ -129,14 +129,14 @@ func (s *AniDBService) PrepareDetailedFromMedia(media *models.Media) (models.Det
 
 	if details.Picture != "" {
 		detailed.PosterURL = "/api/images/" + details.Picture
-		go func(filename string, libraryID uint) {
+		go func(filename string, libID uint) {
 			imageURL := anidbCDN + filename
 			if err := downloadAndSaveImage(s.httpClient, imageURL, filename); err != nil {
 				slog.Warn("Failed to download image", "imageURL", imageURL, "error", err)
 			} else {
-				slog.Info("Cached image for media ID", "mediaID", libraryID, "filename", filename)
+				slog.Info("Cached image for media ID", "mediaID", libID, "filename", filename)
 			}
-		}(details.Picture, media.ID)
+		}(details.Picture, libraryID)
 	}
 
 	return detailed, nil
@@ -238,46 +238,46 @@ func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duratio
 }
 
 func (s *AniDBService) fetchAnimeDetails(aid uint, cfg *config.Config) (*models.AnimeDetails, []byte, error) {
-    apiURL := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%d", anidbHTTPAPI, cfg.AniDBClient, cfg.AniDBVersion, aid)
+	apiURL := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%d", anidbHTTPAPI, cfg.AniDBClient, cfg.AniDBVersion, aid)
 
-    req, err := http.NewRequest(http.MethodGet, apiURL, nil)
-    if err != nil {
-        return nil, nil, fmt.Errorf("failed to create request: %w", err)
-    }
-    req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", cfg.AniDBClient, cfg.AniDBVersion))
+	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", cfg.AniDBClient, cfg.AniDBVersion))
 
-    resp, err := s.httpClient.Do(req)
-    if err != nil {
-        return nil, nil, fmt.Errorf("failed to call anidb api: %w", err)
-    }
-    defer resp.Body.Close()
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to call anidb api: %w", err)
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK {
-        body, _ := io.ReadAll(resp.Body)
-        return nil, nil, fmt.Errorf("anidb api returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-    }
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, nil, fmt.Errorf("anidb api returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
 
-    var reader io.Reader = resp.Body
-    if resp.Header.Get("Content-Encoding") == "gzip" {
-        gz, err := gzip.NewReader(resp.Body)
-        if err != nil {
-            return nil, nil, fmt.Errorf("failed to create gzip reader: %w", err)
-        }
-        defer gz.Close()
-        reader = gz
-    }
+	var reader io.Reader = resp.Body
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		gz, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gz.Close()
+		reader = gz
+	}
 
-    raw, err := io.ReadAll(reader)
-    if err != nil {
-        return nil, nil, fmt.Errorf("failed to read anidb response: %w", err)
-    }
+	raw, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read anidb response: %w", err)
+	}
 
-    var details models.AnimeDetails
-    if err := xml.Unmarshal(raw, &details); err != nil {
-        return nil, nil, fmt.Errorf("failed to decode anidb response: %w", err)
-    }
+	var details models.AnimeDetails
+	if err := xml.Unmarshal(raw, &details); err != nil {
+		return nil, nil, fmt.Errorf("failed to decode anidb response: %w", err)
+	}
 
-    return &details, raw, nil
+	return &details, raw, nil
 }
 
 func validateAniDBSettings(client, version string) error {

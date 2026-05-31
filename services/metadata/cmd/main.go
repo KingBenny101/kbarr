@@ -1,24 +1,24 @@
 package main
 
 import (
+	"context"
 	"log/slog"
-	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
 
+	metaapi "github.com/kingbenny101/kbarr/services/metadata/internal/api"
 	"github.com/kingbenny101/kbarr/services/metadata/internal/db"
 	"github.com/kingbenny101/kbarr/services/metadata/internal/service"
 	"github.com/kingbenny101/kbarr/shared/logger"
-	metadatapb "github.com/kingbenny101/kbarr/shared/proto/metadata"
-	"google.golang.org/grpc"
 )
 
 func main() {
 	logger.Init()
-	slog.Info("Starting service")
+	slog.Info("Starting metadata service")
 
 	if err := ensureDataDirs(); err != nil {
 		slog.Error("Failed to prepare data directories", "error", err)
@@ -39,42 +39,36 @@ func main() {
 		port = "8081"
 	}
 
-	lis, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		slog.Error("Failed to listen on", "port", port, "error", err)
-		os.Exit(1)
-	}
+	handler := metaapi.NewHandler(svc)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET /search", handler.Search)
+	mux.HandleFunc("GET /anime/{aid}", handler.GetAnimeDetails)
+	mux.HandleFunc("POST /prepare", handler.Prepare)
 
-	grpcServer := grpc.NewServer()
-	metadatapb.RegisterMetadataServiceServer(grpcServer, service.NewGRPCServer(svc))
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		slog.Info("Listening on", "port", port)
-		if err := grpcServer.Serve(lis); err != nil {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Server failed", "error", err)
 			os.Exit(1)
 		}
 	}()
 
 	<-quit
-	slog.Info("Shutting down")
+	slog.Info("Shutting down metadata service")
 	close(titlesSyncStop)
 
-	shutdownDone := make(chan struct{})
-	go func() {
-		grpcServer.GracefulStop()
-		close(shutdownDone)
-	}()
-
-	select {
-	case <-shutdownDone:
-	case <-time.After(10 * time.Second):
-		slog.Warn("Graceful shutdown timed out, forcing stop")
-		grpcServer.Stop()
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = server.Shutdown(ctx)
 }
 
 func ensureDataDirs() error {
