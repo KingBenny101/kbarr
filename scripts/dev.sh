@@ -1,7 +1,7 @@
 #!/bin/bash
 tmux new-session -d -s kbarr
 tmux rename-window -t kbarr:0 'db'
-tmux send-keys -t kbarr:0 'make db && make migrate' C-m
+tmux send-keys -t kbarr:0 'make db' C-m
 
 tmux new-window -t kbarr -n 'indexer'
 tmux send-keys -t kbarr:indexer 'make run-indexer' C-m
