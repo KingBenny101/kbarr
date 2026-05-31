@@ -1,4 +1,4 @@
-# First post
+# Frontend Shit
 
 **Date:** 2026-05-30
 
