@@ -4,7 +4,10 @@ go 1.25.7
 
 replace github.com/kingbenny101/kbarr/shared/logger => ../../shared/logger
 
+replace github.com/kingbenny101/kbarr/shared/config => ../../shared/config
+
 require (
+	github.com/kingbenny101/kbarr/shared/config v0.0.0
 	github.com/kingbenny101/kbarr/shared/logger v0.0.0
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18

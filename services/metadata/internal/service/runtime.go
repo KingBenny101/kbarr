@@ -14,7 +14,6 @@ func DataRootDir() string {
 	if dataDir == "" {
 		return "data"
 	}
-
 	return dataDir
 }
 
@@ -48,10 +47,9 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 }
 
 func (s *AniDBService) currentTitlesInterval() time.Duration {
-	interval := config.Load(s.db).AniDBInterval
+	interval := config.GetMinutes(s.db, "anidbSyncInterval", 1440*time.Minute, time.Minute)
 	if interval < time.Minute {
 		return time.Minute
 	}
-
 	return interval
 }

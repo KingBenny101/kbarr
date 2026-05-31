@@ -17,6 +17,8 @@ func HandleGetSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to retrieve settings", http.StatusInternalServerError)
 		return
 	}
+	delete(settings, "authPasswordHash")
+	delete(settings, "authUsername")
 
 	settingsJSON, err := json.Marshal(settings)
 	if err != nil {

@@ -49,20 +49,22 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 		return results, nil
 	}
 
-	cfg := config.Load(s.db)
-	if cfg.ProwlarrApiKey == "" || cfg.ProwlarrApiKey == "error" {
+	prowlarrURL := config.Get(s.db, "prowlarrUrl", "http://localhost:9696")
+	prowlarrKey := config.Get(s.db, "prowlarrApiKey", "error")
+
+	if prowlarrKey == "" || prowlarrKey == "error" {
 		return nil, fmt.Errorf("prowlarr api key is not configured")
 	}
-	if strings.TrimSpace(cfg.ProwlarrUrl) == "" {
+	if strings.TrimSpace(prowlarrURL) == "" {
 		return nil, fmt.Errorf("prowlarr url is not configured")
 	}
 
-	searchURL := fmt.Sprintf("%s/api/v1/search?query=%s&type=search", cfg.ProwlarrUrl, url.QueryEscape(cleanedQuery))
+	searchURL := fmt.Sprintf("%s/api/v1/search?query=%s&type=search", prowlarrURL, url.QueryEscape(cleanedQuery))
 	req, err := http.NewRequest(http.MethodGet, searchURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Add("X-Api-Key", cfg.ProwlarrApiKey)
+	req.Header.Add("X-Api-Key", prowlarrKey)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -98,22 +100,14 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 		})
 	}
 
-	ttl := cfg.ProwlarrInterval
-	if ttl <= 0 {
-		ttl = 5 * time.Minute
-	}
+	ttl := config.GetMinutes(s.db, "prowlarrInterval", 60*time.Minute, time.Minute)
 	s.setCached(cacheKey, results, ttl)
 
 	return results, nil
 }
 
 func (s *IndexerService) PollAndQueue(ctx context.Context) {
-	cfg := config.Load(s.db)
-	interval := cfg.MonitorInterval
-	if interval < 30*time.Second {
-		interval = 30 * time.Second
-	}
-
+	interval := s.currentMonitorInterval()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -122,18 +116,23 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 		case <-ticker.C:
 			s.processMonitors(ctx)
 
-			nextInterval := config.Load(s.db).MonitorInterval
-			if nextInterval < 30*time.Second {
-				nextInterval = 30 * time.Second
-			}
-			if nextInterval != interval {
-				interval = nextInterval
+			next := s.currentMonitorInterval()
+			if next != interval {
+				interval = next
 				ticker.Reset(interval)
 			}
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (s *IndexerService) currentMonitorInterval() time.Duration {
+	interval := config.GetMinutes(s.db, "monitorSyncInterval", time.Minute, 30*time.Second)
+	if interval < 30*time.Second {
+		return 30 * time.Second
+	}
+	return interval
 }
 
 func (s *IndexerService) processMonitors(ctx context.Context) {

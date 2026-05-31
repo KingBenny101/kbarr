@@ -7,25 +7,26 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/kingbenny101/kbarr/services/downloader/internal/models"
+	"github.com/kingbenny101/kbarr/shared/config"
 	"github.com/uptrace/bun"
 )
 
 type DownloaderService struct {
 	db        *bun.DB
-	qbtURL    string
 	qbtClient *http.Client
 }
 
-func NewDownloaderService(db *bun.DB, qbtURL string) *DownloaderService {
+func NewDownloaderService(db *bun.DB) *DownloaderService {
+	jar, _ := cookiejar.New(nil)
 	return &DownloaderService{
 		db:        db,
-		qbtURL:    strings.TrimRight(strings.TrimSpace(qbtURL), "/"),
-		qbtClient: &http.Client{Timeout: 30 * time.Second},
+		qbtClient: &http.Client{Timeout: 30 * time.Second, Jar: jar},
 	}
 }
 
@@ -38,6 +39,31 @@ type torrentInfo struct {
 	ETA      int64   `json:"eta"`
 	SavePath string  `json:"save_path"`
 	Category string  `json:"category"`
+}
+
+func (s *DownloaderService) qbtConfig() (qbtURL, username, password string) {
+	qbtURL = strings.TrimRight(config.Get(s.db, "qbittorrentUrl", "http://localhost:8080"), "/")
+	username = config.Get(s.db, "qbittorrentUsername", "")
+	password = config.Get(s.db, "qbittorrentPassword", "")
+	return
+}
+
+func (s *DownloaderService) login(ctx context.Context, qbtURL, username, password string) error {
+	if username == "" {
+		return nil
+	}
+	resp, err := s.qbtClient.PostForm(qbtURL+"/api/v2/auth/login", url.Values{
+		"username": {username},
+		"password": {password},
+	})
+	if err != nil {
+		return fmt.Errorf("qBittorrent login failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("qBittorrent login returned %s", resp.Status)
+	}
+	return nil
 }
 
 func (s *DownloaderService) PollAndDownload(ctx context.Context) {
@@ -67,13 +93,22 @@ func (s *DownloaderService) processPending(ctx context.Context) {
 		slog.Error("Failed to fetch pending download queue entries", "error", err)
 		return
 	}
+	if len(entries) == 0 {
+		return
+	}
+
+	qbtURL, username, password := s.qbtConfig()
+	if err := s.login(ctx, qbtURL, username, password); err != nil {
+		slog.Error("qBittorrent login failed", "error", err)
+		return
+	}
 
 	for _, entry := range entries {
 		if entry.TorrentURL == nil || *entry.TorrentURL == "" {
 			continue
 		}
 
-		hash, err := s.addTorrent(ctx, *entry.TorrentURL, "")
+		hash, err := s.addTorrent(ctx, qbtURL, *entry.TorrentURL, "")
 		if err != nil {
 			slog.Error("Failed to add torrent", "id", entry.ID, "error", err)
 			continue
@@ -106,13 +141,22 @@ func (s *DownloaderService) updateDownloading(ctx context.Context) {
 		slog.Error("Failed to fetch downloading entries", "error", err)
 		return
 	}
+	if len(entries) == 0 {
+		return
+	}
+
+	qbtURL, username, password := s.qbtConfig()
+	if err := s.login(ctx, qbtURL, username, password); err != nil {
+		slog.Error("qBittorrent login failed", "error", err)
+		return
+	}
 
 	for _, entry := range entries {
 		if entry.TorrentHash == nil {
 			continue
 		}
 
-		items, err := s.fetchTorrents(ctx, *entry.TorrentHash, "")
+		items, err := s.fetchTorrents(ctx, qbtURL, *entry.TorrentHash, "")
 		if err != nil || len(items) == 0 {
 			continue
 		}
@@ -134,8 +178,8 @@ func (s *DownloaderService) updateDownloading(ctx context.Context) {
 	}
 }
 
-func (s *DownloaderService) addTorrent(ctx context.Context, magnetURL, savePath string) (string, error) {
-	if s.qbtURL == "" {
+func (s *DownloaderService) addTorrent(ctx context.Context, qbtURL, magnetURL, savePath string) (string, error) {
+	if qbtURL == "" {
 		return "", fmt.Errorf("qBittorrent URL is not configured")
 	}
 
@@ -153,7 +197,7 @@ func (s *DownloaderService) addTorrent(ctx context.Context, magnetURL, savePath 
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.qbtURL+"/api/v2/torrents/add", strings.NewReader(body.String()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, qbtURL+"/api/v2/torrents/add", strings.NewReader(body.String()))
 	if err != nil {
 		return "", err
 	}
@@ -172,8 +216,8 @@ func (s *DownloaderService) addTorrent(ctx context.Context, magnetURL, savePath 
 	return extractMagnetHash(magnetURL), nil
 }
 
-func (s *DownloaderService) fetchTorrents(ctx context.Context, hash string, category string) ([]torrentInfo, error) {
-	if s.qbtURL == "" {
+func (s *DownloaderService) fetchTorrents(ctx context.Context, qbtURL, hash, category string) ([]torrentInfo, error) {
+	if qbtURL == "" {
 		return nil, fmt.Errorf("qBittorrent URL is not configured")
 	}
 
@@ -185,7 +229,7 @@ func (s *DownloaderService) fetchTorrents(ctx context.Context, hash string, cate
 		query.Set("hashes", hash)
 	}
 
-	endpoint := s.qbtURL + "/api/v2/torrents/info"
+	endpoint := qbtURL + "/api/v2/torrents/info"
 	if encoded := query.Encode(); encoded != "" {
 		endpoint += "?" + encoded
 	}

@@ -40,11 +40,13 @@ func New(db *bun.DB) *AniDBService {
 }
 
 func (s *AniDBService) LoadTitlesDump() error {
-	cfg := config.Load(s.db)
+	client := config.Get(s.db, "anidbClient", "error")
+	version := config.Get(s.db, "anidbVersion", "error")
+	ttl := config.GetMinutes(s.db, "anidbSyncInterval", 1440*time.Minute, time.Minute)
 	titlesFile := filepath.Join(DataRootDir(), "anidb-titles.xml")
 
-	if s.shouldDownloadTitles(titlesFile, cfg.AniDBInterval) {
-		if err := s.downloadTitlesDump(titlesFile, cfg.AniDBClient, cfg.AniDBVersion); err != nil {
+	if s.shouldDownloadTitles(titlesFile, ttl) {
+		if err := s.downloadTitlesDump(titlesFile, client, version); err != nil {
 			slog.Error("Failed to download titles dump", "error", err)
 			return err
 		}
@@ -89,17 +91,19 @@ func (s *AniDBService) SearchTitles(query string) ([]models.SearchResult, error)
 }
 
 func (s *AniDBService) GetAnimeDetails(aid uint) (*models.AnimeDetails, error) {
-	cfg := config.Load(s.db)
-	if err := validateAniDBSettings(cfg.AniDBClient, cfg.AniDBVersion); err != nil {
+	client := config.Get(s.db, "anidbClient", "error")
+	version := config.Get(s.db, "anidbVersion", "error")
+	if err := validateAniDBSettings(client, version); err != nil {
 		return nil, err
 	}
 
+	ttl := config.GetMinutes(s.db, "anidbSyncInterval", 1440*time.Minute, time.Minute)
 	cacheFile := filepath.Join(DataRootDir(), "details", fmt.Sprintf("%d.xml", aid))
-	if details, ok := s.loadCachedAnimeDetails(cacheFile, cfg.AniDBInterval); ok {
+	if details, ok := s.loadCachedAnimeDetails(cacheFile, ttl); ok {
 		return details, nil
 	}
 
-	details, raw, err := s.fetchAnimeDetails(aid, cfg)
+	details, raw, err := s.fetchAnimeDetails(aid, client, version)
 	if err != nil {
 		return nil, err
 	}
@@ -142,13 +146,12 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 	return detailed, nil
 }
 
-func (s *AniDBService) shouldDownloadTitles(titlesFile string, titlesCacheMaxAge time.Duration) bool {
+func (s *AniDBService) shouldDownloadTitles(titlesFile string, ttl time.Duration) bool {
 	info, err := os.Stat(titlesFile)
 	if err != nil {
 		return true
 	}
-
-	return time.Since(info.ModTime()) > titlesCacheMaxAge
+	return time.Since(info.ModTime()) > ttl
 }
 
 func (s *AniDBService) downloadTitlesDump(titlesFile, client, version string) error {
@@ -237,14 +240,14 @@ func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duratio
 	return &details, true
 }
 
-func (s *AniDBService) fetchAnimeDetails(aid uint, cfg *config.Config) (*models.AnimeDetails, []byte, error) {
-	apiURL := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%d", anidbHTTPAPI, cfg.AniDBClient, cfg.AniDBVersion, aid)
+func (s *AniDBService) fetchAnimeDetails(aid uint, client, version string) (*models.AnimeDetails, []byte, error) {
+	apiURL := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%d", anidbHTTPAPI, client, version, aid)
 
 	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", cfg.AniDBClient, cfg.AniDBVersion))
+	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", client, version))
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -287,7 +290,6 @@ func validateAniDBSettings(client, version string) error {
 	if version == "" || version == "error" {
 		return fmt.Errorf("invalid AniDB version setting")
 	}
-
 	return nil
 }
 

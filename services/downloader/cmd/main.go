@@ -22,8 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	qbtURL := os.Getenv("QBITTORRENT_URL")
-	svc := service.NewDownloaderService(db.DB, qbtURL)
+	svc := service.NewDownloaderService(db.DB)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
