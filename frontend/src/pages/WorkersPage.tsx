@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Badge, Card, Code, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core"
+import { useMediaQuery } from "@mantine/hooks"
 import { IconCircleCheck, IconCircleX } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
 
@@ -81,11 +82,9 @@ function LogViewer({ service }: { service: ServiceHealth }) {
                 <Text size="xs" c="dimmed">{logs.length} entries</Text>
             </Group>
 
-            {service.error && (
-                <Text size="xs" c="red">{service.error}</Text>
-            )}
+            {service.error && <Text size="xs" c="red">{service.error}</Text>}
 
-            <Paper withBorder radius="md" p="xs" style={{ flex: 1, minHeight: 0, background: "var(--mantine-color-dark-8, #1a1b1e)", fontFamily: "monospace" }}>
+            <Paper withBorder radius="md" p="xs" style={{ flex: 1, minHeight: 0, background: "var(--mantine-color-dark-8, #1a1b1e)" }}>
                 <ScrollArea h="100%" viewportRef={viewport} onScrollPositionChange={handleScroll} type="scroll">
                     {loading && logs.length === 0 ? (
                         <Text size="xs" c="dimmed" p="sm">Loading logs…</Text>
@@ -98,7 +97,7 @@ function LogViewer({ service }: { service: ServiceHealth }) {
                                     <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap", flexShrink: 0, fontFamily: "monospace" }}>
                                         {entry.time.slice(11, 19)}
                                     </Text>
-                                    <Badge size="xs" color={levelColor(entry.level)} variant="filled" style={{ flexShrink: 0, fontFamily: "monospace", minWidth: 44, textAlign: "center" }}>
+                                    <Badge size="xs" color={levelColor(entry.level)} variant="filled" style={{ flexShrink: 0, minWidth: 44, textAlign: "center" }}>
                                         {entry.level.slice(0, 4)}
                                     </Badge>
                                     <Code style={{ fontSize: 12, background: "transparent", color: "var(--mantine-color-gray-3, #dee2e6)", whiteSpace: "pre-wrap", wordBreak: "break-all", padding: 0 }}>
@@ -111,6 +110,31 @@ function LogViewer({ service }: { service: ServiceHealth }) {
                 </ScrollArea>
             </Paper>
         </Stack>
+    )
+}
+
+function ServicePill({ service, selected, onClick }: { service: ServiceHealth; selected: boolean; onClick: () => void }) {
+    return (
+        <UnstyledButton onClick={onClick}>
+            <Paper
+                withBorder={selected}
+                radius="xl"
+                px="md"
+                py={6}
+                style={{
+                    background: selected ? "var(--mantine-color-default-hover)" : "transparent",
+                    transition: "background 120ms",
+                    whiteSpace: "nowrap",
+                }}
+            >
+                <Group gap="xs" wrap="nowrap">
+                    <ThemeIcon size="xs" radius="xl" color={service.running ? "green" : "red"} variant="light">
+                        {service.running ? <IconCircleCheck size={10} /> : <IconCircleX size={10} />}
+                    </ThemeIcon>
+                    <Text size="sm" fw={selected ? 600 : 400}>{service.display_name}</Text>
+                </Group>
+            </Paper>
+        </UnstyledButton>
     )
 }
 
@@ -131,9 +155,7 @@ function ServiceListItem({ service, selected, onClick }: { service: ServiceHealt
                         {service.running ? <IconCircleCheck size={14} /> : <IconCircleX size={14} />}
                     </ThemeIcon>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <Text size="sm" fw={selected ? 600 : 400} truncate>
-                            {service.display_name}
-                        </Text>
+                        <Text size="sm" fw={selected ? 600 : 400} truncate>{service.display_name}</Text>
                         <Text size="xs" c={service.running ? "green" : "red"}>
                             {service.running ? "Online" : "Offline"}
                         </Text>
@@ -148,6 +170,7 @@ export function WorkersPage() {
     const [services, setServices] = useState<ServiceHealth[]>([])
     const [selected, setSelected] = useState<string>("core")
     const [loading, setLoading] = useState(true)
+    const isMobile = useMediaQuery("(max-width: 768px)")
 
     const fetchWorkers = async () => {
         try {
@@ -170,6 +193,44 @@ export function WorkersPage() {
 
     const selectedService = services.find((s) => s.name === selected) ?? null
 
+    if (isMobile) {
+        return (
+            <Stack gap="md" h="calc(100vh - 56px - 32px)">
+                <div>
+                    <Title order={1}>Workers</Title>
+                    <Text c="dimmed">Status and logs of background services</Text>
+                </div>
+
+                {/* Horizontal pill row on mobile */}
+                <ScrollArea type="never">
+                    <Group gap="xs" wrap="nowrap" pb={4}>
+                        {loading ? (
+                            <Text size="xs" c="dimmed">Loading…</Text>
+                        ) : (
+                            services.map((svc) => (
+                                <ServicePill
+                                    key={svc.name}
+                                    service={svc}
+                                    selected={selected === svc.name}
+                                    onClick={() => setSelected(svc.name)}
+                                />
+                            ))
+                        )}
+                    </Group>
+                </ScrollArea>
+
+                {/* Log panel fills remaining height */}
+                <Card withBorder radius="xl" p="md" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                    {selectedService ? (
+                        <LogViewer service={selectedService} />
+                    ) : (
+                        <Text c="dimmed" ta="center" py="xl">Select a service to view logs.</Text>
+                    )}
+                </Card>
+            </Stack>
+        )
+    }
+
     return (
         <Stack gap="lg" h="calc(100vh - 56px - 32px)">
             <div>
@@ -178,7 +239,7 @@ export function WorkersPage() {
             </div>
 
             <Group align="flex-start" gap="md" style={{ flex: 1, minHeight: 0 }}>
-                {/* Service list */}
+                {/* Service list sidebar */}
                 <Card withBorder radius="xl" p="sm" style={{ width: 200, flexShrink: 0 }}>
                     <Stack gap={4}>
                         <Text size="xs" tt="uppercase" fw={700} c="dimmed" px="xs" mb={4}>Services</Text>
