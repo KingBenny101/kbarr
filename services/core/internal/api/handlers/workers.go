@@ -2,9 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
 type ServiceHealth struct {
@@ -25,25 +29,31 @@ func probe(url string) (bool, string) {
 	return resp.StatusCode == http.StatusOK, ""
 }
 
+var sidecarServices = []struct {
+	name        string
+	displayName string
+	envKey      string
+	fallback    string
+}{
+	{"metadata", "Metadata", "METADATA_ADDR", "http://localhost:8081"},
+	{"indexer", "Indexer", "INDEXER_HEALTH_ADDR", "http://localhost:8082"},
+	{"downloader", "Downloader", "DOWNLOADER_HEALTH_ADDR", "http://localhost:8083"},
+}
+
+func svcAddr(envKey, fallback string) string {
+	if v := os.Getenv(envKey); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func HandleGetWorkers() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		services := []struct {
-			name        string
-			displayName string
-			envKey      string
-			fallback    string
-		}{
-			{"metadata", "Metadata", "METADATA_ADDR", "http://localhost:8081"},
-			{"indexer", "Indexer", "INDEXER_HEALTH_ADDR", "http://localhost:8082"},
-			{"downloader", "Downloader", "DOWNLOADER_HEALTH_ADDR", "http://localhost:8083"},
+		out := []ServiceHealth{
+			{Name: "core", DisplayName: "Core", Running: true},
 		}
-
-		out := make([]ServiceHealth, 0, len(services))
-		for _, svc := range services {
-			addr := os.Getenv(svc.envKey)
-			if addr == "" {
-				addr = svc.fallback
-			}
+		for _, svc := range sidecarServices {
+			addr := svcAddr(svc.envKey, svc.fallback)
 			running, errMsg := probe(addr + "/health")
 			out = append(out, ServiceHealth{
 				Name:        svc.name,
@@ -52,8 +62,36 @@ func HandleGetWorkers() http.HandlerFunc {
 				Error:       errMsg,
 			})
 		}
-
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(out)
+	}
+}
+
+func HandleGetServiceLogs() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := chi.URLParam(r, "name")
+
+		if name == "core" {
+			w.Header().Set("Content-Type", "application/json")
+			logger.HandleLogs(w, r)
+			return
+		}
+
+		for _, svc := range sidecarServices {
+			if svc.name == name {
+				addr := svcAddr(svc.envKey, svc.fallback)
+				resp, err := httpProbe.Get(addr + "/logs")
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadGateway)
+					return
+				}
+				defer resp.Body.Close()
+				w.Header().Set("Content-Type", "application/json")
+				io.Copy(w, resp.Body)
+				return
+			}
+		}
+
+		http.NotFound(w, r)
 	}
 }

@@ -66,6 +66,7 @@ func NewRouter(metadataClient *clients.MetadataClient, version string) http.Hand
 
 	// Workers / service health
 	r.Get("/api/workers", handlers.HandleGetWorkers())
+	r.Get("/api/workers/{name}/logs", handlers.HandleGetServiceLogs())
 
 	// Poster/image cache served from the shared data volume.
 	r.Get("/api/images/{imageName}", handlers.HandleGetImage)
