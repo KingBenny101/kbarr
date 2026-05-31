@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package kbarr;
-
-option go_package = "github.com/kingbenny101/kbarr/shared/proto;proto";
-
-// Placeholder for future callbacks into core.
-service CoreService {}
