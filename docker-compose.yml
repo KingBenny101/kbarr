@@ -1,10 +1,6 @@
 services:
   postgres:
     image: postgres:16
-    ports:
-    - "5432:5432"
-    env_file:
-      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -24,13 +20,19 @@ services:
       - .env
     environment:
       DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      METADATA_SERVICE_PORT: ${METADATA_SERVICE_PORT:-8081}
+      ANIDB_SERVICE_PORT: "8081"
       KBARR_DATA_DIR: /app/data
     volumes:
       - ${DATA_DIR_HOST:-./data}:/app/data
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   indexer:
     image: ghcr.io/kingbenny101/kbarr-indexer:latest
@@ -38,10 +40,15 @@ services:
       - .env
     environment:
       DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      INDEXER_SERVICE_PORT: ${INDEXER_SERVICE_PORT:-8082}
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   downloader:
     image: ghcr.io/kingbenny101/kbarr-downloader:latest
@@ -49,11 +56,16 @@ services:
       - .env
     environment:
       DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      DOWNLOADER_SERVICE_PORT: ${DOWNLOADER_SERVICE_PORT:-8083}
-      QBITTORRENT_URL: ${QBITTORRENT_URL:-http://localhost:8080}  
+      QBITTORRENT_URL: ${QBITTORRENT_URL:-http://host.docker.internal:8080}
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   core:
     image: ghcr.io/kingbenny101/kbarr-core:latest
@@ -63,19 +75,15 @@ services:
       DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       PORT: ${PORT:-8282}
       KBARR_DATA_DIR: /app/data
-      METADATA_GRPC_ADDR: metadata:8081
-      INDEXER_GRPC_ADDR: indexer:8082
-      DOWNLOADER_GRPC_ADDR: downloader:8083
+      METADATA_ADDR: http://metadata:8081
+      INDEXER_HEALTH_ADDR: http://indexer:8082
+      DOWNLOADER_HEALTH_ADDR: http://downloader:8083
     ports:
-      - "${PORT:-8282}:8282"      
+      - "${PORT:-8282}:${PORT:-8282}"
     depends_on:
       postgres:
         condition: service_healthy
       metadata:
-        condition: service_started
-      indexer:
-        condition: service_started
-      downloader:
         condition: service_started
     volumes:
       - ${DATA_DIR_HOST:-./data}:/app/data
