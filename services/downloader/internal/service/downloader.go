@@ -4,22 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	downloaderpb "github.com/kingbenny101/kbarr/shared/proto/downloader"
+	"github.com/kingbenny101/kbarr/services/downloader/internal/models"
+	"github.com/uptrace/bun"
 )
 
 type DownloaderService struct {
+	db        *bun.DB
 	qbtURL    string
 	qbtClient *http.Client
 }
 
-func NewDownloaderService(qbtURL string) *DownloaderService {
+func NewDownloaderService(db *bun.DB, qbtURL string) *DownloaderService {
 	return &DownloaderService{
+		db:        db,
 		qbtURL:    strings.TrimRight(strings.TrimSpace(qbtURL), "/"),
 		qbtClient: &http.Client{Timeout: 30 * time.Second},
 	}
@@ -36,112 +40,136 @@ type torrentInfo struct {
 	Category string  `json:"category"`
 }
 
-func (s *DownloaderService) AddTorrent(ctx context.Context, req *downloaderpb.AddTorrentRequest) (*downloaderpb.AddTorrentResponse, error) {
-	if req == nil {
-		return &downloaderpb.AddTorrentResponse{Success: false, Error: "request is nil"}, nil
+func (s *DownloaderService) PollAndDownload(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			s.processPending(ctx)
+			s.updateDownloading(ctx)
+		case <-ctx.Done():
+			return
+		}
 	}
+}
+
+func (s *DownloaderService) processPending(ctx context.Context) {
+	status := "pending"
+	var entries []models.DownloadQueue
+	err := s.db.NewSelect().
+		TableExpr("download_queue").
+		ColumnExpr("*").
+		Where("status = ? AND deleted_at IS NULL", status).
+		Scan(ctx, &entries)
+	if err != nil {
+		slog.Error("Failed to fetch pending download queue entries", "error", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.TorrentURL == nil || *entry.TorrentURL == "" {
+			continue
+		}
+
+		hash, err := s.addTorrent(ctx, *entry.TorrentURL, "")
+		if err != nil {
+			slog.Error("Failed to add torrent", "id", entry.ID, "error", err)
+			continue
+		}
+
+		statusDownloading := "downloading"
+		_, err = s.db.NewUpdate().
+			TableExpr("download_queue").
+			Set("status = ?, torrent_hash = ?, updated_at = now()", statusDownloading, hash).
+			Where("id = ?", entry.ID).
+			Exec(ctx)
+		if err != nil {
+			slog.Error("Failed to update download queue status", "id", entry.ID, "error", err)
+			continue
+		}
+
+		slog.Info("Torrent added", "id", entry.ID, "hash", hash)
+	}
+}
+
+func (s *DownloaderService) updateDownloading(ctx context.Context) {
+	status := "downloading"
+	var entries []models.DownloadQueue
+	err := s.db.NewSelect().
+		TableExpr("download_queue").
+		ColumnExpr("*").
+		Where("status = ? AND torrent_hash IS NOT NULL AND deleted_at IS NULL", status).
+		Scan(ctx, &entries)
+	if err != nil {
+		slog.Error("Failed to fetch downloading entries", "error", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.TorrentHash == nil {
+			continue
+		}
+
+		items, err := s.fetchTorrents(ctx, *entry.TorrentHash, "")
+		if err != nil || len(items) == 0 {
+			continue
+		}
+
+		t := items[0]
+		newStatus := status
+		if t.Progress >= 1.0 {
+			newStatus = "completed"
+		}
+
+		_, err = s.db.NewUpdate().
+			TableExpr("download_queue").
+			Set("status = ?, updated_at = now()", newStatus).
+			Where("id = ?", entry.ID).
+			Exec(ctx)
+		if err != nil {
+			slog.Warn("Failed to update torrent status", "id", entry.ID, "error", err)
+		}
+	}
+}
+
+func (s *DownloaderService) addTorrent(ctx context.Context, magnetURL, savePath string) (string, error) {
 	if s.qbtURL == "" {
-		return &downloaderpb.AddTorrentResponse{Success: false, Error: "qBittorrent URL is not configured"}, nil
+		return "", fmt.Errorf("qBittorrent URL is not configured")
 	}
 
 	body := &strings.Builder{}
 	writer := multipart.NewWriter(body)
-	if err := writer.WriteField("urls", req.GetMagnetUrl()); err != nil {
-		return &downloaderpb.AddTorrentResponse{Success: false, Error: err.Error()}, nil
+	if err := writer.WriteField("urls", magnetURL); err != nil {
+		return "", err
 	}
-	if req.GetSavePath() != "" {
-		if err := writer.WriteField("savepath", req.GetSavePath()); err != nil {
-			return &downloaderpb.AddTorrentResponse{Success: false, Error: err.Error()}, nil
-		}
-	}
-	if req.GetCategory() != "" {
-		if err := writer.WriteField("category", req.GetCategory()); err != nil {
-			return &downloaderpb.AddTorrentResponse{Success: false, Error: err.Error()}, nil
+	if savePath != "" {
+		if err := writer.WriteField("savepath", savePath); err != nil {
+			return "", err
 		}
 	}
 	if err := writer.Close(); err != nil {
-		return &downloaderpb.AddTorrentResponse{Success: false, Error: err.Error()}, nil
+		return "", err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, s.qbtURL+"/api/v2/torrents/add", strings.NewReader(body.String()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.qbtURL+"/api/v2/torrents/add", strings.NewReader(body.String()))
 	if err != nil {
-		return &downloaderpb.AddTorrentResponse{Success: false, Error: err.Error()}, nil
+		return "", err
 	}
-	httpReq.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	resp, err := s.qbtClient.Do(httpReq)
+	resp, err := s.qbtClient.Do(req)
 	if err != nil {
-		return &downloaderpb.AddTorrentResponse{Success: false, Error: err.Error()}, nil
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &downloaderpb.AddTorrentResponse{Success: false, Error: fmt.Sprintf("qBittorrent returned %s", resp.Status)}, nil
+		return "", fmt.Errorf("qBittorrent returned %s", resp.Status)
 	}
 
-	return &downloaderpb.AddTorrentResponse{Hash: extractMagnetHash(req.GetMagnetUrl()), Success: true}, nil
-}
-
-func (s *DownloaderService) GetTorrent(ctx context.Context, req *downloaderpb.TorrentRequest) (*downloaderpb.TorrentResponse, error) {
-	if req == nil {
-		return &downloaderpb.TorrentResponse{}, nil
-	}
-
-	items, err := s.fetchTorrents(ctx, req.GetHash(), "")
-	if err != nil || len(items) == 0 {
-		return &downloaderpb.TorrentResponse{Hash: req.GetHash()}, nil
-	}
-
-	return mapTorrent(items[0]), nil
-}
-
-func (s *DownloaderService) ListTorrents(ctx context.Context, req *downloaderpb.ListTorrentsRequest) ([]*downloaderpb.TorrentResponse, error) {
-	category := ""
-	if req != nil {
-		category = req.GetCategory()
-	}
-
-	items, err := s.fetchTorrents(ctx, "", category)
-	if err != nil {
-		return []*downloaderpb.TorrentResponse{}, nil
-	}
-
-	out := make([]*downloaderpb.TorrentResponse, 0, len(items))
-	for _, item := range items {
-		out = append(out, mapTorrent(item))
-	}
-	return out, nil
-}
-
-func (s *DownloaderService) RemoveTorrent(ctx context.Context, req *downloaderpb.RemoveTorrentRequest) (*downloaderpb.RemoveTorrentResponse, error) {
-	if req == nil {
-		return &downloaderpb.RemoveTorrentResponse{Success: false, Error: "request is nil"}, nil
-	}
-	if s.qbtURL == "" {
-		return &downloaderpb.RemoveTorrentResponse{Success: false, Error: "qBittorrent URL is not configured"}, nil
-	}
-
-	form := url.Values{}
-	form.Set("hashes", req.GetHash())
-	form.Set("deleteFiles", fmt.Sprintf("%t", req.GetDeleteFiles()))
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, s.qbtURL+"/api/v2/torrents/delete", strings.NewReader(form.Encode()))
-	if err != nil {
-		return &downloaderpb.RemoveTorrentResponse{Success: false, Error: err.Error()}, nil
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := s.qbtClient.Do(httpReq)
-	if err != nil {
-		return &downloaderpb.RemoveTorrentResponse{Success: false, Error: err.Error()}, nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &downloaderpb.RemoveTorrentResponse{Success: false, Error: fmt.Sprintf("qBittorrent returned %s", resp.Status)}, nil
-	}
-
-	return &downloaderpb.RemoveTorrentResponse{Success: true}, nil
+	return extractMagnetHash(magnetURL), nil
 }
 
 func (s *DownloaderService) fetchTorrents(ctx context.Context, hash string, category string) ([]torrentInfo, error) {
@@ -162,12 +190,12 @@ func (s *DownloaderService) fetchTorrents(ctx context.Context, hash string, cate
 		endpoint += "?" + encoded
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.qbtClient.Do(httpReq)
+	resp, err := s.qbtClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -183,19 +211,6 @@ func (s *DownloaderService) fetchTorrents(ctx context.Context, hash string, cate
 	}
 
 	return items, nil
-}
-
-func mapTorrent(item torrentInfo) *downloaderpb.TorrentResponse {
-	return &downloaderpb.TorrentResponse{
-		Hash:     item.Hash,
-		Name:     item.Name,
-		State:    item.State,
-		Size:     item.Size,
-		Progress: item.Progress,
-		Eta:      item.ETA,
-		SavePath: item.SavePath,
-		Category: item.Category,
-	}
 }
 
 func extractMagnetHash(magnetURL string) string {

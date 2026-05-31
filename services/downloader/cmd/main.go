@@ -1,23 +1,21 @@
 package main
 
 import (
+	"context"
 	"log/slog"
-	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/kingbenny101/kbarr/services/downloader/internal/db"
 	"github.com/kingbenny101/kbarr/services/downloader/internal/service"
 	"github.com/kingbenny101/kbarr/shared/logger"
-	downloader "github.com/kingbenny101/kbarr/shared/proto/downloader"
-	"google.golang.org/grpc"
 )
 
 func main() {
 	logger.Init()
-	slog.Info("Starting service")
+	slog.Info("Starting downloader service")
 
 	if err := db.Init(); err != nil {
 		slog.Error("Failed to initialize database", "error", err)
@@ -25,46 +23,27 @@ func main() {
 	}
 
 	qbtURL := os.Getenv("QBITTORRENT_URL")
-	svc := service.NewDownloaderService(qbtURL)
+	svc := service.NewDownloaderService(db.DB, qbtURL)
 
-	port := os.Getenv("DOWNLOADER_SERVICE_PORT")
-	if port == "" {
-		port = "8083"
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	lis, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		slog.Error("Failed to listen on", "port", port, "error", err)
-		os.Exit(1)
-	}
+	go svc.PollAndDownload(ctx)
+	slog.Info("Downloader polling started")
 
-	grpcServer := grpc.NewServer()
-	downloader.RegisterDownloaderServer(grpcServer, service.NewGrpcServer(svc))
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	go func() {
-		slog.Info("Listening on", "port", port)
-		if err := grpcServer.Serve(lis); err != nil {
-			slog.Error("Server failed", "error", err)
-			os.Exit(1)
+		slog.Info("Health endpoint listening", "port", "8083")
+		if err := http.ListenAndServe(":8083", mux); err != nil {
+			slog.Error("Health server failed", "error", err)
 		}
 	}()
 
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	slog.Info("Shutting down")
 
-	shutdownDone := make(chan struct{})
-	go func() {
-		grpcServer.GracefulStop()
-		close(shutdownDone)
-	}()
-
-	select {
-	case <-shutdownDone:
-	case <-time.After(10 * time.Second):
-		slog.Warn("Graceful shutdown timed out, forcing stop")
-		grpcServer.Stop()
-	}
+	slog.Info("Shutting down downloader")
+	cancel()
 }
