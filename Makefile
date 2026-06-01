@@ -42,8 +42,5 @@ build-frontend:
 	cd frontend && npm ci && npm run build
 	cp -r frontend/dist/. services/core/internal/api/frontend/
 
-generate:
-	cd shared/proto && go generate
-
 release:
 	./scripts/release.sh
