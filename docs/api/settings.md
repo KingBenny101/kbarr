@@ -4,22 +4,19 @@
 
 ## `GET /api/settings`
 
-**Description:** Get the settings.
-
-**Request:** None
+Get all settings.
 
 **Response (200):**
 
 ```json
 {
-	"anidbClient":       "client",
-	"anidbVersion":      "1",
-	"anidbSyncInterval": "1440",
-	"tmdbApiKey":        "api_key",
-	"prowlarrUrl":       "http://localhost:9696",
-	"prowlarrApiKey":    "api_key",
-	"prowlarrInterval":  "60",
-	"autoMonitorOnAdd":  "false",
+  "anidbClient": "client",
+  "anidbVersion": "1",
+  "anidbSyncInterval": "1440",
+  "prowlarrUrl": "http://localhost:9696",
+  "prowlarrApiKey": "api_key",
+  "prowlarrInterval": "60",
+  "autoMonitorOnAdd": "false"
 }
 ```
 
@@ -27,20 +24,14 @@
 
 ## `POST /api/settings`
 
-**Description:** Update the settings.
+Update settings. Only include keys you want to change.
 
 **Request:**
 
 ```json
 {
-	"anidbClient":       "client",
-	"anidbVersion":      "1",
-	"anidbSyncInterval": "1440",
-	"tmdbApiKey":        "api_key",
-	"prowlarrUrl":       "http://localhost:9696",
-	"prowlarrApiKey":    "api_key",
-	"prowlarrInterval":  "60",
-	"autoMonitorOnAdd":  "false",
+  "prowlarrUrl": "http://localhost:9696",
+  "prowlarrApiKey": "api_key"
 }
 ```
 
@@ -48,8 +39,8 @@
 
 ```json
 {
-	"success":       "true",
-	"message":      "Settings updated successfully",
+  "success": "true",
+  "message": "Settings updated successfully"
 }
 ```
 
