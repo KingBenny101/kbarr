@@ -1,9 +1,9 @@
 site_name: kbarr
 site_description: Take lite
-site_author: 'KingBenny101'
-site_url: 'https://kingbenny101.github.io/kbarr/'
-repo_url: 'https://github.com/KingBenny101/kbarr'
-repo_name: 'KingBenny101/kbarr'
+site_author: KingBenny101
+site_url: https://kingbenny101.github.io/kbarr/
+repo_url: https://github.com/KingBenny101/kbarr
+repo_name: KingBenny101/kbarr
 
 theme:
   name: material
@@ -26,61 +26,36 @@ theme:
       toggle:
         icon: material/toggle-switch-off
         name: Switch to system preference
-  font:
-    text: Roboto
-    code: Roboto Mono
-  favicon: assets/favicon.png
   features:
-    - content.action.edit
-    - content.action.view
-    - content.code.annotate
     - content.code.copy
-    # - content.code.select
-    # - content.footnote.tooltips
-    # - content.tabs.link
     - content.tooltips
-    # - header.autohide
-    # - navigation.expand
     - navigation.footer
     - navigation.indexes
-    # - navigation.instant
-    # - navigation.instant.prefetch
-    # - navigation.instant.progress
-    # - navigation.prune
     - navigation.sections
     - navigation.tabs
-    # - navigation.tabs.sticky
     - navigation.top
     - navigation.tracking
     - search.highlight
-    - search.share
     - search.suggest
     - toc.follow
-    # - toc.integrate
-    - content.code.annotate
   icon:
+    logo: material/play-circle
     repo: fontawesome/brands/github
 
 plugins:
-  - search:
-      separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - search
+  - blog:
+      blog_dir: blog
   - minify:
       minify_html: true
 
 markdown_extensions:
-  - abbr
   - admonition
   - attr_list
-  - def_list
   - footnotes
   - md_in_html
   - toc:
       permalink: true
-  - pymdownx.arithmatex:
-      generic: true
-  - pymdownx.betterem:
-      smart_enable: all
-  - pymdownx.caret
   - pymdownx.details
   - pymdownx.emoji:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
@@ -90,31 +65,16 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.keys
-  - pymdownx.magiclink:
-      normalize_issue_symbols: true
-      repo_url_shorthand: true
-      user: squidfunk
-      repo: mkdocs-material
-  - pymdownx.mark
-  - pymdownx.smartsymbols
-  - pymdownx.snippets:
-      auto_append:
-        - includes/mkdocs.md
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
-  - pymdownx.tabbed:
-      alternate_style: true
-      combine_header_slug: true
-      slugify: !!python/object/apply:pymdownx.slugs.slugify
-        kwds:
-          case: lower
   - pymdownx.tasklist:
       custom_checkbox: true
-  - pymdownx.tilde
+
+extra_css:
+  - assets/extra.css
 
 extra:
   social:
@@ -124,18 +84,13 @@ extra:
 nav:
   - About: index.md
   - Installation: installation.md
-  - Blog:
-      - Overview: blog/index.md
-      - 'First post': blog/2026-05-29-first-post.md
-      - 'Architecture notes': blog/2026-05-29-architecture-notes.md
-      - 'Frontend shit': blog/2026-05-30-frontend-shit.md
-      - 'Claude purchase': blog/2026-05-31-claude-purchase.md
   - Documentation:
       - API Reference:
           - System: api/system.md
-          - Settings: api/settings.md
-          - Search: api/search.md
+          - Auth: api/auth.md
           - Library: api/library.md
-
-      - Database:
-          - Schema: schema-template.md
+          - Monitor: api/monitor.md
+          - Search: api/search.md
+          - Downloads: api/downloads.md
+          - Settings: api/settings.md
+  - Blog: blog/index.md
