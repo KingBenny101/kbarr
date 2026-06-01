@@ -11,7 +11,7 @@ COPY services/core ./services/core
 WORKDIR /workspace/frontend
 RUN npm ci
 RUN npm run build
-RUN mkdir -p /workspace/services/core/frontend && cp -r /workspace/frontend/dist/. /workspace/services/core/frontend/
+RUN mkdir -p /workspace/services/core/internal/api/frontend && cp -r /workspace/frontend/dist/. /workspace/services/core/internal/api/frontend/
 
 WORKDIR /workspace/services/core
 RUN go mod download
