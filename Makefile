@@ -1,24 +1,24 @@
 .PHONY: db db-down dev dev-down run-metadata run-indexer run-downloader run-core run-frontend up down build-frontend generate release
 
-# Start only Postgres (for local dev)
+# Start Postgres + pgadmin (for local dev, port 5432 exposed)
 db:
-	docker compose up -d postgres
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file dev.env up -d postgres pgadmin
 
 db-down:
-	docker compose stop postgres
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml down postgres pgadmin
 
 # Run individual services locally with air
 run-metadata:
-	cd services/metadata && set -a && source ../../.env && set +a && air
+	cd services/metadata && set -a && source ../../dev.env && set +a && air
 
 run-indexer:
-	cd services/indexer && set -a && source ../../.env && set +a && air
+	cd services/indexer && set -a && source ../../dev.env && set +a && air
 
 run-downloader:
-	cd services/downloader && set -a && source ../../.env && set +a && air
+	cd services/downloader && set -a && source ../../dev.env && set +a && air
 
 run-core:
-	cd services/core && set -a && source ../../.env && set +a && air
+	cd services/core && set -a && source ../../dev.env && set +a && air
 
 run-frontend:
 	cd frontend && npm run dev
