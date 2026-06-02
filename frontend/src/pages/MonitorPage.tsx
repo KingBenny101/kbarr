@@ -24,14 +24,15 @@ const STATUS_PRIORITY: Record<string, number> = {
     queued:      1,
     searching:   2,
     monitored:   3,
-    available:   4,
-    unmonitored: 5,
+    missing:     4,
+    available:   5,
+    unmonitored: 6,
 }
 
 type SortField = "title" | "status" | "type"
 type SortDir = "asc" | "desc"
 
-const ALL_STATUSES = ["monitored", "searching", "queued", "downloading", "available", "unmonitored"] as const
+const ALL_STATUSES = ["monitored", "searching", "queued", "downloading", "missing", "available", "unmonitored"] as const
 type StatusFilter = typeof ALL_STATUSES[number] | "all"
 
 const STATUS_TONES: Record<string, "gray" | "blue" | "green" | "yellow" | "violet" | "red"> = {
@@ -39,6 +40,7 @@ const STATUS_TONES: Record<string, "gray" | "blue" | "green" | "yellow" | "viole
     searching: "yellow",
     queued: "violet",
     downloading: "blue",
+    missing: "red",
     available: "green",
     unmonitored: "gray",
 }

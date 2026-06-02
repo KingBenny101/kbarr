@@ -42,10 +42,15 @@ function PageShell({ children }: { children: React.ReactNode }) {
     const pathname = useLocation().pathname
     const [version, setVersion] = useState("0.0.0")
     const [username, setUsername] = useState("")
-    const [lastMediaPath, setLastMediaPath] = useState<string>("/")
+    const [lastMediaPath, setLastMediaPath] = useState<string>(() => sessionStorage.getItem("last-media-path") ?? "/")
 
     useEffect(() => {
-        if (pathname.startsWith("/media/")) setLastMediaPath(pathname)
+        if (pathname.startsWith("/media/")) {
+            sessionStorage.setItem("last-media-path", pathname)
+            setLastMediaPath(pathname)
+        } else if (!sessionStorage.getItem("last-media-path")) {
+            setLastMediaPath("/")
+        }
     }, [pathname])
     const { toggleColorScheme } = useMantineColorScheme()
     const computedColorScheme = useComputedColorScheme("light")

@@ -305,6 +305,7 @@ export function MediaDetailPage() {
             const response = await apiFetch(`${API_URL}/api/library/${id}`, { method: "DELETE" })
             if (response.ok) {
                 showToast("Media deleted", "success")
+                sessionStorage.removeItem("last-media-path")
                 navigate("/")
             }
         } catch (error) {
@@ -330,7 +331,11 @@ export function MediaDetailPage() {
                     </ActionIcon>
                     <Stack gap={4}>
                         <Title order={1}>{media.title}</Title>
-                        {media.alternate_titles !== media.title ? <Text c="dimmed">{media.alternate_titles}</Text> : null}
+                        {media.alternate_titles ? (
+                            <Text size="sm" c="dimmed">
+                                {media.alternate_titles.split("|").filter((t) => t.trim() && t.trim() !== media.title).join(" · ")}
+                            </Text>
+                        ) : null}
                     </Stack>
                 </Group>
 

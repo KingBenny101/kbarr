@@ -11,6 +11,9 @@ interface Settings {
     prowlarrUrl: string
     prowlarrApiKey: string
     prowlarrInterval: string
+    prowlarrCacheAge: string
+    matchThreshold: string
+    cacheFileLimit: string
     preferredQuality: string
     minSeeders: string
     autoMonitorOnAdd: string
@@ -19,6 +22,7 @@ interface Settings {
     qbittorrentUsername: string
     qbittorrentPassword: string
     downloadPath: string
+    downloaderInterval: string
     stallTimeout: string
     devMode: string
 }
@@ -73,7 +77,10 @@ export function SettingsPage() {
                 anidbSyncInterval: data.anidbSyncInterval || "1440",
                 prowlarrUrl: data.prowlarrUrl || "http://localhost:9696",
                 prowlarrApiKey: data.prowlarrApiKey || "",
-                prowlarrInterval: data.prowlarrInterval || "30",
+                prowlarrInterval: data.prowlarrInterval || "1",
+                prowlarrCacheAge: data.prowlarrCacheAge || "3600",
+                matchThreshold: data.matchThreshold || "80",
+                cacheFileLimit: data.cacheFileLimit || "10",
                 preferredQuality: data.preferredQuality || "1080p",
                 minSeeders: data.minSeeders || "1",
                 autoMonitorOnAdd: data.autoMonitorOnAdd || "false",
@@ -82,6 +89,7 @@ export function SettingsPage() {
                 qbittorrentUsername: data.qbittorrentUsername || "",
                 qbittorrentPassword: data.qbittorrentPassword || "",
                 downloadPath: data.downloadPath || "/data/torrents",
+                downloaderInterval: data.downloaderInterval || "1",
                 stallTimeout: data.stallTimeout || "300",
                 devMode: data.devMode || "false",
             }
@@ -336,6 +344,38 @@ export function SettingsPage() {
             ) : null}
 
             {path.includes("indexer") ? (
+                <>
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
+                            <Title order={3}>Indexer</Title>
+                            <Text size="sm" c="dimmed">Configure the indexer service behavior.</Text>
+                        </div>
+                        <TextInput
+                            label="Scan interval (sec)"
+                            description="How often the monitor table is polled for new items to search."
+                            value={settings.prowlarrInterval}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrInterval", e.currentTarget.value) }}
+                            placeholder="1"
+                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
+                        />
+                        <TextInput
+                            label="Title match threshold"
+                            description="Minimum similarity (0–100) between the guessit-parsed torrent title and the anime title. Lower = more permissive."
+                            value={settings.matchThreshold}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("matchThreshold", e.currentTarget.value) }}
+                            placeholder="80"
+                            rightSection={<Text size="xs" c="dimmed">%</Text>}
+                        />
+                        <TextInput
+                            label="Cache file limit"
+                            description="Maximum files kept in each cache/debug folder (prowlarr-cache, guessit-debug, matching-debug). Oldest deleted first."
+                            value={settings.cacheFileLimit}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("cacheFileLimit", e.currentTarget.value) }}
+                            placeholder="10"
+                        />
+                    </Stack>
+                </Card>
                 <Card withBorder radius="xl" p="lg">
                     <Stack gap="md">
                         <div>
@@ -351,11 +391,11 @@ export function SettingsPage() {
                             placeholder="api_key_..."
                         />
                         <TextInput
-                            label="Scan interval (sec)"
-                            description="How often the monitor table is polled for new items to search."
-                            value={settings.prowlarrInterval}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrInterval", e.currentTarget.value) }}
-                            placeholder="30"
+                            label="Result cache age (sec)"
+                            description="How long Prowlarr search results are cached on disk before re-querying. Set to 0 to disable."
+                            value={settings.prowlarrCacheAge}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrCacheAge", e.currentTarget.value) }}
+                            placeholder="3600"
                             rightSection={<Text size="xs" c="dimmed">sec</Text>}
                         />
                         <Group justify="flex-end">
@@ -365,10 +405,42 @@ export function SettingsPage() {
                         </Group>
                     </Stack>
                 </Card>
+                </>
             ) : null}
 
             {isDownloader ? (
                 <>
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
+                            <Title order={3}>Downloader</Title>
+                            <Text size="sm" c="dimmed">Configure the downloader service behavior.</Text>
+                        </div>
+                        <TextInput
+                            label="Poll interval (sec)"
+                            description="How often the downloader checks for pending items and updates progress."
+                            value={settings.downloaderInterval}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("downloaderInterval", e.currentTarget.value) }}
+                            placeholder="1"
+                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
+                        />
+                        <TextInput
+                            label="Download path"
+                            description="Base directory where torrents are saved. A subfolder per anime title is created automatically."
+                            value={settings.downloadPath}
+                            onChange={(e) => update("downloadPath", e.currentTarget.value)}
+                            placeholder="/data/torrents"
+                        />
+                        <TextInput
+                            label="Stall timeout (sec)"
+                            description="Remove torrents with no progress for this many seconds and re-queue. Set to 0 to disable."
+                            value={settings.stallTimeout}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("stallTimeout", e.currentTarget.value) }}
+                            placeholder="300"
+                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
+                        />
+                    </Stack>
+                </Card>
                 <Card withBorder radius="xl" p="lg">
                     <Stack gap="md">
                         <div>
@@ -393,21 +465,6 @@ export function SettingsPage() {
                             onChange={(e) => update("qbittorrentPassword", e.currentTarget.value)}
                             onFocus={() => { if (settings.qbittorrentPassword === initialSettings?.qbittorrentPassword) update("qbittorrentPassword", "") }}
                             placeholder="••••••••"
-                        />
-                        <TextInput
-                            label="Download path"
-                            description="Base directory where torrents are saved. A subfolder per anime title is created automatically."
-                            value={settings.downloadPath}
-                            onChange={(e) => update("downloadPath", e.currentTarget.value)}
-                            placeholder="/data/torrents"
-                        />
-                        <TextInput
-                            label="Stall timeout (sec)"
-                            description="Remove torrents with no progress for this many seconds and re-queue. Set to 0 to disable."
-                            value={settings.stallTimeout}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("stallTimeout", e.currentTarget.value) }}
-                            placeholder="300"
-                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
                         />
                         <Group justify="flex-end">
                             <Button variant="light" color="gray" loading={testingDownloader} onClick={handleTestDownloader}>
