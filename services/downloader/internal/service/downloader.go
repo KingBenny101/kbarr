@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -80,13 +81,18 @@ func (s *DownloaderService) login(ctx context.Context, qbtURL, username, passwor
 	return nil
 }
 
+func (s *DownloaderService) pollInterval() time.Duration {
+	return config.GetSeconds(s.db, "downloaderInterval", 1*time.Second, 1*time.Second)
+}
+
 func (s *DownloaderService) PollAndDownload(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
+	s.ProcessPending(ctx)
+	s.UpdateDownloading(ctx)
 
 	for {
+		interval := s.pollInterval()
 		select {
-		case <-ticker.C:
+		case <-time.After(interval):
 			s.ProcessPending(ctx)
 			s.UpdateDownloading(ctx)
 		case <-ctx.Done():
@@ -121,7 +127,6 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 		if entry.TorrentURL == nil || *entry.TorrentURL == "" {
 			continue
 		}
-
 		title := ""
 		if entry.Title != nil {
 			title = sanitizeFilename(*entry.Title)
@@ -130,7 +135,16 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 
 		hash, err := s.addTorrent(ctx, qbtURL, *entry.TorrentURL, savePath)
 		if err != nil {
-			slog.Error("Failed to add torrent", "id", entry.ID, "error", err)
+			slog.Error("Failed to add torrent — blacklisting and re-queuing", "id", entry.ID, "error", err)
+			s.blacklistTorrent(ctx, entry)
+			s.db.NewUpdate().Model((*models.DownloadQueue)(nil)).
+				Set("deleted_at = now(), updated_at = now()").
+				Where("id = ?", entry.ID).Exec(ctx)
+			if entry.MonitorID != nil {
+				s.db.NewUpdate().Model((*models.Monitor)(nil)).
+					Set("status = 'monitored', updated_at = now()").
+					Where("id = ?", *entry.MonitorID).Exec(ctx)
+			}
 			continue
 		}
 
@@ -434,7 +448,17 @@ func (s *DownloaderService) resolveURL(ctx context.Context, torrentURL string) (
 	}
 
 	b, err := io.ReadAll(resp.Body)
-	return "", b, err
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Prowlarr returns XML error responses even with 2xx status codes
+	// e.g. <error code="429" description="Indexer is disabled..."/>
+	if trimmed := bytes.TrimSpace(b); bytes.HasPrefix(trimmed, []byte("<?xml")) || bytes.HasPrefix(trimmed, []byte("<error")) {
+		return "", nil, fmt.Errorf("indexer error response: %s", strings.TrimSpace(string(b)))
+	}
+
+	return "", b, nil
 }
 
 func (s *DownloaderService) fetchTorrentFile(ctx context.Context, torrentURL string) ([]byte, error) {
