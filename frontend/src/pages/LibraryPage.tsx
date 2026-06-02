@@ -54,7 +54,7 @@ export function LibraryPage() {
                                         {media.title}
                                     </Title>
                                     <Text size="10px" c="dimmed">
-                                        AniDB ID {media.aid}
+                                        {media.source} ID {media.source_id}
                                     </Text>
                                 </Stack>
                             </Card>

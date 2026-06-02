@@ -1,6 +1,7 @@
 export interface Media {
     ID: number
-    aid: number
+    source: string
+    source_id: string
     title: string
     poster_url: string
     added?: boolean
@@ -8,7 +9,8 @@ export interface Media {
 
 export interface Episode {
     ID: number
-    anidb_id: string
+    source: string
+    external_id: string
     type: number
     ep_no: string
     title: string
@@ -20,7 +22,8 @@ export interface MediaDetails {
     CreatedAt: string
     UpdatedAt: string
     title: string
-    aid: number
+    source: string
+    source_id: string
     alternate_titles: string
     description: string
     release_date: string

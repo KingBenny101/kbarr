@@ -5,7 +5,7 @@ import { API_URL, apiFetch, showToast } from "@/utils"
 import type { Media } from "@/types"
 import { EmptyState, StatusPill } from "@/components"
 
-const SEARCH_CACHE_KEY = "kbarr.search.cache"
+const SEARCH_CACHE_KEY = "kbarr.search.cache.v2"
 
 type SearchCache = {
     query: string
@@ -38,7 +38,7 @@ export function SearchPage() {
     const [medias, setMedias] = useState<Media[]>(() => cachedSearch?.results ?? [])
     const [hasSearched, setHasSearched] = useState(() => cachedSearch !== null)
     const [searching, setSearching] = useState(false)
-    const [adding, setAdding] = useState<number | null>(null)
+    const [adding, setAdding] = useState<string | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 9
 
@@ -79,7 +79,8 @@ export function SearchPage() {
     }
 
     const handleAdd = async (result: Media) => {
-        setAdding(result.aid)
+        const key = `${result.source}:${result.source_id}`
+        setAdding(key)
         try {
             const response = await apiFetch(`${API_URL}/api/library`, {
                 method: "POST",
@@ -89,7 +90,11 @@ export function SearchPage() {
             if (response.ok) {
                 const data = await response.json()
                 showToast(data.message, "success")
-                setMedias((previous) => previous.map((media) => (media.aid === result.aid ? { ...media, added: true } : media)))
+                setMedias((previous) =>
+                    previous.map((media) =>
+                        media.source === result.source && media.source_id === result.source_id ? { ...media, added: true } : media
+                    )
+                )
             } else {
                 showToast("Failed to add media", "error")
             }
@@ -123,32 +128,37 @@ export function SearchPage() {
             {medias.length > 0 ? (
                 <Stack gap="lg">
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                        {paginatedResults.map((result) => (
-                            <Card key={result.aid} withBorder radius="xl">
-                                <Stack gap="sm" justify="space-between" h="100%">
-                                    <Stack gap={6}>
-                                        <Group justify="space-between" align="start" wrap="nowrap">
-                                            <Title order={4} lineClamp={2} style={{ flex: 1 }}>
-                                                {result.title}
-                                            </Title>
-                                            <ActionIcon component="a" href={`https://anidb.net/anime/${result.aid}`} target="_blank" rel="noreferrer" variant="subtle" color="gray" aria-label="Open AniDB entry">
-                                                <IconExternalLink size={18} />
-                                            </ActionIcon>
-                                        </Group>
-                                        <Text size="sm" c="dimmed">
-                                            AniDB ID {result.aid}
-                                        </Text>
-                                        <Group gap="xs">
-                                            <StatusPill label={result.added ? "Added" : "Ready"} tone={result.added ? "green" : "blue"} />
-                                        </Group>
-                                    </Stack>
+                        {paginatedResults.map((result) => {
+                            const key = `${result.source}:${result.source_id}`
+                            return (
+                                <Card key={key} withBorder radius="xl">
+                                    <Stack gap="sm" justify="space-between" h="100%">
+                                        <Stack gap={6}>
+                                            <Group justify="space-between" align="start" wrap="nowrap">
+                                                <Title order={4} lineClamp={2} style={{ flex: 1 }}>
+                                                    {result.title}
+                                                </Title>
+                                                {result.source === "anidb" && (
+                                                    <ActionIcon component="a" href={`https://anidb.net/anime/${result.source_id}`} target="_blank" rel="noreferrer" variant="subtle" color="gray" aria-label="Open AniDB entry">
+                                                        <IconExternalLink size={18} />
+                                                    </ActionIcon>
+                                                )}
+                                            </Group>
+                                            <Text size="sm" c="dimmed">
+                                                {result.source} ID {result.source_id}
+                                            </Text>
+                                            <Group gap="xs">
+                                                <StatusPill label={result.added ? "Added" : "Ready"} tone={result.added ? "green" : "blue"} />
+                                            </Group>
+                                        </Stack>
 
-                                    <Button color="gray" variant={result.added ? "light" : "filled"} onClick={() => handleAdd(result)} disabled={adding === result.aid || result.added} loading={adding === result.aid} fullWidth>
-                                        {result.added ? "Added" : "Add to Library"}
-                                    </Button>
-                                </Stack>
-                            </Card>
-                        ))}
+                                        <Button color="gray" variant={result.added ? "light" : "filled"} onClick={() => handleAdd(result)} disabled={adding === key || result.added} loading={adding === key} fullWidth>
+                                            {result.added ? "Added" : "Add to Library"}
+                                        </Button>
+                                    </Stack>
+                                </Card>
+                            )
+                        })}
                     </SimpleGrid>
 
                     <Group justify="space-between" align="center">

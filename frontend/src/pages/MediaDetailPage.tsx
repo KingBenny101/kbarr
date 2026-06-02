@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
@@ -7,8 +7,23 @@ import { API_URL, apiFetch, resolvePosterUrl, showToast } from "@/utils"
 import type { Episode, MediaDetails } from "@/types"
 import { StatusPill } from "@/components"
 
+type SortField = "ep_no" | "title"
+type SortDir = "asc" | "desc"
+
+const ALL_TYPES = [1, 2, 3, 4, 5] as const
+const TYPE_LABELS: Record<number, string> = { 1: "Regular", 2: "Special", 3: "Credit", 4: "Trailer", 5: "Parody" }
+
+interface EpisodesResponse {
+    episodes: Episode[]
+    total: number
+    page: number
+    limit: number
+    present_types: number[]
+}
+
 interface MonitoredItem {
-    anidb_id: string
+    external_id: string
+    source: string
     is_episode: boolean
     is_season: boolean
     season: number
@@ -23,7 +38,10 @@ export function MediaDetailPage() {
     const [rangeInput, setRangeInput] = useState("")
     const [monitorEntireSeason, setMonitorEntireSeason] = useState(false)
     const [page, setPage] = useState(1)
-    const itemsPerPage = 10
+    const [sortField, setSortField] = useState<SortField>("ep_no")
+    const [sortDir, setSortDir] = useState<SortDir>("asc")
+    const [activeTypes, setActiveTypes] = useState<Set<number>>(() => new Set(ALL_TYPES))
+    const [episodesData, setEpisodesData] = useState<EpisodesResponse | null>(null)
 
     useEffect(() => {
         if (!id) return
@@ -83,7 +101,8 @@ export function MediaDetailPage() {
                     season: 1,
                     episode_number: episodeNumber,
                     is_episode: true,
-                    anidb_id: episode?.anidb_id || "",
+                    source: episode?.source || media.source,
+                    external_id: episode?.external_id || "",
                 }
             }),
             {
@@ -94,7 +113,8 @@ export function MediaDetailPage() {
                 episode_number: 0,
                 is_episode: false,
                 is_season: true,
-                anidb_id: String(media.aid || ""),
+                source: media.source,
+                external_id: media.source_id,
             },
         ]
 
@@ -139,11 +159,47 @@ export function MediaDetailPage() {
         }
     }
 
-    const totalPages = Math.ceil((media?.episodes?.length || 0) / itemsPerPage)
-    const visibleEpisodes = useMemo(
-        () => media?.episodes.slice((page - 1) * itemsPerPage, page * itemsPerPage) ?? [],
-        [media?.episodes, page],
-    )
+    useEffect(() => {
+        if (!id) return
+        const params = new URLSearchParams({
+            sort: sortField,
+            order: sortDir,
+            page: String(page),
+            limit: "10",
+        })
+        if (activeTypes.size < ALL_TYPES.length) {
+            params.set("types", [...activeTypes].join(","))
+        }
+        apiFetch(`${API_URL}/api/library/${id}/episodes?${params}`)
+            .then((r) => r.json())
+            .then((data: EpisodesResponse) => setEpisodesData(data))
+            .catch((error) => console.error("Failed to fetch episodes", error))
+    }, [id, page, sortField, sortDir, activeTypes])
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+        } else {
+            setSortField(field)
+            setSortDir("asc")
+        }
+        setPage(1)
+    }
+
+    const toggleType = (type: number) => {
+        setActiveTypes((prev) => {
+            const next = new Set(prev)
+            if (next.has(type)) {
+                if (next.size > 1) next.delete(type)
+            } else {
+                next.add(type)
+            }
+            return next
+        })
+        setPage(1)
+    }
+
+    const totalPages = Math.ceil((episodesData?.total ?? 0) / 10)
 
     const deleteMedia = async () => {
         if (!media || !id) return
@@ -180,9 +236,6 @@ export function MediaDetailPage() {
                     </Stack>
                 </Group>
 
-                <Button component="a" href={`https://anidb.net/anime/${media.aid}`} target="_blank" rel="noreferrer" variant="light" color="gray" leftSection={<IconExternalLink size={16} />}>
-                    View on AniDB
-                </Button>
             </Group>
 
             <Grid>
@@ -200,7 +253,23 @@ export function MediaDetailPage() {
                         <Card withBorder radius="xl">
                             <Stack gap="sm">
                                 <Title order={3}>Information</Title>
-                                <SimpleKeyValue label="AniDB ID" value={String(media.aid)} />
+                                <SimpleKeyValue label="Source" value={media.source} />
+                                <SimpleKeyValue label="Source ID" value={media.source_id} />
+                                {sourceUrl(media.source, media.source_id) && (
+                                    <Button
+                                        component="a"
+                                        href={sourceUrl(media.source, media.source_id)!}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        variant="light"
+                                        color="gray"
+                                        leftSection={<IconExternalLink size={16} />}
+                                        size="xs"
+                                        mt={4}
+                                    >
+                                        View Source
+                                    </Button>
+                                )}
                                 {media.total_episodes > 0 ? <SimpleKeyValue label="Episodes" value={String(media.total_episodes)} /> : null}
                                 {media.total_seasons > 0 ? <SimpleKeyValue label="Seasons" value={String(media.total_seasons)} /> : null}
                             </Stack>
@@ -241,15 +310,38 @@ export function MediaDetailPage() {
                             </Stack>
                         </Card>
 
-                        {media.episodes?.length ? (
+                        {(episodesData?.total ?? 0) > 0 || episodesData !== null ? (
                             <Card withBorder radius="xl">
-                                <Stack gap="md">
-                                    <Title order={3}>Episodes</Title>
-                                    <EpisodeTable episodes={visibleEpisodes} monitoredItems={monitoredItems} />
+                                <Stack gap="md" style={{ minHeight: (episodesData?.limit ?? 10) * 41 + 122 }}>
+                                    <Group justify="space-between" align="center">
+                                        <Title order={3}>Episodes</Title>
+                                        {(episodesData?.present_types?.length ?? 0) > 1 && (
+                                            <Group gap="xs">
+                                                {episodesData!.present_types.map((type) => (
+                                                    <Button
+                                                        key={type}
+                                                        size="xs"
+                                                        variant={activeTypes.has(type) ? "filled" : "light"}
+                                                        color="gray"
+                                                        onClick={() => toggleType(type)}
+                                                    >
+                                                        {TYPE_LABELS[type]}
+                                                    </Button>
+                                                ))}
+                                            </Group>
+                                        )}
+                                    </Group>
+                                    <EpisodeTable
+                                        episodes={episodesData?.episodes ?? []}
+                                        monitoredItems={monitoredItems}
+                                        sortField={sortField}
+                                        sortDir={sortDir}
+                                        onSort={handleSort}
+                                    />
                                     {totalPages > 1 ? (
-                                        <Group justify="space-between" align="center">
+                                        <Group justify="space-between" align="center" mt="auto">
                                             <Text size="sm" c="dimmed">
-                                                Showing {(page - 1) * itemsPerPage + 1} to {Math.min(page * itemsPerPage, media.episodes.length)} of {media.episodes.length} episodes
+                                                {(page - 1) * 10 + 1}–{Math.min(page * 10, episodesData?.total ?? 0)} of {episodesData?.total ?? 0}
                                             </Text>
                                             <Pagination value={page} onChange={setPage} total={totalPages} color="gray" />
                                         </Group>
@@ -304,6 +396,11 @@ export function MediaDetailPage() {
     )
 }
 
+function sourceUrl(source: string, sourceID: string): string | null {
+    if (source === "anidb") return `https://anidb.net/anime/${sourceID}`
+    return null
+}
+
 function SimpleKeyValue({ label, value }: { label: string; value: string }) {
     return (
         <Group justify="space-between" align="start" wrap="nowrap">
@@ -317,27 +414,50 @@ function SimpleKeyValue({ label, value }: { label: string; value: string }) {
     )
 }
 
-function EpisodeTable({ episodes, monitoredItems }: { episodes: Episode[]; monitoredItems: MonitoredItem[] }) {
+function episodeSourceUrl(episode: Episode): string | null {
+    if (episode.source === "anidb") return `https://anidb.net/episode/${episode.external_id}`
+    return null
+}
+
+function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort }: {
+    episodes: Episode[]
+    monitoredItems: MonitoredItem[]
+    sortField: SortField
+    sortDir: SortDir
+    onSort: (field: SortField) => void
+}) {
+    const hasLinks = episodes.some((e) => episodeSourceUrl(e) !== null)
+
+    const SortIndicator = ({ field }: { field: SortField }) => {
+        if (sortField !== field) return <Text span c="dimmed" size="xs"> ↕</Text>
+        return <Text span size="xs"> {sortDir === "asc" ? "↑" : "↓"}</Text>
+    }
+
     return (
         <ScrollArea type="auto">
-            <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
+            <Table striped highlightOnHover withTableBorder withColumnBorders>
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={80}>No.</Table.Th>
-                        <Table.Th>Title</Table.Th>
+                        <Table.Th w={80} style={{ cursor: "pointer" }} onClick={() => onSort("ep_no")}>
+                            No.<SortIndicator field="ep_no" />
+                        </Table.Th>
+                        <Table.Th style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
+                            Title<SortIndicator field="title" />
+                        </Table.Th>
                         <Table.Th w={120}>Type</Table.Th>
                         <Table.Th w={160}>Availability</Table.Th>
                         <Table.Th w={160}>Status</Table.Th>
-                        <Table.Th w={80}>AniDB</Table.Th>
+                        {hasLinks && <Table.Th w={80}>Link</Table.Th>}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                     {episodes.map((episode) => {
-                        const monitored = monitoredItems.some((item) => item.anidb_id === episode.anidb_id && item.is_episode)
+                        const monitored = monitoredItems.some((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
+                        const link = episodeSourceUrl(episode)
                         return (
                             <Table.Tr key={episode.ID}>
                                 <Table.Td fw={700}>{episode.ep_no}</Table.Td>
-                                <Table.Td>{episode.title}</Table.Td>
+                                <Table.Td style={{ maxWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{episode.title}</Table.Td>
                                 <Table.Td>
                                     <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
                                 </Table.Td>
@@ -347,11 +467,15 @@ function EpisodeTable({ episodes, monitoredItems }: { episodes: Episode[]; monit
                                 <Table.Td>
                                     <StatusPill label={monitored ? "Monitored" : "Not monitored"} tone={monitored ? "green" : "gray"} />
                                 </Table.Td>
-                                <Table.Td>
-                                    <Anchor href={`https://anidb.net/episode/${episode.anidb_id}`} target="_blank" rel="noreferrer" c="gray">
-                                        <IconExternalLink size={18} />
-                                    </Anchor>
-                                </Table.Td>
+                                {hasLinks && (
+                                    <Table.Td>
+                                        {link ? (
+                                            <Anchor href={link} target="_blank" rel="noreferrer" c="gray">
+                                                <IconExternalLink size={18} />
+                                            </Anchor>
+                                        ) : null}
+                                    </Table.Td>
+                                )}
                             </Table.Tr>
                         )
                     })}
