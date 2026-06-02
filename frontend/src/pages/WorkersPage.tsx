@@ -168,7 +168,12 @@ function ServiceListItem({ service, selected, onClick }: { service: ServiceHealt
 
 export function WorkersPage() {
     const [services, setServices] = useState<ServiceHealth[]>([])
-    const [selected, setSelected] = useState<string>("core")
+    const [selected, setSelected] = useState<string>(() => sessionStorage.getItem("workers-selected") ?? "core")
+
+    const selectService = (name: string) => {
+        sessionStorage.setItem("workers-selected", name)
+        setSelected(name)
+    }
     const [loading, setLoading] = useState(true)
     const isMobile = useMediaQuery("(max-width: 768px)")
 
@@ -212,7 +217,7 @@ export function WorkersPage() {
                                     key={svc.name}
                                     service={svc}
                                     selected={selected === svc.name}
-                                    onClick={() => setSelected(svc.name)}
+                                    onClick={() => selectService(svc.name)}
                                 />
                             ))
                         )}
@@ -251,7 +256,7 @@ export function WorkersPage() {
                                     key={svc.name}
                                     service={svc}
                                     selected={selected === svc.name}
-                                    onClick={() => setSelected(svc.name)}
+                                    onClick={() => selectService(svc.name)}
                                 />
                             ))
                         )}
