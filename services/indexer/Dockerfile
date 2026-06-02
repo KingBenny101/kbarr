@@ -15,6 +15,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /out/kbarr-indexer .
+COPY services/indexer/internal/service/bin/guessit .
 
 EXPOSE 8082
 CMD ["./kbarr-indexer"]
