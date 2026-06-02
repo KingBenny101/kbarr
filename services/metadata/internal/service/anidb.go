@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -81,7 +82,11 @@ func (s *AniDBService) SearchTitles(query string) ([]models.SearchResult, error)
 	for _, anime := range dump.Anime {
 		for _, t := range anime.Titles {
 			if strings.Contains(strings.ToLower(t.Title), query) {
-				results = append(results, models.SearchResult{AID: anime.AID, Title: t.Title})
+				results = append(results, models.SearchResult{
+					Source:   "anidb",
+					SourceID: strconv.FormatUint(uint64(anime.AID), 10),
+					Title:    t.Title,
+				})
 				break
 			}
 		}
@@ -115,24 +120,47 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*models.AnimeDetails, error) {
 	return details, nil
 }
 
-func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (models.Detailed, error) {
-	detailed := models.Detailed{
+func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (models.AnimeMetadata, error) {
+	metadata := models.AnimeMetadata{
+		Source:    "anidb",
+		SourceID:  strconv.FormatUint(uint64(aid), 10),
 		Title:     title,
-		AID:       aid,
 		LibraryID: libraryID,
 	}
 
 	details, err := s.GetAnimeDetails(aid)
 	if err != nil {
-		return models.Detailed{}, fmt.Errorf("failed to get anime details: %w", err)
+		return models.AnimeMetadata{}, fmt.Errorf("failed to get anime details: %w", err)
 	}
 
-	detailed.Description = details.Description
-	detailed.ReleaseDate = details.StartDate
-	detailed.TotalEpisodes = details.EpisodeCount
+	metadata.Description = details.Description
+	metadata.ReleaseDate = details.StartDate
+	metadata.TotalEpisodes = details.EpisodeCount
+
+	for _, ep := range details.Episodes {
+		title := ""
+		for _, t := range ep.Titles {
+			if t.Lang == "en" {
+				title = t.Value
+				break
+			}
+		}
+		if title == "" && len(ep.Titles) > 0 {
+			title = ep.Titles[0].Value
+		}
+		epType, _ := strconv.Atoi(ep.EpNo.Type)
+		metadata.Episodes = append(metadata.Episodes, models.EpisodeMetadata{
+			ExternalID: ep.ID,
+			Source:     "anidb",
+			Type:       epType,
+			Number:     ep.EpNo.Value,
+			Title:      title,
+			AirDate:    ep.AirDate,
+		})
+	}
 
 	if details.Picture != "" {
-		detailed.PosterURL = "/api/images/" + details.Picture
+		metadata.PosterURL = "/api/images/" + details.Picture
 		go func(filename string, libID uint) {
 			imageURL := anidbCDN + filename
 			if err := downloadAndSaveImage(s.httpClient, imageURL, filename); err != nil {
@@ -143,7 +171,7 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 		}(details.Picture, libraryID)
 	}
 
-	return detailed, nil
+	return metadata, nil
 }
 
 func (s *AniDBService) shouldDownloadTitles(titlesFile string, ttl time.Duration) bool {

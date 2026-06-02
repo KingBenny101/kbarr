@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -10,7 +11,8 @@ import (
 )
 
 type PrepareRequest struct {
-	AID       uint   `json:"aid"`
+	Source    string `json:"source"`
+	SourceID  string `json:"source_id"`
 	Title     string `json:"title"`
 	LibraryID uint   `json:"library_id"`
 }
@@ -67,9 +69,15 @@ func (h *Handler) Prepare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	detailed, err := h.svc.PrepareDetailed(req.AID, req.Title, req.LibraryID)
+	aid, err := strconv.ParseUint(req.SourceID, 10, 64)
 	if err != nil {
-		slog.Error("Prepare failed", "aid", req.AID, "error", err)
+		http.Error(w, fmt.Sprintf("invalid source_id %q: must be a numeric AniDB ID", req.SourceID), http.StatusBadRequest)
+		return
+	}
+
+	metadata, err := h.svc.PrepareDetailed(uint(aid), req.Title, req.LibraryID)
+	if err != nil {
+		slog.Error("Prepare failed", "source", req.Source, "source_id", req.SourceID, "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -77,5 +85,5 @@ func (h *Handler) Prepare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(detailed)
+	_ = json.NewEncoder(w).Encode(metadata)
 }
