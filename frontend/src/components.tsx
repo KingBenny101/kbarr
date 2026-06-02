@@ -1,9 +1,9 @@
 import { Badge, Button, Paper, Stack, Text, Title } from "@mantine/core"
 import type { ReactNode } from "react"
 
-export function StatusPill({ label, tone = "gray" }: { label: string; tone?: "gray" | "yellow" | "blue" | "green" | "red" | "violet" }) {
+export function StatusPill({ label, tone = "gray", onClick }: { label: string; tone?: "gray" | "yellow" | "blue" | "green" | "red" | "violet"; onClick?: () => void }) {
     return (
-        <Badge radius="xl" variant="light" color={tone} size="sm">
+        <Badge radius="xl" variant="light" color={tone} size="sm" style={onClick ? { cursor: "pointer" } : undefined} onClick={onClick}>
             {label}
         </Badge>
     )
