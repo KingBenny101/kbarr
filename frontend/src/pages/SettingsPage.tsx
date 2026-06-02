@@ -32,6 +32,8 @@ export function SettingsPage() {
     const [initialSettings, setInitialSettings] = useState<Settings | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [testingIndexer, setTestingIndexer] = useState(false)
+    const [testingDownloader, setTestingDownloader] = useState(false)
 
     const [creds, setCreds] = useState<CredentialForm>({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" })
     const [savingCreds, setSavingCreds] = useState(false)
@@ -98,6 +100,26 @@ export function SettingsPage() {
         } finally {
             setSaving(false)
         }
+    }
+
+    const handleTestIndexer = async () => {
+        setTestingIndexer(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/settings/test/indexer`, { method: "POST" })
+            const data = await res.json()
+            showToast(data.message, data.ok === "true" ? "success" : "error")
+        } catch { showToast("Test failed", "error") }
+        finally { setTestingIndexer(false) }
+    }
+
+    const handleTestDownloader = async () => {
+        setTestingDownloader(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/settings/test/downloader`, { method: "POST" })
+            const data = await res.json()
+            showToast(data.message, data.ok === "true" ? "success" : "error")
+        } catch { showToast("Test failed", "error") }
+        finally { setTestingDownloader(false) }
     }
 
     const handleSaveCreds = async () => {
@@ -268,6 +290,11 @@ export function SettingsPage() {
                             onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrInterval", e.currentTarget.value) }}
                             placeholder="60"
                         />
+                        <Group justify="flex-end">
+                            <Button variant="light" color="gray" loading={testingIndexer} onClick={handleTestIndexer}>
+                                Test connection
+                            </Button>
+                        </Group>
                     </Stack>
                 </Card>
             ) : null}
@@ -298,6 +325,11 @@ export function SettingsPage() {
                             onFocus={() => { if (settings.qbittorrentPassword === initialSettings?.qbittorrentPassword) update("qbittorrentPassword", "") }}
                             placeholder="••••••••"
                         />
+                        <Group justify="flex-end">
+                            <Button variant="light" color="gray" loading={testingDownloader} onClick={handleTestDownloader}>
+                                Test connection
+                            </Button>
+                        </Group>
                     </Stack>
                 </Card>
             ) : null}
