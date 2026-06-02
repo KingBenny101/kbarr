@@ -10,7 +10,8 @@ type Monitor struct {
 	EpisodeNumber int    `json:"episode_number"`
 	IsEpisode     bool   `json:"is_episode"`
 	IsSeason      bool   `json:"is_season"`
-	AniDBID       string `json:"anidb_id"`
+	Source        string `json:"source"`
+	ExternalID    string `json:"external_id"`
 	Status        string `json:"status"` // monitored, searching, downloading, downloaded, failed
 }
 
