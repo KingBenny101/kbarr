@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Navigate, useLocation } from "react-router-dom"
-import { Alert, Button, Card, Checkbox, Divider, Group, Loader, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core"
+import { Alert, Button, Card, Checkbox, Divider, Group, Loader, PasswordInput, Select, Stack, Text, TextInput, Title } from "@mantine/core"
 import { API_URL, apiFetch, clearToken, showToast } from "@/utils"
 
 interface Settings {
@@ -10,6 +10,8 @@ interface Settings {
     prowlarrUrl: string
     prowlarrApiKey: string
     prowlarrInterval: string
+    preferredQuality: string
+    minSeeders: string
     autoMonitorOnAdd: string
     monitorSyncInterval: string
     qbittorrentUrl: string
@@ -52,6 +54,8 @@ export function SettingsPage() {
                 prowlarrUrl: data.prowlarrUrl || "http://localhost:9696",
                 prowlarrApiKey: data.prowlarrApiKey || "",
                 prowlarrInterval: data.prowlarrInterval || "60",
+                preferredQuality: data.preferredQuality || "1080p",
+                minSeeders: data.minSeeders || "1",
                 autoMonitorOnAdd: data.autoMonitorOnAdd || "false",
                 monitorSyncInterval: data.monitorSyncInterval || "1",
                 qbittorrentUrl: data.qbittorrentUrl || "http://localhost:8080",
@@ -199,6 +203,26 @@ export function SettingsPage() {
                                 value={settings.monitorSyncInterval}
                                 onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("monitorSyncInterval", e.currentTarget.value) }}
                                 rightSection={<Text size="xs" c="dimmed">min</Text>}
+                            />
+                            <Select
+                                label="Preferred quality"
+                                description="Torrent results matching this quality score higher."
+                                value={settings.preferredQuality}
+                                onChange={(v) => update("preferredQuality", v ?? "1080p")}
+                                data={[
+                                    { value: "4K", label: "4K" },
+                                    { value: "1080p", label: "1080p" },
+                                    { value: "720p", label: "720p" },
+                                    { value: "480p", label: "480p" },
+                                    { value: "any", label: "Any" },
+                                ]}
+                            />
+                            <TextInput
+                                label="Minimum seeders"
+                                description="Torrents with fewer seeders than this are ignored."
+                                value={settings.minSeeders}
+                                onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("minSeeders", e.currentTarget.value) }}
+                                placeholder="1"
                             />
                         </Stack>
                     </Card>
