@@ -27,6 +27,7 @@ interface MonitoredItem {
     is_episode: boolean
     is_season: boolean
     season: number
+    status?: string
 }
 
 export function MediaDetailPage() {
@@ -324,7 +325,7 @@ export function MediaDetailPage() {
         <Stack gap="lg">
             <Group align="start" justify="space-between">
                 <Group align="start" gap="md">
-                    <ActionIcon variant="light" size="lg" onClick={() => navigate(-1)} aria-label="Go back">
+                    <ActionIcon variant="light" size="lg" onClick={() => navigate("/")} aria-label="Go back">
                         <IconArrowLeft size={18} />
                     </ActionIcon>
                     <Stack gap={4}>
@@ -553,7 +554,9 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                 </Table.Thead>
                 <Table.Tbody>
                     {episodes.map((episode) => {
-                        const monitored = monitoredItems.some((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
+                        const monitorEntry = monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
+                        const monitored = !!monitorEntry
+                        const available = monitorEntry?.status === "available"
                         const link = episodeSourceUrl(episode)
                         return (
                             <Table.Tr key={episode.ID}>
@@ -563,7 +566,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                                     <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
                                 </Table.Td>
                                 <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                                    <StatusPill label="Unavailable" tone="gray" />
+                                    <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
                                 </Table.Td>
                                 <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                                     <StatusPill
