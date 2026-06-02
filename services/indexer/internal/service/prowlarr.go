@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +35,7 @@ type IndexerService struct {
 func New(db *bun.DB) *IndexerService {
 	return &IndexerService{
 		db:         db,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{Timeout: 5 * time.Minute},
 		cache:      make(map[string]cachedSearch),
 	}
 }
@@ -107,20 +109,22 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 }
 
 func (s *IndexerService) PollAndQueue(ctx context.Context) {
-	interval := s.currentMonitorInterval()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
 	for {
-		select {
-		case <-ticker.C:
-			s.processMonitors(ctx)
-
-			next := s.currentMonitorInterval()
-			if next != interval {
-				interval = next
-				ticker.Reset(interval)
+		didWork := s.processMonitors(ctx)
+		if didWork {
+			// More monitors may be waiting — loop immediately
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
+			continue
+		}
+
+		// Nothing to do — wait the configured interval before checking again
+		interval := s.currentMonitorInterval()
+		select {
+		case <-time.After(interval):
 		case <-ctx.Done():
 			return
 		}
@@ -128,73 +132,239 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 }
 
 func (s *IndexerService) currentMonitorInterval() time.Duration {
-	interval := config.GetMinutes(s.db, "monitorSyncInterval", time.Minute, 30*time.Second)
-	if interval < 30*time.Second {
-		return 30 * time.Second
+	interval := config.GetMinutes(s.db, "monitorSyncInterval", time.Minute, 5*time.Second)
+	if interval < 5*time.Second {
+		return 5 * time.Second
 	}
 	return interval
 }
 
-func (s *IndexerService) processMonitors(ctx context.Context) {
-	status := "monitored"
+var episodeInTitlePattern = regexp.MustCompile(`(?i)S\d{2}E\d{2}`)
+
+func seasonQuery(title string, season int64) string {
+	return fmt.Sprintf("%s S%02d", title, season)
+}
+
+func episodeQuery(title string, season, episode int64) string {
+	return fmt.Sprintf("%s S%02dE%02d", title, season, episode)
+}
+
+func isSeasonPack(r models.SearchResult) bool {
+	return !episodeInTitlePattern.MatchString(r.Title)
+}
+
+func (s *IndexerService) score(r models.SearchResult) int {
+	quality := config.Get(s.db, "preferredQuality", "1080p")
+	minSeeders, _ := strconv.Atoi(config.Get(s.db, "minSeeders", "1"))
+	if minSeeders < 1 {
+		minSeeders = 1
+	}
+	if r.Seeds < minSeeders {
+		return -1
+	}
+	sc := r.Seeds
+	if quality != "any" && strings.Contains(strings.ToLower(r.Title), strings.ToLower(quality)) {
+		sc += 1000
+	}
+	return sc
+}
+
+func (s *IndexerService) pickBest(results []models.SearchResult) *models.SearchResult {
+	var best *models.SearchResult
+	bestScore := -2
+	for i := range results {
+		if sc := s.score(results[i]); sc > bestScore {
+			best = &results[i]
+			bestScore = sc
+		}
+	}
+	return best
+}
+
+func (s *IndexerService) queueDownload(ctx context.Context, mon models.Monitor, best *models.SearchResult) bool {
+	queueStatus := "pending"
+	entry := models.DownloadQueue{
+		MonitorID:   &mon.ID,
+		Title:       mon.Title,
+		TorrentName: &best.Title,
+		TorrentURL:  &best.DownloadURL,
+		Indexer:     &best.Indexer,
+		Size:        &best.Size,
+		Seeders:     &best.Seeds,
+		Status:      &queueStatus,
+	}
+	_, err := s.db.NewInsert().Model(&entry).Exec(ctx)
+	if err != nil {
+		slog.Error("Failed to insert download queue entry", "id", mon.ID, "error", err)
+		return false
+	}
+
+	_, err = s.db.NewUpdate().
+		Model((*models.Monitor)(nil)).
+		Set("status = 'queued', updated_at = now()").
+		Where("id = ?", mon.ID).
+		Exec(ctx)
+	if err != nil {
+		slog.Error("Failed to update monitor status to queued", "id", mon.ID, "error", err)
+	}
+
+	slog.Info("Queued download", "monitor_id", mon.ID, "torrent", best.Title)
+	return true
+}
+
+func (s *IndexerService) processMonitors(ctx context.Context) bool {
+	slog.Info("Running monitor poll")
 	var monitors []models.Monitor
 	err := s.db.NewSelect().
-		TableExpr("monitors").
-		ColumnExpr("*").
-		Where("status = ? AND deleted_at IS NULL", status).
-		Scan(ctx, &monitors)
+		Model(&monitors).
+		Where("(status = 'monitored' OR (status = 'searching' AND updated_at < now() - interval '10 minutes')) AND deleted_at IS NULL").
+		OrderExpr("is_season DESC").
+		Limit(1).
+		Scan(ctx)
 	if err != nil {
 		slog.Error("Failed to fetch monitors", "error", err)
-		return
+		return false
+	}
+	if len(monitors) == 0 {
+		return false
+	}
+	mon := monitors[0]
+	title := ""
+	if mon.Title != nil {
+		title = *mon.Title
+	}
+	slog.Info("Processing monitor", "id", mon.ID, "title", title)
+
+	// Claim the monitor immediately so concurrent polls don't pick it up
+	res, err := s.db.NewUpdate().
+		Model((*models.Monitor)(nil)).
+		Set("status = 'searching', updated_at = now()").
+		Where("id = ? AND status = 'monitored'", mon.ID).
+		Exec(ctx)
+	if err != nil {
+		slog.Error("Failed to claim monitor", "id", mon.ID, "error", err)
+		return false
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		slog.Info("Monitor already claimed by another poll, skipping", "id", mon.ID)
+		return false
 	}
 
-	for _, monitor := range monitors {
-		title := ""
-		if monitor.Title != nil {
-			title = *monitor.Title
-		}
-		if title == "" {
+	// Load ALL season monitors (any status) to know which libraries are already in-progress
+	var allSeasonMons []models.Monitor
+	_ = s.db.NewSelect().
+		Model(&allSeasonMons).
+		Where("is_season = true AND deleted_at IS NULL").
+		Scan(ctx)
+
+	seasonFound := map[int64]bool{}
+	for _, m := range allSeasonMons {
+		if m.LibraryID == nil || m.Status == nil {
 			continue
 		}
-
-		results, err := s.Search(title)
-		if err != nil {
-			slog.Warn("Prowlarr search failed for monitor", "id", monitor.ID, "title", title, "error", err)
-			continue
+		switch *m.Status {
+		case "queued", "downloading", "completed":
+			seasonFound[*m.LibraryID] = true
 		}
-
-		if len(results) == 0 {
-			slog.Info("No results for monitor", "id", monitor.ID, "title", title)
-			continue
-		}
-
-		best := results[0]
-		statusSearching := "searching"
-		_, err = s.db.NewUpdate().
-			TableExpr("monitors").
-			Set("status = ?", statusSearching).
-			Where("id = ?", monitor.ID).
-			Exec(ctx)
-		if err != nil {
-			slog.Error("Failed to update monitor status", "id", monitor.ID, "error", err)
-			continue
-		}
-
-		queueStatus := "pending"
-		entry := models.DownloadQueue{
-			MonitorID:  &monitor.ID,
-			Title:      monitor.Title,
-			TorrentURL: &best.DownloadURL,
-			Status:     &queueStatus,
-		}
-		_, err = s.db.NewInsert().TableExpr("download_queue").Model(&entry).Exec(ctx)
-		if err != nil {
-			slog.Error("Failed to insert download queue entry", "id", monitor.ID, "error", err)
-			continue
-		}
-
-		slog.Info("Queued download for monitor", "monitor_id", monitor.ID, "title", title, "torrent", best.Title)
 	}
+
+	var seasonMons, episodeMons []models.Monitor
+	for _, m := range monitors {
+		if m.IsSeason != nil && *m.IsSeason {
+			seasonMons = append(seasonMons, m)
+		}
+		if m.IsEpisode != nil && *m.IsEpisode {
+			episodeMons = append(episodeMons, m)
+		}
+	}
+
+	// Season monitors: try to find a full season pack first
+	for _, mon := range seasonMons {
+		if mon.Title == nil || mon.LibraryID == nil {
+			continue
+		}
+		season := int64(1)
+		if mon.Season != nil {
+			season = *mon.Season
+		}
+		query := seasonQuery(*mon.Title, season)
+		slog.Info("Searching for season pack", "monitor_id", mon.ID, "query", query)
+
+		results, err := s.Search(query)
+		if err != nil {
+			slog.Warn("Season pack search failed", "monitor_id", mon.ID, "query", query, "error", err)
+			continue
+		}
+		slog.Info("Season search returned results", "monitor_id", mon.ID, "total", len(results))
+
+		var packs []models.SearchResult
+		for _, r := range results {
+			if isSeasonPack(r) {
+				packs = append(packs, r)
+			}
+		}
+		slog.Info("Season packs after filtering", "monitor_id", mon.ID, "packs", len(packs))
+
+		if best := s.pickBest(packs); best != nil {
+			slog.Info("Season pack selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
+			if s.queueDownload(ctx, mon, best) {
+				seasonFound[*mon.LibraryID] = true
+				// Mark all episode monitors for this library as queued
+				s.db.NewUpdate().
+					Model((*models.Monitor)(nil)).
+					Set("status = 'queued', updated_at = now()").
+					Where("library_id = ? AND is_episode = true AND status = 'monitored' AND deleted_at IS NULL", *mon.LibraryID).
+					Exec(ctx)
+			}
+		} else {
+			slog.Info("No qualifying season pack, falling back to individual episodes", "monitor_id", mon.ID, "title", *mon.Title)
+			// Mark season monitor as "searching" so it's excluded from future season polls
+			s.db.NewUpdate().
+				Model((*models.Monitor)(nil)).
+				Set("status = 'searching', updated_at = now()").
+				Where("id = ?", mon.ID).
+				Exec(ctx)
+		}
+	}
+
+	// Episode monitors: skip those whose library already has a season pack queued
+	for _, mon := range episodeMons {
+		if mon.LibraryID == nil || seasonFound[*mon.LibraryID] {
+			if mon.LibraryID != nil && seasonFound[*mon.LibraryID] {
+				slog.Info("Skipping episode — season pack already queued", "monitor_id", mon.ID)
+			}
+			continue
+		}
+		if mon.Title == nil {
+			continue
+		}
+
+		season := int64(1)
+		if mon.Season != nil {
+			season = *mon.Season
+		}
+		episode := int64(0)
+		if mon.EpisodeNumber != nil {
+			episode = *mon.EpisodeNumber
+		}
+		query := episodeQuery(*mon.Title, season, episode)
+		slog.Info("Searching for episode", "monitor_id", mon.ID, "query", query)
+
+		results, err := s.Search(query)
+		if err != nil {
+			slog.Warn("Episode search failed", "monitor_id", mon.ID, "query", query, "error", err)
+			continue
+		}
+		slog.Info("Episode search returned results", "monitor_id", mon.ID, "total", len(results))
+
+		if best := s.pickBest(results); best != nil {
+			slog.Info("Episode torrent selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
+			s.queueDownload(ctx, mon, best)
+		} else {
+			slog.Info("No qualifying torrent for episode", "monitor_id", mon.ID, "query", query)
+		}
+	}
+	return true
 }
 
 func (s *IndexerService) getCached(key string) ([]models.SearchResult, bool) {

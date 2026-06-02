@@ -18,6 +18,8 @@ var DefaultSettings = map[string]string{
 	"prowlarrApiKey":       "error",
 	"prowlarrInterval":     "60",
 	"autoMonitorOnAdd":     "false",
+	"preferredQuality":     "1080p",
+	"minSeeders":           "1",
 	"qbittorrentUrl":       "http://localhost:8080",
 	"qbittorrentUsername":  "",
 	"qbittorrentPassword":  "",

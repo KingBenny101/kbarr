@@ -19,9 +19,11 @@ type Monitor struct {
 	EpisodeNumber *int64     `bun:"episode_number"`
 	IsEpisode     *bool      `bun:"is_episode"`
 	IsSeason      *bool      `bun:"is_season"`
-	AnidbID       *string    `bun:"anidb_id"`
+	Source        *string    `bun:"source"`
+	ExternalID    *string    `bun:"external_id"`
 	Status        *string    `bun:"status"`
 }
+
 
 type DownloadQueue struct {
 	bun.BaseModel `bun:"table:download_queue"`
@@ -31,8 +33,13 @@ type DownloadQueue struct {
 	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero"`
 	MonitorID     *int64     `bun:"monitor_id"`
 	Title         *string    `bun:"title"`
+	TorrentName   *string    `bun:"torrent_name"`
 	TorrentURL    *string    `bun:"torrent_url"`
 	SavePath      *string    `bun:"save_path"`
+	TorrentHash   *string    `bun:"torrent_hash"`
+	Indexer       *string    `bun:"indexer"`
+	Size          *int64     `bun:"size"`
+	Seeders       *int       `bun:"seeders"`
 	Status        *string    `bun:"status"`
 }
 
