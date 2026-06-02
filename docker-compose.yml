@@ -74,6 +74,8 @@ services:
     environment:
       DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       KBARR_DATA_DIR: /app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ${DATA_DIR_HOST:-./data}:/app/data
     depends_on:
@@ -94,6 +96,8 @@ services:
       - .env
     environment:
       DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       core:
         condition: service_healthy

@@ -75,7 +75,7 @@ export function SettingsPage() {
                 anidbClient: data.anidbClient || "",
                 anidbVersion: data.anidbVersion || "",
                 anidbSyncInterval: data.anidbSyncInterval || "1440",
-                prowlarrUrl: data.prowlarrUrl || "http://localhost:9696",
+                prowlarrUrl: data.prowlarrUrl || "http://host.docker.internal:9696",
                 prowlarrApiKey: data.prowlarrApiKey || "",
                 prowlarrInterval: data.prowlarrInterval || "1",
                 prowlarrCacheAge: data.prowlarrCacheAge || "3600",
@@ -85,7 +85,7 @@ export function SettingsPage() {
                 minSeeders: data.minSeeders || "1",
                 autoMonitorOnAdd: data.autoMonitorOnAdd || "false",
                 monitorSyncInterval: data.monitorSyncInterval || "1",
-                qbittorrentUrl: data.qbittorrentUrl || "http://localhost:8080",
+                qbittorrentUrl: data.qbittorrentUrl || "http://host.docker.internal:8080",
                 qbittorrentUsername: data.qbittorrentUsername || "",
                 qbittorrentPassword: data.qbittorrentPassword || "",
                 downloadPath: data.downloadPath || "/data/torrents",
@@ -382,7 +382,7 @@ export function SettingsPage() {
                             <Title order={3}>Prowlarr</Title>
                             <Text size="sm" c="dimmed">Configure the Prowlarr indexer used for monitoring and searches.</Text>
                         </div>
-                        <TextInput label="URL" value={settings.prowlarrUrl} onChange={(e) => update("prowlarrUrl", e.currentTarget.value)} placeholder="http://localhost:9696" />
+                        <TextInput label="URL" value={settings.prowlarrUrl} onChange={(e) => update("prowlarrUrl", e.currentTarget.value)} placeholder="http://host.docker.internal:9696" />
                         <PasswordInput
                             label="API key"
                             value={settings.prowlarrApiKey}
@@ -451,7 +451,7 @@ export function SettingsPage() {
                             label="URL"
                             value={settings.qbittorrentUrl}
                             onChange={(e) => update("qbittorrentUrl", e.currentTarget.value)}
-                            placeholder="http://localhost:8080"
+                            placeholder="http://host.docker.internal:8080"
                         />
                         <TextInput
                             label="Username"
