@@ -76,8 +76,9 @@ func ensureDataDirs() error {
 	dataDir := service.DataRootDir()
 	dirs := []string{
 		dataDir,
-		filepath.Join(dataDir, "images"),
-		filepath.Join(dataDir, "details"),
+		filepath.Join(dataDir, "metadata"),
+		filepath.Join(dataDir, "metadata", "images"),
+		filepath.Join(dataDir, "metadata", "details"),
 	}
 
 	for _, dir := range dirs {

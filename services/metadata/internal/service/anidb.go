@@ -44,7 +44,7 @@ func (s *AniDBService) LoadTitlesDump() error {
 	client := config.Get(s.db, "anidbClient", "error")
 	version := config.Get(s.db, "anidbVersion", "error")
 	ttl := config.GetMinutes(s.db, "anidbSyncInterval", 1440*time.Minute, time.Minute)
-	titlesFile := filepath.Join(DataRootDir(), "anidb-titles.xml")
+	titlesFile := filepath.Join(DataRootDir(), "metadata", "anidb-titles.xml")
 
 	if s.shouldDownloadTitles(titlesFile, ttl) {
 		if err := s.downloadTitlesDump(titlesFile, client, version); err != nil {
@@ -103,7 +103,7 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*models.AnimeDetails, error) {
 	}
 
 	ttl := config.GetMinutes(s.db, "anidbSyncInterval", 1440*time.Minute, time.Minute)
-	cacheFile := filepath.Join(DataRootDir(), "details", fmt.Sprintf("%d.xml", aid))
+	cacheFile := filepath.Join(DataRootDir(), "metadata", "details", fmt.Sprintf("%d.xml", aid))
 	if details, ok := s.loadCachedAnimeDetails(cacheFile, ttl); ok {
 		return details, nil
 	}
@@ -136,6 +136,14 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 	metadata.Description = details.Description
 	metadata.ReleaseDate = details.StartDate
 	metadata.TotalEpisodes = details.EpisodeCount
+
+	var altTitles []string
+	for _, t := range details.Titles {
+		if t.Value != "" {
+			altTitles = append(altTitles, t.Value)
+		}
+	}
+	metadata.AlternateTitles = strings.Join(altTitles, "|")
 
 	for _, ep := range details.Episodes {
 		title := ""
@@ -322,7 +330,7 @@ func validateAniDBSettings(client, version string) error {
 }
 
 func downloadAndSaveImage(client *http.Client, imageURL, filename string) error {
-	dest := filepath.Join(DataRootDir(), "images", filename)
+	dest := filepath.Join(DataRootDir(), "metadata", "images", filename)
 	if _, err := os.Stat(dest); err == nil {
 		return nil
 	}

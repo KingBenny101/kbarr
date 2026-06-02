@@ -22,5 +22,5 @@ func HandleGetImage(w http.ResponseWriter, r *http.Request) {
 		dataDir = "data"
 	}
 
-	http.ServeFile(w, r, filepath.Join(dataDir, "images", cleanName))
+	http.ServeFile(w, r, filepath.Join(dataDir, "metadata", "images", cleanName))
 }
