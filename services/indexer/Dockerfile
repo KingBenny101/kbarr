@@ -12,10 +12,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/kbarr-indexer ./cmd
 
 FROM alpine:latest
 WORKDIR /app
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates python3 py3-pip && \
+    pip3 install --no-cache-dir guessit --break-system-packages
 
 COPY --from=builder /out/kbarr-indexer .
-COPY services/indexer/internal/service/bin/guessit .
 
 EXPOSE 8082
 CMD ["./kbarr-indexer"]
