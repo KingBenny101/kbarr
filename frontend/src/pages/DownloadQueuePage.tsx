@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
-import { ActionIcon, Anchor, Card, Group, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
-import { IconExternalLink, IconTrash } from "@tabler/icons-react"
+import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Progress, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
+import { IconExternalLink, IconFlask, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
 
@@ -17,6 +17,7 @@ interface DownloadItem {
     size: number | null
     seeders: number | null
     status: string | null
+    progress?: number | null
 }
 
 function formatBytes(bytes: number): string {
@@ -38,6 +39,57 @@ function statusTone(status: string | null): "gray" | "blue" | "green" | "red" | 
 export function DownloadQueuePage() {
     const [queue, setQueue] = useState<DownloadItem[]>([])
     const [loading, setLoading] = useState(true)
+    const [triggering, setTriggering] = useState(false)
+    const [devMode, setDevMode] = useState(false)
+    const [deleteTarget, setDeleteTarget] = useState<DownloadItem | null>(null)
+    const [blacklist, setBlacklist] = useState(false)
+    const [unmonitor, setUnmonitor] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+    const [testModalOpen, setTestModalOpen] = useState(false)
+    const [testURL, setTestURL] = useState("")
+    const [testTitle, setTestTitle] = useState("")
+    const [submitting, setSubmitting] = useState(false)
+
+    useEffect(() => {
+        apiFetch(`${API_URL}/api/settings`)
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => { if (data?.devMode === "true") setDevMode(true) })
+            .catch(() => {})
+    }, [])
+
+    const handleTrigger = async () => {
+        setTriggering(true)
+        try {
+            await apiFetch(`${API_URL}/api/downloads/trigger`, { method: "POST" })
+            setTimeout(fetchQueue, 1000)
+        } catch {
+            showToast("Failed to trigger downloader", "error")
+        } finally {
+            setTriggering(false)
+        }
+    }
+
+    const handleAddTest = async () => {
+        if (!testURL.trim()) return
+        setSubmitting(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/downloads/test`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ torrent_url: testURL.trim(), title: testTitle.trim() }),
+            })
+            if (!res.ok) throw new Error()
+            showToast("Test torrent added", "success")
+            setTestModalOpen(false)
+            setTestURL("")
+            setTestTitle("")
+            fetchQueue()
+        } catch {
+            showToast("Failed to add test torrent", "error")
+        } finally {
+            setSubmitting(false)
+        }
+    }
 
     const fetchQueue = async () => {
         try {
@@ -59,15 +111,29 @@ export function DownloadQueuePage() {
         return () => clearInterval(interval)
     }, [])
 
-    const handleDelete = async (id: number) => {
+    const openDeleteModal = (item: DownloadItem) => {
+        setDeleteTarget(item)
+        setBlacklist(false)
+        setUnmonitor(false)
+    }
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return
+        setDeleting(true)
         try {
-            const response = await apiFetch(`${API_URL}/api/downloads/${id}`, { method: "DELETE" })
-            if (!response.ok) throw new Error("Failed to delete download entry")
-            setQueue((items) => items.filter((item) => item.id !== id))
+            const response = await apiFetch(`${API_URL}/api/downloads/${deleteTarget.id}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ blacklist, unmonitor }),
+            })
+            if (!response.ok) throw new Error()
+            setQueue((items) => items.filter((item) => item.id !== deleteTarget.id))
             showToast("Removed from queue", "success")
-        } catch (error) {
-            console.error(error)
+            setDeleteTarget(null)
+        } catch {
             showToast("Failed to remove item", "error")
+        } finally {
+            setDeleting(false)
         }
     }
 
@@ -77,6 +143,51 @@ export function DownloadQueuePage() {
 
     return (
         <Stack gap="lg">
+            <Modal opened={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Remove from queue" centered size="sm">
+                <Stack gap="md">
+                    <Text size="sm">Remove <strong>{deleteTarget?.title ?? "this torrent"}</strong> from the queue?</Text>
+                    <Checkbox
+                        label="Blacklist this torrent (won't be queued again)"
+                        checked={blacklist}
+                        onChange={(e) => { setBlacklist(e.currentTarget.checked); if (!e.currentTarget.checked) setUnmonitor(false) }}
+                    />
+                    {blacklist && (
+                        <Checkbox
+                            label="Unmonitor (stop looking for this)"
+                            checked={unmonitor}
+                            onChange={(e) => setUnmonitor(e.currentTarget.checked)}
+                        />
+                    )}
+                    <Group justify="flex-end" gap="xs">
+                        <Button variant="subtle" color="gray" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+                        <Button color="red" loading={deleting} onClick={confirmDelete}>Remove</Button>
+                    </Group>
+                </Stack>
+            </Modal>
+
+            <Modal opened={testModalOpen} onClose={() => setTestModalOpen(false)} title="Add test torrent" centered>
+                <Stack gap="md">
+                    <TextInput
+                        label="Torrent URL"
+                        description="Magnet link or .torrent file URL"
+                        placeholder="magnet:?xt=urn:btih:..."
+                        value={testURL}
+                        onChange={(e) => setTestURL(e.currentTarget.value)}
+                        required
+                    />
+                    <TextInput
+                        label="Title"
+                        description="Optional label (defaults to URL)"
+                        placeholder="My test torrent"
+                        value={testTitle}
+                        onChange={(e) => setTestTitle(e.currentTarget.value)}
+                    />
+                    <Button color="gray" fullWidth loading={submitting} disabled={!testURL.trim()} onClick={handleAddTest}>
+                        Add to queue
+                    </Button>
+                </Stack>
+            </Modal>
+
             <Title order={1}>Download queue</Title>
 
             <Card withBorder radius="xl">
@@ -84,6 +195,14 @@ export function DownloadQueuePage() {
                     <Group justify="space-between">
                         <Title order={3}>Queue status</Title>
                         <Group gap="xs">
+                            {devMode && (
+                                <Button variant="light" color="orange" size="xs" leftSection={<IconFlask size={14} />} onClick={() => setTestModalOpen(true)}>
+                                    Add test torrent
+                                </Button>
+                            )}
+                            <Button variant="light" color="gray" size="xs" loading={triggering} onClick={handleTrigger}>
+                                Process now
+                            </Button>
                             {downloading > 0 && <StatusPill label={`${downloading} downloading`} tone="blue" />}
                             {pending > 0 && <StatusPill label={`${pending} pending`} tone="yellow" />}
                             {completed > 0 && <StatusPill label={`${completed} completed`} tone="green" />}
@@ -150,10 +269,15 @@ export function DownloadQueuePage() {
                                                 {new Date(item.created_at).toLocaleString()}
                                             </Table.Td>
                                             <Table.Td>
-                                                <StatusPill label={item.status ?? "unknown"} tone={statusTone(item.status)} />
+                                                <Stack gap={4}>
+                                                    <StatusPill label={item.status ?? "unknown"} tone={statusTone(item.status)} />
+                                                    {item.status === "downloading" && (
+                                                        <Progress value={(item.progress ?? 0) * 100} size="xs" color="blue" />
+                                                    )}
+                                                </Stack>
                                             </Table.Td>
                                             <Table.Td ta="right">
-                                                <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(item.id)} aria-label="Remove from queue">
+                                                <ActionIcon variant="subtle" color="red" onClick={() => openDeleteModal(item)} aria-label="Remove from queue">
                                                     <IconTrash size={18} />
                                                 </ActionIcon>
                                             </Table.Td>

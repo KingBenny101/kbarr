@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Navigate, useLocation } from "react-router-dom"
-import { Alert, Button, Card, Checkbox, Divider, Group, Loader, PasswordInput, Select, Stack, Text, TextInput, Title } from "@mantine/core"
+import { Alert, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, Select, Stack, Text, TextInput, Title } from "@mantine/core"
+import { IconAlertTriangle } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, showToast } from "@/utils"
 
 interface Settings {
@@ -17,6 +18,9 @@ interface Settings {
     qbittorrentUrl: string
     qbittorrentUsername: string
     qbittorrentPassword: string
+    downloadPath: string
+    stallTimeout: string
+    devMode: string
 }
 
 interface CredentialForm {
@@ -36,6 +40,22 @@ export function SettingsPage() {
     const [saving, setSaving] = useState(false)
     const [testingIndexer, setTestingIndexer] = useState(false)
     const [testingDownloader, setTestingDownloader] = useState(false)
+    const [clearBlacklistModal, setClearBlacklistModal] = useState(false)
+    const [clearingBlacklist, setClearingBlacklist] = useState(false)
+
+    const handleClearBlacklist = async () => {
+        setClearingBlacklist(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/downloads/blacklist`, { method: "DELETE" })
+            if (!res.ok) throw new Error()
+            showToast("Blacklist cleared", "success")
+            setClearBlacklistModal(false)
+        } catch {
+            showToast("Failed to clear blacklist", "error")
+        } finally {
+            setClearingBlacklist(false)
+        }
+    }
 
     const [creds, setCreds] = useState<CredentialForm>({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" })
     const [savingCreds, setSavingCreds] = useState(false)
@@ -53,7 +73,7 @@ export function SettingsPage() {
                 anidbSyncInterval: data.anidbSyncInterval || "1440",
                 prowlarrUrl: data.prowlarrUrl || "http://localhost:9696",
                 prowlarrApiKey: data.prowlarrApiKey || "",
-                prowlarrInterval: data.prowlarrInterval || "60",
+                prowlarrInterval: data.prowlarrInterval || "30",
                 preferredQuality: data.preferredQuality || "1080p",
                 minSeeders: data.minSeeders || "1",
                 autoMonitorOnAdd: data.autoMonitorOnAdd || "false",
@@ -61,6 +81,9 @@ export function SettingsPage() {
                 qbittorrentUrl: data.qbittorrentUrl || "http://localhost:8080",
                 qbittorrentUsername: data.qbittorrentUsername || "",
                 qbittorrentPassword: data.qbittorrentPassword || "",
+                downloadPath: data.downloadPath || "/data/torrents",
+                stallTimeout: data.stallTimeout || "300",
+                devMode: data.devMode || "false",
             }
             setSettings(nextSettings)
             setInitialSettings(nextSettings)
@@ -271,6 +294,25 @@ export function SettingsPage() {
                             </Group>
                         </Stack>
                     </Card>
+                    <Card withBorder radius="xl" p="lg" style={{ borderColor: "var(--mantine-color-orange-5)" }}>
+                        <Stack gap="md">
+                            <Group gap="xs">
+                                <IconAlertTriangle size={18} color="var(--mantine-color-orange-5)" />
+                                <Title order={3} c="orange">Developer options</Title>
+                            </Group>
+                            <Text size="sm" c="dimmed">These options are intended for development and testing only.</Text>
+                            <Group justify="space-between" align="start">
+                                <div>
+                                    <Text fw={700}>Dev mode</Text>
+                                    <Text size="sm" c="dimmed">Enables test torrent insertion on the Download Queue page.</Text>
+                                </div>
+                                <Checkbox
+                                    checked={settings.devMode === "true"}
+                                    onChange={(e) => update("devMode", e.currentTarget.checked ? "true" : "false")}
+                                />
+                            </Group>
+                        </Stack>
+                    </Card>
                 </>
             ) : null}
 
@@ -309,10 +351,12 @@ export function SettingsPage() {
                             placeholder="api_key_..."
                         />
                         <TextInput
-                            label="Scan interval (min)"
+                            label="Scan interval (sec)"
+                            description="How often the monitor table is polled for new items to search."
                             value={settings.prowlarrInterval}
                             onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrInterval", e.currentTarget.value) }}
-                            placeholder="60"
+                            placeholder="30"
+                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
                         />
                         <Group justify="flex-end">
                             <Button variant="light" color="gray" loading={testingIndexer} onClick={handleTestIndexer}>
@@ -324,6 +368,7 @@ export function SettingsPage() {
             ) : null}
 
             {isDownloader ? (
+                <>
                 <Card withBorder radius="xl" p="lg">
                     <Stack gap="md">
                         <div>
@@ -349,6 +394,21 @@ export function SettingsPage() {
                             onFocus={() => { if (settings.qbittorrentPassword === initialSettings?.qbittorrentPassword) update("qbittorrentPassword", "") }}
                             placeholder="••••••••"
                         />
+                        <TextInput
+                            label="Download path"
+                            description="Base directory where torrents are saved. A subfolder per anime title is created automatically."
+                            value={settings.downloadPath}
+                            onChange={(e) => update("downloadPath", e.currentTarget.value)}
+                            placeholder="/data/torrents"
+                        />
+                        <TextInput
+                            label="Stall timeout (sec)"
+                            description="Remove torrents with no progress for this many seconds and re-queue. Set to 0 to disable."
+                            value={settings.stallTimeout}
+                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("stallTimeout", e.currentTarget.value) }}
+                            placeholder="300"
+                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
+                        />
                         <Group justify="flex-end">
                             <Button variant="light" color="gray" loading={testingDownloader} onClick={handleTestDownloader}>
                                 Test connection
@@ -356,6 +416,36 @@ export function SettingsPage() {
                         </Group>
                     </Stack>
                 </Card>
+
+                <Modal opened={clearBlacklistModal} onClose={() => setClearBlacklistModal(false)} title="Clear blacklist" centered size="sm">
+                    <Stack gap="md">
+                        <Group gap="xs">
+                            <IconAlertTriangle size={18} color="var(--mantine-color-orange-5)" />
+                            <Text fw={600}>This will remove all blacklisted torrents.</Text>
+                        </Group>
+                        <Text size="sm" c="dimmed">The indexer will be able to queue these torrents again on the next search cycle.</Text>
+                        <Group justify="flex-end" gap="xs">
+                            <Button variant="subtle" color="gray" onClick={() => setClearBlacklistModal(false)}>Cancel</Button>
+                            <Button color="red" loading={clearingBlacklist} onClick={handleClearBlacklist}>Clear blacklist</Button>
+                        </Group>
+                    </Stack>
+                </Modal>
+
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
+                            <Title order={3}>Blacklist</Title>
+                            <Text size="sm" c="dimmed">Torrents are blacklisted automatically when stalled or manually when removed from the queue.</Text>
+                        </div>
+                        <Group justify="space-between" align="center">
+                            <Text size="sm">Clear all blacklisted torrents to allow them to be queued again.</Text>
+                            <Button variant="light" color="red" onClick={() => setClearBlacklistModal(true)}>
+                                Clear blacklist
+                            </Button>
+                        </Group>
+                    </Stack>
+                </Card>
+                </>
             ) : null}
 
             {!isDownloader && !path.includes("metadata") && !path.includes("indexer") ? null : (
