@@ -22,9 +22,42 @@ func HandleListDownloads(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(entries)
 }
 
+func HandleAddTestDownload(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		TorrentURL string `json:"torrent_url"`
+		Title      string `json:"title"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.TorrentURL == "" {
+		http.Error(w, "torrent_url is required", http.StatusBadRequest)
+		return
+	}
+	if err := db.InsertTestDownloadQueueEntry(context.Background(), body.TorrentURL, body.Title); err != nil {
+		slog.Error("Failed to insert test download queue entry", "error", err)
+		http.Error(w, "failed to insert entry", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func HandleClearBlacklist(w http.ResponseWriter, r *http.Request) {
+	if err := db.ClearBlacklist(context.Background()); err != nil {
+		slog.Error("Failed to clear blacklist", "error", err)
+		http.Error(w, "failed to clear blacklist", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func HandleDeleteDownload(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := db.DeleteDownloadQueueEntry(context.Background(), id); err != nil {
+
+	var opts db.DeleteOptions
+	// Body is optional — plain DELETE with no body still works
+	if r.ContentLength > 0 {
+		_ = json.NewDecoder(r.Body).Decode(&opts)
+	}
+
+	if err := db.DeleteDownloadQueueEntry(context.Background(), id, opts); err != nil {
 		slog.Error("Failed to delete download queue entry", "id", id, "error", err)
 		http.Error(w, "failed to delete download", http.StatusInternalServerError)
 		return

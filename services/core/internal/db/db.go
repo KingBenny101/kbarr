@@ -50,7 +50,7 @@ func Init() error {
 
 	slog.Info("Connected to PostgreSQL")
 
-	DB.RegisterModel((*Medium)(nil), (*Detailed)(nil), (*Episode)(nil), (*Monitor)(nil), (*DownloadQueue)(nil), (*Setting)(nil))
+	DB.RegisterModel((*Medium)(nil), (*Detailed)(nil), (*Episode)(nil), (*Monitor)(nil), (*DownloadQueue)(nil), (*Setting)(nil), (*TorrentBlacklist)(nil))
 
 	models := []any{
 		(*Medium)(nil),
@@ -59,6 +59,7 @@ func Init() error {
 		(*Monitor)(nil),
 		(*DownloadQueue)(nil),
 		(*Setting)(nil),
+		(*TorrentBlacklist)(nil),
 	}
 	for _, model := range models {
 		if _, err := DB.NewCreateTable().Model(model).IfNotExists().Exec(ctx); err != nil {
