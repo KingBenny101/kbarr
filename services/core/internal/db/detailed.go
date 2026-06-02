@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kingbenny101/kbarr/shared/models"
+	"github.com/uptrace/bun"
 )
 
 func InsertDetailed(d models.Detailed) (int64, error) {
@@ -16,7 +17,8 @@ func InsertDetailed(d models.Detailed) (int64, error) {
 	created, err := createDetailed(
 		ctx,
 		stringPtr(d.Title),
-		int64Ptr(int64(d.AID)),
+		stringPtr(d.Source),
+		stringPtr(d.SourceID),
 		int64Ptr(int64(d.LibraryID)),
 		stringPtr(d.AlternateTitles),
 		stringPtr(d.Description),
@@ -31,7 +33,7 @@ func InsertDetailed(d models.Detailed) (int64, error) {
 	}
 
 	for _, episode := range d.Episodes {
-		_, err := createEpisode(ctx, int64Ptr(created.ID), stringPtr(episode.AniDBID), int64Ptr(int64(episode.Type)), stringPtr(episode.EpNo), stringPtr(episode.Title), stringPtr(episode.AirDate))
+		_, err := createEpisode(ctx, int64Ptr(created.ID), stringPtr(episode.Source), stringPtr(episode.ExternalID), int64Ptr(int64(episode.Type)), stringPtr(episode.EpNo), stringPtr(episode.Title), stringPtr(episode.AirDate))
 		if err != nil {
 			return 0, fmt.Errorf("failed to insert episode for detailed media %d: %w", created.ID, err)
 		}
@@ -51,9 +53,105 @@ func GetDetailedByLibraryID(libraryID uint) (models.Detailed, error) {
 		return models.Detailed{}, fmt.Errorf("failed to get detailed media: %w", err)
 	}
 
-	episodes := listEpisodesByDetailedID(ctx, int64Ptr(row.ID))
+	return detailedToModel(*row, nil), nil
+}
 
-	return detailedToModel(*row, episodes), nil
+type EpisodeQueryParams struct {
+	Types     []int
+	SortField string // "ep_no" | "title"
+	SortOrder string // "asc" | "desc"
+	Page      int
+	Limit     int
+}
+
+type EpisodeQueryResult struct {
+	Episodes     []models.Episode `json:"episodes"`
+	Total        int              `json:"total"`
+	Page         int              `json:"page"`
+	Limit        int              `json:"limit"`
+	PresentTypes []int            `json:"present_types"`
+}
+
+func QueryEpisodesByLibraryID(libraryID uint, p EpisodeQueryParams) (EpisodeQueryResult, error) {
+	if err := ensureDB(); err != nil {
+		return EpisodeQueryResult{}, err
+	}
+
+	ctx := context.Background()
+
+	// Resolve detailed_id for this library entry.
+	det, err := getDetailedByLibraryID(ctx, int64Ptr(int64(libraryID)))
+	if err != nil {
+		return EpisodeQueryResult{}, fmt.Errorf("failed to get detailed record: %w", err)
+	}
+	detailedID := int64Ptr(det.ID)
+
+	// Collect all distinct types present (unfiltered) for UI filter buttons.
+	var rawTypes []struct{ Type int64 `bun:"type"` }
+	_ = DB.NewSelect().
+		TableExpr("episodes").
+		ColumnExpr("DISTINCT type").
+		Where("detailed_id IS NOT DISTINCT FROM ?", detailedID).
+		Where("deleted_at IS NULL").
+		Scan(ctx, &rawTypes)
+	presentTypes := make([]int, 0, len(rawTypes))
+	for _, rt := range rawTypes {
+		presentTypes = append(presentTypes, int(rt.Type))
+	}
+
+	// Build filtered + sorted + paginated query.
+	q := DB.NewSelect().Model((*Episode)(nil)).
+		Where("detailed_id IS NOT DISTINCT FROM ?", detailedID).
+		Where("deleted_at IS NULL")
+
+	if len(p.Types) > 0 {
+		q = q.Where("type IN (?)", bun.In(p.Types))
+	}
+
+	total, err := q.Count(ctx)
+	if err != nil {
+		return EpisodeQueryResult{}, fmt.Errorf("failed to count episodes: %w", err)
+	}
+
+	sortCol := "ep_no"
+	if p.SortField == "title" {
+		sortCol = "title"
+	}
+	sortDir := "ASC"
+	if p.SortOrder == "desc" {
+		sortDir = "DESC"
+	}
+
+	if sortCol == "ep_no" {
+		// Numeric-aware sort: pure-numeric ep_no values sort before non-numeric ones.
+		q = q.OrderExpr(
+			"CASE WHEN ep_no ~ '^[0-9]+(\\.[0-9]+)?$' THEN CAST(ep_no AS NUMERIC) END "+sortDir+" NULLS LAST, ep_no "+sortDir,
+		)
+	} else {
+		q = q.OrderExpr("? "+sortDir, bun.Ident(sortCol))
+	}
+
+	if p.Limit > 0 {
+		q = q.Limit(p.Limit).Offset((p.Page - 1) * p.Limit)
+	}
+
+	var rows []Episode
+	if err := q.Scan(ctx, &rows); err != nil {
+		return EpisodeQueryResult{}, fmt.Errorf("failed to query episodes: %w", err)
+	}
+
+	episodes := make([]models.Episode, 0, len(rows))
+	for _, row := range rows {
+		episodes = append(episodes, episodeToModel(row))
+	}
+
+	return EpisodeQueryResult{
+		Episodes:     episodes,
+		Total:        total,
+		Page:         p.Page,
+		Limit:        p.Limit,
+		PresentTypes: presentTypes,
+	}, nil
 }
 
 func DeleteDetailedByLibraryID(libraryID uint) error {
@@ -76,10 +174,11 @@ func getDetailedByLibraryID(ctx context.Context, libraryID *int64) (*Detailed, e
 	return item, nil
 }
 
-func createDetailed(ctx context.Context, title *string, aid *int64, libraryID *int64, alternateTitles *string, description *string, releaseDate *string, genres *string, posterUrl *string, totalEpisodes *int64, totalSeasons *int64) (*Detailed, error) {
+func createDetailed(ctx context.Context, title *string, source *string, sourceID *string, libraryID *int64, alternateTitles *string, description *string, releaseDate *string, genres *string, posterUrl *string, totalEpisodes *int64, totalSeasons *int64) (*Detailed, error) {
 	item := &Detailed{
 		Title:           title,
-		Aid:             aid,
+		Source:          source,
+		SourceID:        sourceID,
 		LibraryID:       libraryID,
 		AlternateTitles: alternateTitles,
 		Description:     description,
@@ -95,10 +194,11 @@ func createDetailed(ctx context.Context, title *string, aid *int64, libraryID *i
 	return item, nil
 }
 
-func createEpisode(ctx context.Context, detailedID *int64, anidbID *string, typeVal *int64, epNo *string, title *string, airDate *string) (*Episode, error) {
+func createEpisode(ctx context.Context, detailedID *int64, source *string, externalID *string, typeVal *int64, epNo *string, title *string, airDate *string) (*Episode, error) {
 	item := &Episode{
 		DetailedID: detailedID,
-		AnidbID:    anidbID,
+		Source:     source,
+		ExternalID: externalID,
 		Type:       typeVal,
 		EpNo:       epNo,
 		Title:      title,

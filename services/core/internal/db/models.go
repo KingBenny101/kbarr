@@ -13,7 +13,8 @@ type Medium struct {
 	UpdatedAt     time.Time  `bun:"updated_at,notnull,default:now()" json:"updated_at"`
 	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at"`
 	Title         *string    `bun:"title" json:"title"`
-	Aid           *int64     `bun:"aid" json:"aid"`
+	Source        *string    `bun:"source" json:"source"`
+	SourceID      *string    `bun:"source_id" json:"source_id"`
 	PosterUrl     *string    `bun:"poster_url" json:"poster_url"`
 }
 
@@ -24,7 +25,8 @@ type Detailed struct {
 	UpdatedAt       time.Time  `bun:"updated_at,notnull,default:now()" json:"updated_at"`
 	DeletedAt       *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at"`
 	Title           *string    `bun:"title" json:"title"`
-	Aid             *int64     `bun:"aid" json:"aid"`
+	Source          *string    `bun:"source" json:"source"`
+	SourceID        *string    `bun:"source_id" json:"source_id"`
 	LibraryID       *int64     `bun:"library_id" json:"library_id"`
 	AlternateTitles *string    `bun:"alternate_titles" json:"alternate_titles"`
 	Description     *string    `bun:"description" json:"description"`
@@ -43,7 +45,8 @@ type Episode struct {
 	UpdatedAt     time.Time  `bun:"updated_at,notnull,default:now()" json:"updated_at"`
 	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at"`
 	DetailedID    *int64     `bun:"detailed_id" json:"detailed_id"`
-	AnidbID       *string    `bun:"anidb_id" json:"anidb_id"`
+	Source        *string    `bun:"source" json:"source"`
+	ExternalID    *string    `bun:"external_id" json:"external_id"`
 	Type          *int64     `bun:"type" json:"type"`
 	EpNo          *string    `bun:"ep_no" json:"ep_no"`
 	Title         *string    `bun:"title" json:"title"`
@@ -63,7 +66,8 @@ type Monitor struct {
 	EpisodeNumber *int64     `bun:"episode_number" json:"episode_number"`
 	IsEpisode     *bool      `bun:"is_episode" json:"is_episode"`
 	IsSeason      *bool      `bun:"is_season" json:"is_season"`
-	AnidbID       *string    `bun:"anidb_id" json:"anidb_id"`
+	Source        *string    `bun:"source" json:"source"`
+	ExternalID    *string    `bun:"external_id" json:"external_id"`
 	Status        *string    `bun:"status" json:"status"`
 }
 

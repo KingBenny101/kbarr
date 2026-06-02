@@ -22,7 +22,7 @@ func InsertMonitor(m models.Monitor) error {
 		return nil // Already monitored
 	}
 
-	_, err := createMonitor(ctx, int64Ptr(int64(m.LibraryID)), stringPtr(m.Title), stringPtr(m.EpisodeTitle), int64Ptr(int64(m.Season)), int64Ptr(int64(m.EpisodeNumber)), boolPtr(m.IsEpisode), boolPtr(m.IsSeason), stringPtr(m.AniDBID), stringPtr(m.Status))
+	_, err := createMonitor(ctx, int64Ptr(int64(m.LibraryID)), stringPtr(m.Title), stringPtr(m.EpisodeTitle), int64Ptr(int64(m.Season)), int64Ptr(int64(m.EpisodeNumber)), boolPtr(m.IsEpisode), boolPtr(m.IsSeason), stringPtr(m.Source), stringPtr(m.ExternalID), stringPtr(m.Status))
 	if err != nil {
 		return fmt.Errorf("failed to insert monitor entry: %w", err)
 	}
@@ -106,13 +106,13 @@ func GetMonitorsByLibraryID(libraryID uint) ([]models.Monitor, error) {
 	return monitors, nil
 }
 
-func UnmonitorByDetails(libraryID uint, anidbID string) error {
+func UnmonitorByDetails(libraryID uint, externalID string) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	if err := softDeleteMonitorsByLibraryIDAndAniDBID(ctx, int64Ptr(int64(libraryID)), stringPtr(anidbID)); err != nil {
+	if err := softDeleteMonitorsByLibraryIDAndExternalID(ctx, int64Ptr(int64(libraryID)), stringPtr(externalID)); err != nil {
 		return fmt.Errorf("failed to unmonitor: %w", err)
 	}
 	return nil
@@ -134,7 +134,7 @@ func listMonitorsByLibraryID(ctx context.Context, libraryID *int64) []Monitor {
 	return items
 }
 
-func createMonitor(ctx context.Context, libraryID *int64, title *string, episodeTitle *string, season *int64, episodeNumber *int64, isEpisode *bool, isSeason *bool, anidbID *string, status *string) (*Monitor, error) {
+func createMonitor(ctx context.Context, libraryID *int64, title *string, episodeTitle *string, season *int64, episodeNumber *int64, isEpisode *bool, isSeason *bool, source *string, externalID *string, status *string) (*Monitor, error) {
 	item := &Monitor{
 		LibraryID:     libraryID,
 		Title:         title,
@@ -143,7 +143,8 @@ func createMonitor(ctx context.Context, libraryID *int64, title *string, episode
 		EpisodeNumber: episodeNumber,
 		IsEpisode:     isEpisode,
 		IsSeason:      isSeason,
-		AnidbID:       anidbID,
+		Source:        source,
+		ExternalID:    externalID,
 		Status:        status,
 	}
 	if _, err := DB.NewInsert().Model(item).Returning("*").Exec(ctx); err != nil {
@@ -167,8 +168,8 @@ func softDeleteMonitorsByLibraryIDAndSeason(ctx context.Context, libraryID *int6
 	return err
 }
 
-func softDeleteMonitorsByLibraryIDAndAniDBID(ctx context.Context, libraryID *int64, anidbID *string) error {
-	_, err := DB.NewDelete().Model((*Monitor)(nil)).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Where("anidb_id IS NOT DISTINCT FROM ?", anidbID).Exec(ctx)
+func softDeleteMonitorsByLibraryIDAndExternalID(ctx context.Context, libraryID *int64, externalID *string) error {
+	_, err := DB.NewDelete().Model((*Monitor)(nil)).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Where("external_id IS NOT DISTINCT FROM ?", externalID).Exec(ctx)
 	return err
 }
 

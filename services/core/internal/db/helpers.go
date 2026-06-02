@@ -57,7 +57,8 @@ func mediumFromModel(m models.Media) Medium {
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
 		Title:     stringPtr(m.Title),
-		Aid:       int64Ptr(int64(m.AID)),
+		Source:    stringPtr(m.Source),
+		SourceID:  stringPtr(m.SourceID),
 		PosterUrl: stringPtr(m.PosterURL),
 	}
 }
@@ -71,7 +72,8 @@ func mediumToModel(m Medium) models.Media {
 			DeletedAt: m.DeletedAt,
 		},
 		Title:     derefString(m.Title),
-		AID:       uint(derefInt64(m.Aid)),
+		Source:    derefString(m.Source),
+		SourceID:  derefString(m.SourceID),
 		PosterURL: derefString(m.PosterUrl),
 	}
 }
@@ -79,7 +81,8 @@ func mediumToModel(m Medium) models.Media {
 func episodeFromModel(e models.Episode, detailedID *int64) Episode {
 	return Episode{
 		DetailedID: detailedID,
-		AnidbID:    stringPtr(e.AniDBID),
+		Source:     stringPtr(e.Source),
+		ExternalID: stringPtr(e.ExternalID),
 		Type:       int64Ptr(int64(e.Type)),
 		EpNo:       stringPtr(e.EpNo),
 		Title:      stringPtr(e.Title),
@@ -96,7 +99,8 @@ func episodeToModel(e Episode) models.Episode {
 			DeletedAt: e.DeletedAt,
 		},
 		DetailedID: uint(derefInt64(e.DetailedID)),
-		AniDBID:    derefString(e.AnidbID),
+		Source:     derefString(e.Source),
+		ExternalID: derefString(e.ExternalID),
 		Type:       int(derefInt64(e.Type)),
 		EpNo:       derefString(e.EpNo),
 		Title:      derefString(e.Title),
@@ -110,7 +114,8 @@ func detailedFromModel(d models.Detailed) Detailed {
 		CreatedAt:       d.CreatedAt,
 		UpdatedAt:       d.UpdatedAt,
 		Title:           stringPtr(d.Title),
-		Aid:             int64Ptr(int64(d.AID)),
+		Source:          stringPtr(d.Source),
+		SourceID:        stringPtr(d.SourceID),
 		LibraryID:       int64Ptr(int64(d.LibraryID)),
 		AlternateTitles: stringPtr(d.AlternateTitles),
 		Description:     stringPtr(d.Description),
@@ -136,7 +141,8 @@ func detailedToModel(d Detailed, episodes []Episode) models.Detailed {
 			DeletedAt: d.DeletedAt,
 		},
 		Title:           derefString(d.Title),
-		AID:             uint(derefInt64(d.Aid)),
+		Source:          derefString(d.Source),
+		SourceID:        derefString(d.SourceID),
 		LibraryID:       uint(derefInt64(d.LibraryID)),
 		AlternateTitles: derefString(d.AlternateTitles),
 		Description:     derefString(d.Description),
@@ -161,7 +167,8 @@ func monitorFromModel(m models.Monitor) Monitor {
 		EpisodeNumber: int64Ptr(int64(m.EpisodeNumber)),
 		IsEpisode:     boolPtr(m.IsEpisode),
 		IsSeason:      boolPtr(m.IsSeason),
-		AnidbID:       stringPtr(m.AniDBID),
+		Source:        stringPtr(m.Source),
+		ExternalID:    stringPtr(m.ExternalID),
 		Status:        stringPtr(m.Status),
 	}
 }
@@ -181,7 +188,8 @@ func monitorToModel(m Monitor) models.Monitor {
 		EpisodeNumber: int(derefInt64(m.EpisodeNumber)),
 		IsEpisode:     derefBool(m.IsEpisode),
 		IsSeason:      derefBool(m.IsSeason),
-		AniDBID:       derefString(m.AnidbID),
+		Source:        derefString(m.Source),
+		ExternalID:    derefString(m.ExternalID),
 		Status:        derefString(m.Status),
 	}
 }

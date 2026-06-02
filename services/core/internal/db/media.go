@@ -14,7 +14,7 @@ func InsertMedia(m models.Media) (int64, error) {
 	}
 
 	ctx := context.Background()
-	created, err := createMedia(ctx, stringPtr(m.Title), int64Ptr(int64(m.AID)), stringPtr(m.PosterURL))
+	created, err := createMedia(ctx, stringPtr(m.Title), stringPtr(m.Source), stringPtr(m.SourceID), stringPtr(m.PosterURL))
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert media: %w", err)
 	}
@@ -47,13 +47,13 @@ func DeleteMedia(id string) error {
 	return nil
 }
 
-func CheckMediaExists(aid uint) (bool, error) {
+func CheckMediaExists(source, sourceID string) (bool, error) {
 	if err := ensureDB(); err != nil {
 		return false, err
 	}
 
 	ctx := context.Background()
-	return countMediaByAID(ctx, int64Ptr(int64(aid))) > 0, nil
+	return countMediaBySourceID(ctx, stringPtr(source), stringPtr(sourceID)) > 0, nil
 }
 
 func GetAllMedia() ([]models.Media, error) {
@@ -133,10 +133,11 @@ func getMediaByID(ctx context.Context, id int64) (*Medium, error) {
 	return item, nil
 }
 
-func createMedia(ctx context.Context, title *string, aid *int64, posterUrl *string) (*Medium, error) {
+func createMedia(ctx context.Context, title *string, source *string, sourceID *string, posterUrl *string) (*Medium, error) {
 	item := &Medium{
 		Title:     title,
-		Aid:       aid,
+		Source:    source,
+		SourceID:  sourceID,
 		PosterUrl: posterUrl,
 	}
 	if _, err := DB.NewInsert().Model(item).Returning("*").Exec(ctx); err != nil {
@@ -150,8 +151,11 @@ func softDeleteMediaByID(ctx context.Context, id int64) error {
 	return err
 }
 
-func countMediaByAID(ctx context.Context, aid *int64) int64 {
-	count, err := DB.NewSelect().Model((*Medium)(nil)).Where("aid IS NOT DISTINCT FROM ?", aid).Count(ctx)
+func countMediaBySourceID(ctx context.Context, source *string, sourceID *string) int64 {
+	count, err := DB.NewSelect().Model((*Medium)(nil)).
+		Where("source IS NOT DISTINCT FROM ?", source).
+		Where("source_id IS NOT DISTINCT FROM ?", sourceID).
+		Count(ctx)
 	if err != nil {
 		return 0
 	}

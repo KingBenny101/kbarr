@@ -69,6 +69,11 @@ func Init() error {
 
 	slog.Info("Tables ready")
 
+	if err := runMigrations(ctx); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+	slog.Info("Migrations applied")
+
 	// TODO: update shared/config.EnsureDefaults to accept *bun.DB instead of *sql.DB.
 	if err := config.EnsureDefaults(DB); err != nil {
 		return fmt.Errorf("failed to initialize settings defaults: %w", err)
