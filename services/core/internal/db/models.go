@@ -88,7 +88,18 @@ type DownloadQueue struct {
 	Indexer       *string    `bun:"indexer" json:"indexer"`
 	Size          *int64     `bun:"size" json:"size"`
 	Seeders       *int       `bun:"seeders" json:"seeders"`
-	Status        *string    `bun:"status" json:"status"`
+	Status            *string    `bun:"status" json:"status"`
+	Progress          *float64   `bun:"progress" json:"progress"`
+	ProgressUpdatedAt *time.Time `bun:"progress_updated_at" json:"progress_updated_at"`
+}
+
+type TorrentBlacklist struct {
+	bun.BaseModel `bun:"table:torrent_blacklist"`
+	ID            int64     `bun:"id,pk,autoincrement" json:"id"`
+	CreatedAt     time.Time `bun:"created_at,notnull,default:now()" json:"created_at"`
+	TorrentHash   *string   `bun:"torrent_hash" json:"torrent_hash"`
+	TorrentName   *string   `bun:"torrent_name" json:"torrent_name"`
+	Title         *string   `bun:"title" json:"title"`
 }
 
 type Setting struct {

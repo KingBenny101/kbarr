@@ -48,6 +48,16 @@ func runMigrations(ctx context.Context) error {
 			END IF;
 		END $$`,
 		`ALTER TABLE monitors DROP COLUMN IF EXISTS anidb_id`,
+
+		// download_queue
+		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS progress REAL DEFAULT 0`,
+
+		// download_queue extra columns added in later session
+		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS torrent_name TEXT`,
+		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS indexer TEXT`,
+		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS size BIGINT`,
+		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS seeders INT`,
+		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS progress_updated_at TIMESTAMPTZ`,
 	}
 
 	for _, stmt := range stmts {

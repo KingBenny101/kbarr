@@ -39,6 +39,33 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /logs", logger.HandleLogs)
+	mux.HandleFunc("POST /torrent/delete", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Hash string `json:"hash"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Hash == "" {
+			http.Error(w, "hash is required", http.StatusBadRequest)
+			return
+		}
+		qbtURL := strings.TrimRight(config.Get(db.DB, "qbittorrentUrl", "http://localhost:8080"), "/")
+		username := config.Get(db.DB, "qbittorrentUsername", "")
+		password := config.Get(db.DB, "qbittorrentPassword", "")
+		if err := svc.LoginAndDelete(r.Context(), qbtURL, username, password, body.Hash); err != nil {
+			slog.Error("Failed to delete torrent from qBittorrent", "hash", body.Hash, "error", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
+	})
+	mux.HandleFunc("POST /trigger", func(w http.ResponseWriter, r *http.Request) {
+		go func() {
+			svc.ProcessPending(context.Background())
+			svc.UpdateDownloading(context.Background())
+		}()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Triggered"})
+	})
 	mux.HandleFunc("POST /test", func(w http.ResponseWriter, r *http.Request) {
 		qbtURL := strings.TrimRight(config.Get(db.DB, "qbittorrentUrl", "http://localhost:8080"), "/")
 		username := config.Get(db.DB, "qbittorrentUsername", "")

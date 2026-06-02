@@ -16,13 +16,16 @@ var DefaultSettings = map[string]string{
 	"monitorSyncInterval":  "1",
 	"prowlarrUrl":          "http://localhost:9696",
 	"prowlarrApiKey":       "error",
-	"prowlarrInterval":     "60",
+	"prowlarrInterval":     "30",
 	"autoMonitorOnAdd":     "false",
 	"preferredQuality":     "1080p",
 	"minSeeders":           "1",
 	"qbittorrentUrl":       "http://localhost:8080",
 	"qbittorrentUsername":  "",
 	"qbittorrentPassword":  "",
+	"downloadPath":         "/data/torrents",
+	"stallTimeout":         "300",
+	"devMode":              "false",
 	"authUsername":         "",
 	"authPasswordHash":     "",
 }
@@ -59,6 +62,19 @@ func Get(db *bun.DB, key, fallback string) string {
 		return fallback
 	}
 	return *s.Value
+}
+
+// GetSeconds parses a setting stored as a second count into a time.Duration.
+func GetSeconds(db *bun.DB, key string, fallback, min time.Duration) time.Duration {
+	raw := Get(db, key, "")
+	if raw == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || time.Duration(n)*time.Second < min {
+		return fallback
+	}
+	return time.Duration(n) * time.Second
 }
 
 // GetMinutes parses a setting stored as a minute count into a time.Duration.

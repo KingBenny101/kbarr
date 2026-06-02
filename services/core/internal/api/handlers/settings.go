@@ -35,6 +35,19 @@ func HandleTestDownloader(downloaderAddr string) http.HandlerFunc {
 	}
 }
 
+func HandleTriggerDownloader(downloaderAddr string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp, err := http.Post(downloaderAddr+"/trigger", "application/json", nil)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		io.Copy(w, resp.Body)
+	}
+}
+
 func HandleGetSettings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
