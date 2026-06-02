@@ -43,6 +43,13 @@ type DownloadQueue struct {
 	Status        *string    `bun:"status"`
 }
 
+type TorrentBlacklist struct {
+	bun.BaseModel `bun:"table:torrent_blacklist"`
+	ID          int64   `bun:"id,pk"`
+	TorrentHash *string `bun:"torrent_hash"`
+	TorrentName *string `bun:"torrent_name"`
+}
+
 type SearchResult struct {
 	Title       string
 	DownloadURL string

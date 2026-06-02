@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/kingbenny101/kbarr/services/indexer/internal/models"
@@ -19,24 +18,15 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type cachedSearch struct {
-	results   []models.SearchResult
-	expiresAt time.Time
-}
-
 type IndexerService struct {
 	db         *bun.DB
 	httpClient *http.Client
-
-	mu    sync.RWMutex
-	cache map[string]cachedSearch
 }
 
 func New(db *bun.DB) *IndexerService {
 	return &IndexerService{
 		db:         db,
 		httpClient: &http.Client{Timeout: 5 * time.Minute},
-		cache:      make(map[string]cachedSearch),
 	}
 }
 
@@ -44,11 +34,6 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 	cleanedQuery := strings.TrimSpace(query)
 	if cleanedQuery == "" {
 		return []models.SearchResult{}, nil
-	}
-
-	cacheKey := strings.ToLower(cleanedQuery)
-	if results, ok := s.getCached(cacheKey); ok {
-		return results, nil
 	}
 
 	prowlarrURL := config.Get(s.db, "prowlarrUrl", "http://localhost:9696")
@@ -102,9 +87,6 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 		})
 	}
 
-	ttl := config.GetMinutes(s.db, "prowlarrInterval", 60*time.Minute, time.Minute)
-	s.setCached(cacheKey, results, ttl)
-
 	return results, nil
 }
 
@@ -132,7 +114,7 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 }
 
 func (s *IndexerService) currentMonitorInterval() time.Duration {
-	interval := config.GetMinutes(s.db, "monitorSyncInterval", time.Minute, 5*time.Second)
+	interval := config.GetSeconds(s.db, "prowlarrInterval", 30*time.Second, 5*time.Second)
 	if interval < 5*time.Second {
 		return 5 * time.Second
 	}
@@ -169,10 +151,19 @@ func (s *IndexerService) score(r models.SearchResult) int {
 	return sc
 }
 
-func (s *IndexerService) pickBest(results []models.SearchResult) *models.SearchResult {
+func (s *IndexerService) isBlacklisted(ctx context.Context, name string) bool {
+	q := s.db.NewSelect().Model((*models.TorrentBlacklist)(nil)).WhereOr("torrent_name = ?", name)
+	exists, _ := q.Exists(ctx)
+	return exists
+}
+
+func (s *IndexerService) pickBest(ctx context.Context, results []models.SearchResult) *models.SearchResult {
 	var best *models.SearchResult
 	bestScore := -2
 	for i := range results {
+		if s.isBlacklisted(ctx, results[i].Title) {
+			continue
+		}
 		if sc := s.score(results[i]); sc > bestScore {
 			best = &results[i]
 			bestScore = sc
@@ -263,7 +254,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 			continue
 		}
 		switch *m.Status {
-		case "queued", "downloading", "completed":
+		case "queued", "downloading", "available":
 			seasonFound[*m.LibraryID] = true
 		}
 	}
@@ -305,7 +296,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 		}
 		slog.Info("Season packs after filtering", "monitor_id", mon.ID, "packs", len(packs))
 
-		if best := s.pickBest(packs); best != nil {
+		if best := s.pickBest(ctx, packs); best != nil {
 			slog.Info("Season pack selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
 			if s.queueDownload(ctx, mon, best) {
 				seasonFound[*mon.LibraryID] = true
@@ -357,7 +348,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 		}
 		slog.Info("Episode search returned results", "monitor_id", mon.ID, "total", len(results))
 
-		if best := s.pickBest(results); best != nil {
+		if best := s.pickBest(ctx, results); best != nil {
 			slog.Info("Episode torrent selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
 			s.queueDownload(ctx, mon, best)
 		} else {
@@ -367,25 +358,3 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	return true
 }
 
-func (s *IndexerService) getCached(key string) ([]models.SearchResult, bool) {
-	s.mu.RLock()
-	cached, ok := s.cache[key]
-	s.mu.RUnlock()
-
-	if !ok || time.Now().After(cached.expiresAt) {
-		return nil, false
-	}
-
-	out := make([]models.SearchResult, len(cached.results))
-	copy(out, cached.results)
-	return out, true
-}
-
-func (s *IndexerService) setCached(key string, results []models.SearchResult, ttl time.Duration) {
-	copied := make([]models.SearchResult, len(results))
-	copy(copied, results)
-
-	s.mu.Lock()
-	s.cache[key] = cachedSearch{results: copied, expiresAt: time.Now().Add(ttl)}
-	s.mu.Unlock()
-}
