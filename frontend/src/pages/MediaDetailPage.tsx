@@ -59,8 +59,8 @@ export function MediaDetailPage() {
             .finally(() => setLoading(false))
     }, [id])
 
-    useEffect(() => {
-        if (!media || !id) return
+    const fetchMonitored = () => {
+        if (!id) return
         apiFetch(`${API_URL}/api/library/${id}/monitored`)
             .then((response) => response.json())
             .then((data: MonitoredItem[]) => {
@@ -68,6 +68,11 @@ export function MediaDetailPage() {
                 setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1) ?? false)
             })
             .catch((error) => console.error("Failed to fetch monitored items", error))
+    }
+
+    useEffect(() => {
+        if (!media || !id) return
+        fetchMonitored()
     }, [id, media])
 
     const parseRange = (input: string): number[] => {
@@ -91,55 +96,63 @@ export function MediaDetailPage() {
     const handleBulkMonitor = async () => {
         if (!media || !id) return
 
-        const buildPayload = (episodeNumbers: number[]) => [
-            ...episodeNumbers.map((episodeNumber) => {
-                const episode = media.episodes?.find((entry) => Number.parseInt(entry.ep_no, 10) === episodeNumber)
-                return {
+        try {
+            // Fetch all episodes to resolve external_ids for any episode number
+            const allEpsRes = await apiFetch(`${API_URL}/api/library/${id}/episodes?limit=10000`)
+            const allEpsData = await allEpsRes.json() as EpisodesResponse
+            const allEpisodes = allEpsData.episodes ?? []
+
+            const buildPayload = (episodeNumbers: number[], includeSeason: boolean) => [
+                ...episodeNumbers.map((episodeNumber) => {
+                    const episode = allEpisodes.find((e) => Number.parseInt(e.ep_no, 10) === episodeNumber)
+                    return {
+                        library_id: Number(id),
+                        title: media.title,
+                        episode_title: episode?.title || `Episode ${episodeNumber}`,
+                        season: 1,
+                        episode_number: episodeNumber,
+                        is_episode: true,
+                        is_season: false,
+                        source: episode?.source || media.source,
+                        external_id: episode?.external_id || "",
+                    }
+                }),
+                ...(includeSeason ? [{
                     library_id: Number(id),
                     title: media.title,
-                    episode_title: episode?.title || `Episode ${episodeNumber}`,
+                    episode_title: "",
                     season: 1,
-                    episode_number: episodeNumber,
-                    is_episode: true,
-                    source: episode?.source || media.source,
-                    external_id: episode?.external_id || "",
-                }
-            }),
-            {
-                library_id: Number(id),
-                title: media.title,
-                episode_title: "",
-                season: 1,
-                episode_number: 0,
-                is_episode: false,
-                is_season: true,
-                source: media.source,
-                external_id: media.source_id,
-            },
-        ]
+                    episode_number: 0,
+                    is_episode: false,
+                    is_season: true,
+                    source: media.source,
+                    external_id: media.source_id,
+                }] : []),
+            ]
 
-        try {
             if (monitorEntireSeason) {
-                const episodeNumbers = media.episodes.map((episode) => Number.parseInt(episode.ep_no, 10)).filter((value) => !Number.isNaN(value))
+                const episodeNumbers = allEpisodes.map((e) => Number.parseInt(e.ep_no, 10)).filter((v) => !Number.isNaN(v))
                 const response = await apiFetch(`${API_URL}/api/monitor/bulk`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(buildPayload(episodeNumbers)),
+                    body: JSON.stringify(buildPayload(episodeNumbers, true)),
                 })
                 if (response.ok) {
                     showToast("Season monitoring applied", "success")
                     setRangeInput("")
+                    fetchMonitored()
                 }
             } else if (rangeInput.trim()) {
                 const episodeNumbers = parseRange(rangeInput)
                 const response = await apiFetch(`${API_URL}/api/monitor/bulk`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(buildPayload(episodeNumbers)),
+                    body: JSON.stringify(buildPayload(episodeNumbers, false)),
                 })
                 if (response.ok) {
                     showToast("Episode monitoring applied", "success")
                     setRangeInput("")
+                    fetchMonitored()
                 }
             } else if (monitoredItems.some((item) => item.is_season && item.season === 1)) {
                 const response = await apiFetch(`${API_URL}/api/unmonitor/season`, {
@@ -149,6 +162,7 @@ export function MediaDetailPage() {
                 })
                 if (response.ok) {
                     showToast("Stopped monitoring entire season", "success")
+                    fetchMonitored()
                 }
             } else {
                 showToast("Enter a range or select entire season", "error")
@@ -157,6 +171,89 @@ export function MediaDetailPage() {
             console.error(error)
             showToast("Failed to apply monitor settings", "error")
         }
+    }
+
+    const handleMonitorEpisode = async (episode: Episode) => {
+        if (!media || !id) return
+        await apiFetch(`${API_URL}/api/monitor`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                library_id: Number(id),
+                title: media.title,
+                episode_title: episode.title,
+                season: 1,
+                episode_number: Number.parseInt(episode.ep_no, 10) || 0,
+                is_episode: true,
+                is_season: false,
+                source: episode.source,
+                external_id: episode.external_id,
+            }),
+        })
+
+        const updatedMonitored = [...monitoredItems, {
+            external_id: episode.external_id,
+            source: episode.source,
+            is_episode: true,
+            is_season: false,
+            season: 1,
+        }]
+
+        // Check if all episodes are now monitored — if so, add season monitor
+        const allEpsRes = await apiFetch(`${API_URL}/api/library/${id}/episodes?limit=10000`)
+        const allEpsData = await allEpsRes.json() as EpisodesResponse
+        const allEpisodes = allEpsData.episodes ?? []
+        const monitoredIds = new Set(updatedMonitored.filter((i) => i.is_episode).map((i) => i.external_id))
+        const allMonitored = allEpisodes.length > 0 && allEpisodes.every((ep) => monitoredIds.has(ep.external_id))
+
+        if (allMonitored && !monitoredItems.some((i) => i.is_season)) {
+            await apiFetch(`${API_URL}/api/monitor`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    library_id: Number(id),
+                    title: media.title,
+                    episode_title: "",
+                    season: 1,
+                    episode_number: 0,
+                    is_episode: false,
+                    is_season: true,
+                    source: media.source,
+                    external_id: media.source_id,
+                }),
+            })
+            fetchMonitored()
+        } else {
+            setMonitoredItems(updatedMonitored)
+        }
+    }
+
+    const handleUnmonitorEpisode = async (episode: Episode) => {
+        if (!media || !id) return
+        const seasonMonitor = monitoredItems.find((item) => item.is_season)
+
+        await apiFetch(`${API_URL}/api/unmonitor`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ library_id: Number(id), external_id: episode.external_id }),
+        })
+
+        if (seasonMonitor) {
+            // Remove only the season-level monitor record, not all episode monitors
+            await apiFetch(`${API_URL}/api/unmonitor`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ library_id: Number(id), external_id: seasonMonitor.external_id }),
+            })
+            setMonitorEntireSeason(false)
+        }
+
+        setMonitoredItems((prev) =>
+            prev.filter((item) =>
+                !(item.external_id === episode.external_id && item.is_episode) &&
+                !(seasonMonitor && item.is_season && item.external_id === seasonMonitor.external_id)
+            )
+        )
     }
 
     useEffect(() => {
@@ -337,6 +434,8 @@ export function MediaDetailPage() {
                                         sortField={sortField}
                                         sortDir={sortDir}
                                         onSort={handleSort}
+                                        onMonitor={handleMonitorEpisode}
+                                        onUnmonitor={handleUnmonitorEpisode}
                                     />
                                     {totalPages > 1 ? (
                                         <Group justify="space-between" align="center" mt="auto">
@@ -419,12 +518,14 @@ function episodeSourceUrl(episode: Episode): string | null {
     return null
 }
 
-function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort }: {
+function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, onMonitor, onUnmonitor }: {
     episodes: Episode[]
     monitoredItems: MonitoredItem[]
     sortField: SortField
     sortDir: SortDir
     onSort: (field: SortField) => void
+    onMonitor: (episode: Episode) => void
+    onUnmonitor: (episode: Episode) => void
 }) {
     const hasLinks = episodes.some((e) => episodeSourceUrl(e) !== null)
 
@@ -438,16 +539,16 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort }: 
             <Table striped highlightOnHover withTableBorder withColumnBorders>
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={80} style={{ cursor: "pointer" }} onClick={() => onSort("ep_no")}>
+                        <Table.Th style={{ cursor: "pointer", textAlign: "center" }} onClick={() => onSort("ep_no")}>
                             No.<SortIndicator field="ep_no" />
                         </Table.Th>
-                        <Table.Th style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
+                        <Table.Th w={585} style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
                             Title<SortIndicator field="title" />
                         </Table.Th>
-                        <Table.Th w={120}>Type</Table.Th>
-                        <Table.Th w={160}>Availability</Table.Th>
-                        <Table.Th w={160}>Status</Table.Th>
-                        {hasLinks && <Table.Th w={80}>Link</Table.Th>}
+                        <Table.Th style={{ textAlign: "center" }}>Type</Table.Th>
+                        <Table.Th style={{ textAlign: "center" }}>Availability</Table.Th>
+                        <Table.Th style={{ textAlign: "center" }}>Monitor</Table.Th>
+                        {hasLinks && <Table.Th w={60} style={{ textAlign: "center" }}>Link</Table.Th>}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -456,19 +557,23 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort }: 
                         const link = episodeSourceUrl(episode)
                         return (
                             <Table.Tr key={episode.ID}>
-                                <Table.Td fw={700}>{episode.ep_no}</Table.Td>
+                                <Table.Td fw={700} style={{ textAlign: "center" }}>{episode.ep_no}</Table.Td>
                                 <Table.Td style={{ maxWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{episode.title}</Table.Td>
-                                <Table.Td>
+                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                                     <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
                                 </Table.Td>
-                                <Table.Td>
+                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                                     <StatusPill label="Unavailable" tone="gray" />
                                 </Table.Td>
-                                <Table.Td>
-                                    <StatusPill label={monitored ? "Monitored" : "Not monitored"} tone={monitored ? "green" : "gray"} />
+                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                                    <StatusPill
+                                        label={monitored ? "Monitored" : "Not monitored"}
+                                        tone={monitored ? "green" : "gray"}
+                                        onClick={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                    />
                                 </Table.Td>
                                 {hasLinks && (
-                                    <Table.Td>
+                                    <Table.Td style={{ textAlign: "center" }}>
                                         {link ? (
                                             <Anchor href={link} target="_blank" rel="noreferrer" c="gray">
                                                 <IconExternalLink size={18} />
