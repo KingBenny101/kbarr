@@ -42,6 +42,11 @@ function PageShell({ children }: { children: React.ReactNode }) {
     const pathname = useLocation().pathname
     const [version, setVersion] = useState("0.0.0")
     const [username, setUsername] = useState("")
+    const [lastMediaPath, setLastMediaPath] = useState<string>("/")
+
+    useEffect(() => {
+        if (pathname.startsWith("/media/")) setLastMediaPath(pathname)
+    }, [pathname])
     const { toggleColorScheme } = useMantineColorScheme()
     const computedColorScheme = useComputedColorScheme("light")
 
@@ -95,9 +100,10 @@ function PageShell({ children }: { children: React.ReactNode }) {
                         <div key={group} style={{ marginBottom: 24 }}>
                             <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb="sm">{group}</Text>
                             {items.map(({ to, label, icon, match }) => {
+                                const resolvedTo = label === "Library" ? lastMediaPath : to
                                 const active = match ? match(pathname) : pathname === to
                                 return (
-                                    <NavLink key={to} component={Link} to={to} label={label} leftSection={icon} active={active} variant={active ? "filled" : "subtle"} color="gray" styles={{ root: { borderRadius: 'var(--mantine-radius-xl)' } }} onClick={close} />
+                                    <NavLink key={to} component={Link} to={resolvedTo} label={label} leftSection={icon} active={active} variant={active ? "filled" : "subtle"} color="gray" styles={{ root: { borderRadius: 'var(--mantine-radius-xl)' } }} onClick={close} />
                                 )
                             })}
                         </div>
