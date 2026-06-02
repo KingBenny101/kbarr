@@ -71,21 +71,7 @@ type Monitor struct {
 	Status        *string    `bun:"status" json:"status"`
 }
 
-type SearchQueue struct {
-	bun.BaseModel `bun:"table:search_queues,alias:sq"`
-	ID            int64      `bun:"id,pk,autoincrement" json:"id"`
-	CreatedAt     time.Time  `bun:"created_at,notnull,default:now()" json:"created_at"`
-	UpdatedAt     time.Time  `bun:"updated_at,notnull,default:now()" json:"updated_at"`
-	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at"`
-	LibraryID     *int64     `bun:"library_id" json:"library_id"`
-	Title         *string    `bun:"title" json:"title"`
-	EpisodeTitle  *string    `bun:"episode_title" json:"episode_title"`
-	Season        *int64     `bun:"season" json:"season"`
-	EpisodeNumber *int64     `bun:"episode_number" json:"episode_number"`
-	IsEpisode     *bool      `bun:"is_episode" json:"is_episode"`
-	IsSeason      *bool      `bun:"is_season" json:"is_season"`
-	Status        *string    `bun:"status" json:"status"`
-}
+
 
 type DownloadQueue struct {
 	bun.BaseModel `bun:"table:download_queue"`
@@ -95,9 +81,13 @@ type DownloadQueue struct {
 	DeletedAt     *time.Time `bun:"deleted_at,soft_delete,nullzero" json:"deleted_at"`
 	MonitorID     *int64     `bun:"monitor_id" json:"monitor_id"`
 	Title         *string    `bun:"title" json:"title"`
+	TorrentName   *string    `bun:"torrent_name" json:"torrent_name"`
 	TorrentURL    *string    `bun:"torrent_url" json:"torrent_url"`
 	SavePath      *string    `bun:"save_path" json:"save_path"`
 	TorrentHash   *string    `bun:"torrent_hash" json:"torrent_hash"`
+	Indexer       *string    `bun:"indexer" json:"indexer"`
+	Size          *int64     `bun:"size" json:"size"`
+	Seeders       *int       `bun:"seeders" json:"seeders"`
 	Status        *string    `bun:"status" json:"status"`
 }
 

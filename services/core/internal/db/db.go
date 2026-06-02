@@ -50,14 +50,13 @@ func Init() error {
 
 	slog.Info("Connected to PostgreSQL")
 
-	DB.RegisterModel((*Medium)(nil), (*Detailed)(nil), (*Episode)(nil), (*Monitor)(nil), (*SearchQueue)(nil), (*DownloadQueue)(nil), (*Setting)(nil))
+	DB.RegisterModel((*Medium)(nil), (*Detailed)(nil), (*Episode)(nil), (*Monitor)(nil), (*DownloadQueue)(nil), (*Setting)(nil))
 
 	models := []any{
 		(*Medium)(nil),
 		(*Detailed)(nil),
 		(*Episode)(nil),
 		(*Monitor)(nil),
-		(*SearchQueue)(nil),
 		(*DownloadQueue)(nil),
 		(*Setting)(nil),
 	}

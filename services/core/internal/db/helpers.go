@@ -194,37 +194,3 @@ func monitorToModel(m Monitor) models.Monitor {
 	}
 }
 
-func searchQueueFromModel(q models.SearchQueue) SearchQueue {
-	return SearchQueue{
-		ID:            int64(q.ID),
-		CreatedAt:     q.CreatedAt,
-		UpdatedAt:     q.UpdatedAt,
-		LibraryID:     int64Ptr(int64(q.LibraryID)),
-		Title:         stringPtr(q.Title),
-		EpisodeTitle:  stringPtr(q.EpisodeTitle),
-		Season:        int64Ptr(int64(q.Season)),
-		EpisodeNumber: int64Ptr(int64(q.EpisodeNumber)),
-		IsEpisode:     boolPtr(q.IsEpisode),
-		IsSeason:      boolPtr(q.IsSeason),
-		Status:        stringPtr(q.Status),
-	}
-}
-
-func searchQueueToModel(q SearchQueue) models.SearchQueue {
-	return models.SearchQueue{
-		Model: models.Model{
-			ID:        uint(q.ID),
-			CreatedAt: q.CreatedAt,
-			UpdatedAt: q.UpdatedAt,
-			DeletedAt: q.DeletedAt,
-		},
-		LibraryID:     uint(derefInt64(q.LibraryID)),
-		Title:         derefString(q.Title),
-		EpisodeTitle:  derefString(q.EpisodeTitle),
-		Season:        int(derefInt64(q.Season)),
-		EpisodeNumber: int(derefInt64(q.EpisodeNumber)),
-		IsEpisode:     derefBool(q.IsEpisode),
-		IsSeason:      derefBool(q.IsSeason),
-		Status:        derefString(q.Status),
-	}
-}

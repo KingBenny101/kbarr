@@ -55,10 +55,7 @@ func NewRouter(metadataClient *clients.MetadataClient, version string, authStore
 
 		// Search
 		r.Get("/api/search", router.handleMediaSearch)
-		r.Get("/api/search-queue", handlers.HandleGetSearchQueue)
-		r.Delete("/api/search-queue/{id}", handlers.HandleDeleteSearchQueueEntry)
-
-		// Downloads (download_queue table)
+// Downloads (download_queue table)
 		r.Get("/api/downloads", handlers.HandleListDownloads)
 		r.Delete("/api/downloads/{id}", handlers.HandleDeleteDownload)
 

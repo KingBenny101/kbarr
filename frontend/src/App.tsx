@@ -2,14 +2,14 @@ import { useEffect, useState } from "react"
 import { Navigate, Route, Routes, Link, useLocation } from "react-router-dom"
 import { AppShell, Burger, Group, NavLink, Text, ActionIcon, useMantineColorScheme, useComputedColorScheme } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
-import { IconLibraryPhoto, IconSearch, IconListCheck, IconTimeline, IconActivity, IconSettings, IconDatabase, IconPlug, IconDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
+import { IconLibraryPhoto, IconSearch, IconListCheck, IconActivity, IconSettings, IconDatabase, IconPlug, IconDownload, IconCloudDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, getToken } from "@/utils"
 import { LibraryPage } from "@/pages/LibraryPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { MediaDetailPage } from "@/pages/MediaDetailPage"
 import { MonitorPage } from "@/pages/MonitorPage"
 import { SearchPage } from "@/pages/SearchPage"
-import { SearchQueuePage } from "@/pages/SearchQueuePage"
+import { DownloadQueuePage } from "@/pages/DownloadQueuePage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { WorkersPage } from "@/pages/WorkersPage"
 
@@ -23,7 +23,7 @@ const navigation = [
     },
     {
         group: "System", items: [
-            { label: "Search Queue", to: "/search-queue", icon: <IconTimeline size={18} /> },
+{ label: "Download Queue", to: "/downloads", icon: <IconCloudDownload size={18} /> },
             { label: "Workers", to: "/workers", icon: <IconActivity size={18} /> },
         ]
     },
@@ -148,7 +148,7 @@ export default function App() {
                             <Route path="/media/:id" element={<MediaDetailPage />} />
                             <Route path="/monitored" element={<MonitorPage />} />
                             <Route path="/workers" element={<WorkersPage />} />
-                            <Route path="/search-queue" element={<SearchQueuePage />} />
+<Route path="/downloads" element={<DownloadQueuePage />} />
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                     </PageShell>

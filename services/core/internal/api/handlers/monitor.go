@@ -35,17 +35,6 @@ func HandleAddMonitor(w http.ResponseWriter, r *http.Request) {
 
 	db.InsertMonitor(monitor)
 
-	// Add to search queue
-	db.AddToSearchQueue(models.SearchQueue{
-		LibraryID:     monitor.LibraryID,
-		Title:         monitor.Title,
-		EpisodeTitle:  monitor.EpisodeTitle,
-		Season:        monitor.Season,
-		EpisodeNumber: monitor.EpisodeNumber,
-		IsEpisode:     monitor.IsEpisode,
-		IsSeason:      monitor.IsSeason,
-	})
-
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Entry monitored successfully!",
@@ -119,43 +108,9 @@ func HandleBulkAddMonitor(w http.ResponseWriter, r *http.Request) {
 
 	db.InsertMonitorsBulk(monitors)
 
-	// Add to search queue with season-priority rule
-	// 1. Identify seasons being monitored
-	monitoredSeasons := make(map[int]bool)
-	for _, m := range monitors {
-		if m.IsSeason {
-			monitoredSeasons[m.Season] = true
-			db.AddToSearchQueue(models.SearchQueue{
-				LibraryID:     m.LibraryID,
-				Title:         m.Title,
-				EpisodeTitle:  m.EpisodeTitle,
-				Season:        m.Season,
-				EpisodeNumber: m.EpisodeNumber,
-				IsEpisode:     m.IsEpisode,
-				IsSeason:      m.IsSeason,
-			})
-		}
-	}
-
-	// 2. Add episodes only if their season is not being monitored as a whole
-	for _, m := range monitors {
-		if m.IsEpisode && !monitoredSeasons[m.Season] {
-			db.AddToSearchQueue(models.SearchQueue{
-				LibraryID:     m.LibraryID,
-				Title:         m.Title,
-				EpisodeTitle:  m.EpisodeTitle,
-				Season:        m.Season,
-				EpisodeNumber: m.EpisodeNumber,
-				IsEpisode:     m.IsEpisode,
-				IsSeason:      m.IsSeason,
-			})
-		}
-	}
-
 	w.WriteHeader(http.StatusCreated)
 }
 
-// HandleUnmonitorSeason handles unmonitoring an entire season
 func HandleUnmonitorSeason(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		LibraryID uint `json:"library_id"`
