@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
-import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title } from "@mantine/core"
-import { IconExternalLink, IconTrash } from "@tabler/icons-react"
+import { useEffect, useMemo, useState } from "react"
+import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core"
+import { IconChevronDown, IconChevronUp, IconExternalLink, IconSelector, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
@@ -19,11 +19,43 @@ interface MonitorEntry {
     status: string
 }
 
+const STATUS_PRIORITY: Record<string, number> = {
+    downloading: 0,
+    queued:      1,
+    searching:   2,
+    monitored:   3,
+    available:   4,
+    unmonitored: 5,
+}
+
+type SortField = "title" | "status" | "type"
+type SortDir = "asc" | "desc"
+
+const ALL_STATUSES = ["monitored", "searching", "queued", "downloading", "available", "unmonitored"] as const
+type StatusFilter = typeof ALL_STATUSES[number] | "all"
+
+const STATUS_TONES: Record<string, "gray" | "blue" | "green" | "yellow" | "violet" | "red"> = {
+    monitored: "blue",
+    searching: "yellow",
+    queued: "violet",
+    downloading: "blue",
+    available: "green",
+    unmonitored: "gray",
+}
+
+function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+    if (field !== sortField) return <IconSelector size={14} style={{ opacity: 0.4 }} />
+    return sortDir === "asc" ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />
+}
+
 export function MonitorPage() {
     const [monitors, setMonitors] = useState<MonitorEntry[]>([])
     const [loading, setLoading] = useState(true)
     const [currentPage, setCurrentPage] = useState(1)
-    const itemsPerPage = 10
+    const [sortField, setSortField] = useState<SortField>("status")
+    const [sortDir, setSortDir] = useState<SortDir>("asc")
+    const [activeStatus, setActiveStatus] = useState<StatusFilter>("all")
+    const itemsPerPage = 9
 
     const fetchMonitors = async () => {
         try {
@@ -39,9 +71,7 @@ export function MonitorPage() {
         }
     }
 
-    useEffect(() => {
-        fetchMonitors()
-    }, [])
+    useEffect(() => { fetchMonitors() }, [])
 
     const handleDelete = async (id: number) => {
         try {
@@ -55,9 +85,42 @@ export function MonitorPage() {
         }
     }
 
-    const totalPages = Math.ceil(monitors.length / itemsPerPage)
+    const toggleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDir((d) => d === "asc" ? "desc" : "asc")
+        } else {
+            setSortField(field)
+            setSortDir("asc")
+        }
+        setCurrentPage(1)
+    }
+
+    const setFilter = (s: StatusFilter) => {
+        setActiveStatus(s)
+        setCurrentPage(1)
+    }
+
+    const statusCounts = useMemo(() => {
+        const counts: Record<string, number> = {}
+        for (const m of monitors) counts[m.status] = (counts[m.status] ?? 0) + 1
+        return counts
+    }, [monitors])
+
+    const filtered = useMemo(() => {
+        let list = activeStatus === "all" ? monitors : monitors.filter((m) => m.status === activeStatus)
+        list = [...list].sort((a, b) => {
+            let cmp = 0
+            if (sortField === "title") cmp = a.title.localeCompare(b.title)
+            else if (sortField === "status") cmp = (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99)
+            else if (sortField === "type") cmp = (a.is_season ? 0 : 1) - (b.is_season ? 0 : 1)
+            return sortDir === "asc" ? cmp : -cmp
+        })
+        return list
+    }, [monitors, activeStatus, sortField, sortDir])
+
+    const totalPages = Math.ceil(filtered.length / itemsPerPage)
     const startIndex = (currentPage - 1) * itemsPerPage
-    const currentMonitors = monitors.slice(startIndex, startIndex + itemsPerPage)
+    const currentMonitors = filtered.slice(startIndex, startIndex + itemsPerPage)
 
     return (
         <Stack gap="lg">
@@ -65,24 +128,52 @@ export function MonitorPage() {
 
             <Card withBorder radius="xl">
                 <Stack gap="md">
-                    <Group justify="space-between" align="center">
+                    <Group justify="space-between" align="flex-start">
                         <div>
                             <Title order={3}>Currently monitoring</Title>
                             <Text c="dimmed" size="sm">
-                                You have {monitors.length} item{monitors.length !== 1 ? "s" : ""} being monitored.
+                                {filtered.length !== monitors.length
+                                    ? `${filtered.length} of ${monitors.length} items`
+                                    : `${monitors.length} item${monitors.length !== 1 ? "s" : ""}`}
                             </Text>
                         </div>
-                        <StatusPill label={`${monitors.length} total`} tone="gray" />
+                        <Group gap="xs" wrap="wrap" justify="flex-end">
+                            <StatusPill
+                                label={`All (${monitors.length})`}
+                                tone={activeStatus === "all" ? "blue" : "gray"}
+                                onClick={() => setFilter("all")}
+                            />
+                            {ALL_STATUSES.filter((s) => statusCounts[s]).map((s) => (
+                                <StatusPill
+                                    key={s}
+                                    label={`${s} (${statusCounts[s]})`}
+                                    tone={activeStatus === s ? STATUS_TONES[s] : "gray"}
+                                    onClick={() => setFilter(s)}
+                                />
+                            ))}
+                        </Group>
                     </Group>
 
                     <ScrollArea type="auto">
                         <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
                             <Table.Thead>
                                 <Table.Tr>
-                                    <Table.Th>Anime</Table.Th>
-                                    <Table.Th>Type</Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Anime <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("type")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Type <SortIcon field="type" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
                                     <Table.Th>Details</Table.Th>
-                                    <Table.Th>Status</Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
                                     <Table.Th>AniDB</Table.Th>
                                     <Table.Th w={72} />
                                 </Table.Tr>
@@ -90,15 +181,11 @@ export function MonitorPage() {
                             <Table.Tbody>
                                 {loading ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={6}>
-                                            <Text ta="center" py="md">Loading...</Text>
-                                        </Table.Td>
+                                        <Table.Td colSpan={6}><Text ta="center" py="md">Loading...</Text></Table.Td>
                                     </Table.Tr>
-                                ) : monitors.length === 0 ? (
+                                ) : filtered.length === 0 ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={6}>
-                                            <Text ta="center" py="md" c="dimmed">No items monitored yet.</Text>
-                                        </Table.Td>
+                                        <Table.Td colSpan={6}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
                                     </Table.Tr>
                                 ) : (
                                     currentMonitors.map((entry) => (
@@ -115,7 +202,7 @@ export function MonitorPage() {
                                                 {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
                                             </Table.Td>
                                             <Table.Td>
-                                                <StatusPill label={entry.status} tone="gray" />
+                                                <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
                                             </Table.Td>
                                             <Table.Td>
                                                 {entry.anidb_id ? (
@@ -136,14 +223,14 @@ export function MonitorPage() {
                         </Table>
                     </ScrollArea>
 
-                    {totalPages > 1 ? (
+                    {totalPages > 1 && (
                         <Group justify="space-between" align="center">
                             <Text size="sm" c="dimmed">
-                                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, monitors.length)} of {monitors.length} items
+                                Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filtered.length)} of {filtered.length}
                             </Text>
                             <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} color="gray" />
                         </Group>
-                    ) : null}
+                    )}
                 </Stack>
             </Card>
         </Stack>
