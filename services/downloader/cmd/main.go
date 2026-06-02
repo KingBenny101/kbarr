@@ -2,14 +2,20 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/kingbenny101/kbarr/services/downloader/internal/db"
 	"github.com/kingbenny101/kbarr/services/downloader/internal/service"
+	"github.com/kingbenny101/kbarr/shared/config"
 	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
@@ -33,6 +39,59 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /logs", logger.HandleLogs)
+	mux.HandleFunc("POST /test", func(w http.ResponseWriter, r *http.Request) {
+		qbtURL := strings.TrimRight(config.Get(db.DB, "qbittorrentUrl", "http://localhost:8080"), "/")
+		username := config.Get(db.DB, "qbittorrentUsername", "")
+		password := config.Get(db.DB, "qbittorrentPassword", "")
+		w.Header().Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		if username == "" {
+			resp, err := client.Get(qbtURL + "/api/v2/app/version")
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+				return
+			}
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusNotFound {
+				json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": "qBittorrent not found at this URL"})
+				return
+			}
+			if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+				json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": "qBittorrent requires credentials"})
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Connected to qBittorrent"})
+			return
+		}
+		resp, err := client.PostForm(qbtURL+"/api/v2/auth/login", url.Values{
+			"username": {username}, "password": {password},
+		})
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		trimmed := strings.TrimSpace(string(body))
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 || trimmed == "Fails." {
+			msg := "Authentication failed"
+			switch {
+			case trimmed == "Fails.":
+				msg = "Invalid username or password"
+			case resp.StatusCode == http.StatusUnauthorized:
+				msg = "Invalid credentials"
+			case resp.StatusCode == http.StatusForbidden:
+				msg = "Access denied"
+			case resp.StatusCode == http.StatusNotFound:
+				msg = "qBittorrent not found at this URL"
+			case resp.StatusCode == http.StatusServiceUnavailable:
+				msg = "qBittorrent is unavailable"
+			}
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": msg})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Connected to qBittorrent"})
+	})
 	go func() {
 		slog.Info("Health endpoint listening", "port", "8083")
 		if err := http.ListenAndServe(":8083", mux); err != nil {

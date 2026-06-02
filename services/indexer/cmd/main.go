@@ -2,14 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/kingbenny101/kbarr/services/indexer/internal/db"
 	"github.com/kingbenny101/kbarr/services/indexer/internal/service"
+	"github.com/kingbenny101/kbarr/shared/config"
 	"github.com/kingbenny101/kbarr/shared/logger"
 )
 
@@ -33,6 +38,41 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /logs", logger.HandleLogs)
+	mux.HandleFunc("POST /test", func(w http.ResponseWriter, r *http.Request) {
+		prowlarrURL := config.Get(db.DB, "prowlarrUrl", "http://localhost:9696")
+		apiKey := config.Get(db.DB, "prowlarrApiKey", "")
+		w.Header().Set("Content-Type", "application/json")
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet,
+			strings.TrimRight(prowlarrURL, "/")+"/api/v1/system/status", nil)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+			return
+		}
+		req.Header.Set("X-Api-Key", apiKey)
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+			return
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			msg := fmt.Sprintf("HTTP %d", resp.StatusCode)
+			switch resp.StatusCode {
+			case http.StatusUnauthorized:
+				msg = "Invalid API key"
+			case http.StatusForbidden:
+				msg = "Access denied"
+			case http.StatusNotFound:
+				msg = "Prowlarr not found at this URL"
+			case http.StatusServiceUnavailable:
+				msg = "Prowlarr is unavailable"
+			}
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": msg})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Connected to Prowlarr"})
+	})
 	go func() {
 		slog.Info("Health endpoint listening", "port", "8082")
 		if err := http.ListenAndServe(":8082", mux); err != nil {
