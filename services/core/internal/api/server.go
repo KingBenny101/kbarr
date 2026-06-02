@@ -50,6 +50,8 @@ func NewRouter(metadataClient *clients.MetadataClient, version string, authStore
 		// Settings
 		r.Get("/api/settings", handlers.HandleGetSettings)
 		r.Post("/api/settings", handlers.HandleUpdateSettings)
+		r.Post("/api/settings/test/indexer", handlers.HandleTestIndexer(handlers.SvcAddr("INDEXER_HEALTH_ADDR", "http://localhost:8082")))
+		r.Post("/api/settings/test/downloader", handlers.HandleTestDownloader(handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083")))
 
 		// Search
 		r.Get("/api/search", router.handleMediaSearch)

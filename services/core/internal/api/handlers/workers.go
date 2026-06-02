@@ -40,7 +40,7 @@ var sidecarServices = []struct {
 	{"downloader", "Downloader", "DOWNLOADER_HEALTH_ADDR", "http://localhost:8083"},
 }
 
-func svcAddr(envKey, fallback string) string {
+func SvcAddr(envKey, fallback string) string {
 	if v := os.Getenv(envKey); v != "" {
 		return v
 	}
@@ -53,7 +53,7 @@ func HandleGetWorkers() http.HandlerFunc {
 			{Name: "core", DisplayName: "Core", Running: true},
 		}
 		for _, svc := range sidecarServices {
-			addr := svcAddr(svc.envKey, svc.fallback)
+			addr := SvcAddr(svc.envKey, svc.fallback)
 			running, errMsg := probe(addr + "/health")
 			out = append(out, ServiceHealth{
 				Name:        svc.name,
@@ -79,7 +79,7 @@ func HandleGetServiceLogs() http.HandlerFunc {
 
 		for _, svc := range sidecarServices {
 			if svc.name == name {
-				addr := svcAddr(svc.envKey, svc.fallback)
+				addr := SvcAddr(svc.envKey, svc.fallback)
 				resp, err := httpProbe.Get(addr + "/logs")
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadGateway)
