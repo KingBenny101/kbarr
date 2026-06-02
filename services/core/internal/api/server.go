@@ -65,6 +65,7 @@ func NewRouter(metadataClient *clients.MetadataClient, version string, authStore
 		r.Post("/api/library", router.handleAddMedia)
 
 		r.Get("/api/library/{id}", handlers.HandleGetDetailedByMediaID)
+		r.Get("/api/library/{id}/episodes", handlers.HandleGetEpisodes)
 		r.Get("/api/library/{id}/monitored", handlers.HandleGetMonitorsByLibraryID)
 		r.Delete("/api/library/{id}", handlers.HandleDeleteMedia)
 

@@ -41,12 +41,12 @@ func HandleMediaSearch(w http.ResponseWriter, r *http.Request, metadataClient *c
 	if err != nil {
 		slog.Warn("Failed to load media list for search annotations", "error", err)
 	} else {
-		addedMedia := make(map[uint]struct{}, len(mediaList))
+		addedMedia := make(map[string]struct{}, len(mediaList))
 		for _, media := range mediaList {
-			addedMedia[media.AID] = struct{}{}
+			addedMedia[media.Source+":"+media.SourceID] = struct{}{}
 		}
 		for i := range results {
-			_, results[i].Added = addedMedia[results[i].AID]
+			_, results[i].Added = addedMedia[results[i].Source+":"+results[i].SourceID]
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -22,9 +23,9 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient *clie
 		return
 	}
 
-	slog.Info("HandleAddMedia called", "title", media.Title, "aid", media.AID)
+	slog.Info("HandleAddMedia called", "title", media.Title, "source", media.Source, "source_id", media.SourceID)
 
-	exists, err := db.CheckMediaExists(media.AID)
+	exists, err := db.CheckMediaExists(media.Source, media.SourceID)
 	if err != nil {
 		slog.Error("Failed to check media existence", "error", err)
 		http.Error(w, "failed to check media existence", http.StatusInternalServerError)
@@ -41,17 +42,17 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient *clie
 		return
 	}
 
-	slog.Info("Preparing detailed info", "title", media.Title, "aid", media.AID)
+	slog.Info("Preparing detailed info", "title", media.Title, "source", media.Source, "source_id", media.SourceID)
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 
-	prepared, err := metadataClient.Prepare(ctx, media.AID, media.Title, 0)
+	prepared, err := metadataClient.Prepare(ctx, media.Source, media.SourceID, media.Title, 0)
 	if err != nil {
-		slog.Error("Failed to get anime details from AniDB", "error", err)
+		slog.Error("Failed to get anime details from metadata service", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "Failed to fetch anime details from AniDB. Check your AniDB client settings.",
+			"error": "Failed to fetch anime details. Check your metadata source settings.",
 		})
 		return
 	}
@@ -161,13 +162,69 @@ func HandleGetDetailedByMediaID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(detailed)
 }
 
-func toDetailedModel(d *clients.Detailed, libraryID uint) models.Detailed {
+func HandleGetEpisodes(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	libraryID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid media ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse type filter: ?types=1,2,3
+	var types []int
+	if raw := r.URL.Query().Get("types"); raw != "" {
+		for _, part := range strings.Split(raw, ",") {
+			if t, err := strconv.Atoi(strings.TrimSpace(part)); err == nil {
+				types = append(types, t)
+			}
+		}
+	}
+
+	// Parse sort: ?sort=ep_no|title  ?order=asc|desc
+	sortField := r.URL.Query().Get("sort")
+	if sortField != "title" {
+		sortField = "ep_no"
+	}
+	sortOrder := r.URL.Query().Get("order")
+	if sortOrder != "desc" {
+		sortOrder = "asc"
+	}
+
+	// Parse pagination: ?page=1&limit=10
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+	limit := 10
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+
+	result, err := db.QueryEpisodesByLibraryID(uint(libraryID), db.EpisodeQueryParams{
+		Types:     types,
+		SortField: sortField,
+		SortOrder: sortOrder,
+		Page:      page,
+		Limit:     limit,
+	})
+	if err != nil {
+		slog.Error("Failed to query episodes", "id", id, "error", err)
+		http.Error(w, "failed to fetch episodes", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func toDetailedModel(d *clients.AnimeMetadata, libraryID uint) models.Detailed {
 	if d == nil {
 		return models.Detailed{}
 	}
 
 	result := models.Detailed{
-		AID:             d.AID,
+		Source:          d.Source,
+		SourceID:        d.SourceID,
 		LibraryID:       libraryID,
 		Title:           d.Title,
 		AlternateTitles: d.AlternateTitles,
@@ -183,11 +240,12 @@ func toDetailedModel(d *clients.Detailed, libraryID uint) models.Detailed {
 		result.Episodes = make([]models.Episode, 0, len(d.Episodes))
 		for _, ep := range d.Episodes {
 			result.Episodes = append(result.Episodes, models.Episode{
-				AniDBID: ep.AniDBID,
-				Type:    ep.Type,
-				EpNo:    ep.EpNo,
-				Title:   ep.Title,
-				AirDate: ep.AirDate,
+				Source:     ep.Source,
+				ExternalID: ep.ExternalID,
+				Type:       ep.Type,
+				EpNo:       ep.Number,
+				Title:      ep.Title,
+				AirDate:    ep.AirDate,
 			})
 		}
 	}

@@ -11,31 +11,34 @@ import (
 )
 
 type SearchResult struct {
-	AID   uint   `json:"aid"`
-	Title string `json:"title"`
-	Added bool   `json:"added"`
+	Source   string `json:"source"`
+	SourceID string `json:"source_id"`
+	Title    string `json:"title"`
+	Added    bool   `json:"added"`
 }
 
-type Episode struct {
-	AniDBID string `json:"anidb_id"`
-	Type    int    `json:"type"`
-	EpNo    string `json:"ep_no"`
-	Title   string `json:"title"`
-	AirDate string `json:"air_date"`
+type EpisodeMetadata struct {
+	ExternalID string `json:"external_id"`
+	Source     string `json:"source"`
+	Type       int    `json:"type"`
+	Number     string `json:"number"`
+	Title      string `json:"title"`
+	AirDate    string `json:"air_date"`
 }
 
-type Detailed struct {
-	AID             uint      `json:"aid"`
-	LibraryID       uint      `json:"library_id"`
-	Title           string    `json:"title"`
-	AlternateTitles string    `json:"alternate_titles"`
-	Description     string    `json:"description"`
-	ReleaseDate     string    `json:"release_date"`
-	Genres          string    `json:"genres"`
-	PosterURL       string    `json:"poster_url"`
-	TotalEpisodes   int       `json:"total_episodes"`
-	TotalSeasons    int       `json:"total_seasons"`
-	Episodes        []Episode `json:"episodes"`
+type AnimeMetadata struct {
+	Source          string            `json:"source"`
+	SourceID        string            `json:"source_id"`
+	LibraryID       uint              `json:"library_id"`
+	Title           string            `json:"title"`
+	AlternateTitles string            `json:"alternate_titles"`
+	Description     string            `json:"description"`
+	ReleaseDate     string            `json:"release_date"`
+	Genres          string            `json:"genres"`
+	PosterURL       string            `json:"poster_url"`
+	TotalEpisodes   int               `json:"total_episodes"`
+	TotalSeasons    int               `json:"total_seasons"`
+	Episodes        []EpisodeMetadata `json:"episodes"`
 }
 
 type MetadataClient struct {
@@ -75,9 +78,10 @@ func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]Sear
 	return results, nil
 }
 
-func (c *MetadataClient) Prepare(ctx context.Context, aid uint, title string, libraryID uint) (*Detailed, error) {
+func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title string, libraryID uint) (*AnimeMetadata, error) {
 	body := map[string]any{
-		"aid":        aid,
+		"source":     source,
+		"source_id":  sourceID,
 		"title":      title,
 		"library_id": libraryID,
 	}
@@ -107,10 +111,10 @@ func (c *MetadataClient) Prepare(ctx context.Context, aid uint, title string, li
 		return nil, fmt.Errorf("metadata service returned status %d", resp.StatusCode)
 	}
 
-	var detailed Detailed
-	if err := json.NewDecoder(resp.Body).Decode(&detailed); err != nil {
+	var metadata AnimeMetadata
+	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &detailed, nil
+	return &metadata, nil
 }

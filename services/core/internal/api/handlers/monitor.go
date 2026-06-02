@@ -93,15 +93,15 @@ func HandleGetMonitorsByLibraryID(w http.ResponseWriter, r *http.Request) {
 
 func HandleUnmonitor(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		LibraryID uint   `json:"library_id"`
-		AniDBID   string `json:"anidb_id"`
+		LibraryID  uint   `json:"library_id"`
+		ExternalID string `json:"external_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
-	if err := db.UnmonitorByDetails(body.LibraryID, body.AniDBID); err != nil {
+	if err := db.UnmonitorByDetails(body.LibraryID, body.ExternalID); err != nil {
 		http.Error(w, "failed to unmonitor", http.StatusInternalServerError)
 		return
 	}
