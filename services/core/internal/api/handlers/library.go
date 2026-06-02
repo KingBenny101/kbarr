@@ -196,7 +196,7 @@ func HandleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 		page = p
 	}
 	limit := 10
-	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 10000 {
 		limit = l
 	}
 

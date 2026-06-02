@@ -28,6 +28,32 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string) error {
 		return fmt.Errorf("invalid id %q: %w", id, err)
 	}
 
+	// Fetch row before deleting so we can reset the linked monitor
+	var entry DownloadQueue
+	if err := DB.NewSelect().Model(&entry).Where("id = ? AND deleted_at IS NULL", numID).Scan(ctx); err == nil && entry.MonitorID != nil {
+		resetMonitorOnQueueDelete(ctx, *entry.MonitorID)
+	}
+
 	_, err = DB.NewDelete().Model((*DownloadQueue)(nil)).Where("id = ?", numID).Exec(ctx)
 	return err
+}
+
+func resetMonitorOnQueueDelete(ctx context.Context, monitorID int64) {
+	var mon Monitor
+	if err := DB.NewSelect().Model(&mon).Where("id = ? AND deleted_at IS NULL", monitorID).Scan(ctx); err != nil {
+		return
+	}
+
+	DB.NewUpdate().Model((*Monitor)(nil)).
+		Set("status = 'monitored', updated_at = now()").
+		Where("id = ?", monitorID).
+		Exec(ctx)
+
+	// For season monitors, also reset all episode monitors in the same library
+	if mon.IsSeason != nil && *mon.IsSeason && mon.LibraryID != nil {
+		DB.NewUpdate().Model((*Monitor)(nil)).
+			Set("status = 'monitored', updated_at = now()").
+			Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
+			Exec(ctx)
+	}
 }

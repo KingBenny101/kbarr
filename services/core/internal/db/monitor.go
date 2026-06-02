@@ -135,6 +135,10 @@ func listMonitorsByLibraryID(ctx context.Context, libraryID *int64) []Monitor {
 }
 
 func createMonitor(ctx context.Context, libraryID *int64, title *string, episodeTitle *string, season *int64, episodeNumber *int64, isEpisode *bool, isSeason *bool, source *string, externalID *string, status *string) (*Monitor, error) {
+	defaultStatus := "monitored"
+	if status == nil || *status == "" {
+		status = &defaultStatus
+	}
 	item := &Monitor{
 		LibraryID:     libraryID,
 		Title:         title,
