@@ -52,9 +52,17 @@ type TorrentBlacklist struct {
 
 type SearchResult struct {
 	Title       string
+	FileName    string
 	DownloadURL string
 	Size        int64
 	Indexer     string
 	Seeds       int
 	Peers       int
+}
+
+type Detailed struct {
+	bun.BaseModel   `bun:"table:detaileds"`
+	LibraryID       *int64  `bun:"library_id"`
+	AlternateTitles *string `bun:"alternate_titles"`
+	Title           *string `bun:"title"`
 }
