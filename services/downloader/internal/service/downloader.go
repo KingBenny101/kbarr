@@ -85,10 +85,9 @@ func (s *DownloaderService) processPending(ctx context.Context) {
 	status := "pending"
 	var entries []models.DownloadQueue
 	err := s.db.NewSelect().
-		TableExpr("download_queue").
-		ColumnExpr("*").
+		Model(&entries).
 		Where("status = ? AND deleted_at IS NULL", status).
-		Scan(ctx, &entries)
+		Scan(ctx)
 	if err != nil {
 		slog.Error("Failed to fetch pending download queue entries", "error", err)
 		return
@@ -116,13 +115,20 @@ func (s *DownloaderService) processPending(ctx context.Context) {
 
 		statusDownloading := "downloading"
 		_, err = s.db.NewUpdate().
-			TableExpr("download_queue").
+			Model((*models.DownloadQueue)(nil)).
 			Set("status = ?, torrent_hash = ?, updated_at = now()", statusDownloading, hash).
 			Where("id = ?", entry.ID).
 			Exec(ctx)
 		if err != nil {
 			slog.Error("Failed to update download queue status", "id", entry.ID, "error", err)
 			continue
+		}
+
+		if entry.MonitorID != nil {
+			s.db.NewUpdate().TableExpr("monitors").
+				Set("status = 'downloading', updated_at = now()").
+				Where("id = ?", *entry.MonitorID).
+				Exec(ctx)
 		}
 
 		slog.Info("Torrent added", "id", entry.ID, "hash", hash)
@@ -133,10 +139,9 @@ func (s *DownloaderService) updateDownloading(ctx context.Context) {
 	status := "downloading"
 	var entries []models.DownloadQueue
 	err := s.db.NewSelect().
-		TableExpr("download_queue").
-		ColumnExpr("*").
+		Model(&entries).
 		Where("status = ? AND torrent_hash IS NOT NULL AND deleted_at IS NULL", status).
-		Scan(ctx, &entries)
+		Scan(ctx)
 	if err != nil {
 		slog.Error("Failed to fetch downloading entries", "error", err)
 		return
@@ -167,13 +172,23 @@ func (s *DownloaderService) updateDownloading(ctx context.Context) {
 			newStatus = "completed"
 		}
 
-		_, err = s.db.NewUpdate().
-			TableExpr("download_queue").
-			Set("status = ?, updated_at = now()", newStatus).
-			Where("id = ?", entry.ID).
-			Exec(ctx)
-		if err != nil {
-			slog.Warn("Failed to update torrent status", "id", entry.ID, "error", err)
+		if newStatus != status {
+			_, err = s.db.NewUpdate().
+				Model((*models.DownloadQueue)(nil)).
+				Set("status = ?, updated_at = now()", newStatus).
+				Where("id = ?", entry.ID).
+				Exec(ctx)
+			if err != nil {
+				slog.Warn("Failed to update torrent status", "id", entry.ID, "error", err)
+				continue
+			}
+
+			if entry.MonitorID != nil {
+				s.db.NewUpdate().TableExpr("monitors").
+					Set("status = ?, updated_at = now()", newStatus).
+					Where("id = ?", *entry.MonitorID).
+					Exec(ctx)
+			}
 		}
 	}
 }
