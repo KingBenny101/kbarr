@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16
+    container_name: kbarr-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -16,6 +18,8 @@ services:
 
   core:
     image: ghcr.io/kingbenny101/kbarr-core:latest
+    container_name: kbarr-core
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -41,6 +45,8 @@ services:
 
   metadata:
     image: ghcr.io/kingbenny101/kbarr-metadata:latest
+    container_name: kbarr-metadata
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -61,6 +67,8 @@ services:
 
   indexer:
     image: ghcr.io/kingbenny101/kbarr-indexer:latest
+    container_name: kbarr-indexer
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -77,6 +85,8 @@ services:
 
   downloader:
     image: ghcr.io/kingbenny101/kbarr-downloader:latest
+    container_name: kbarr-downloader
+    restart: unless-stopped
     env_file:
       - .env
     environment:
