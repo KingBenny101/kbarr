@@ -47,14 +47,25 @@ func NewDownloaderService(db *bun.DB) *DownloaderService {
 }
 
 type torrentInfo struct {
-	Hash     string  `json:"hash"`
-	Name     string  `json:"name"`
-	State    string  `json:"state"`
-	Size     int64   `json:"size"`
-	Progress float64 `json:"progress"`
-	ETA      int64   `json:"eta"`
-	SavePath string  `json:"save_path"`
-	Category string  `json:"category"`
+	Hash        string  `json:"hash"`
+	Name        string  `json:"name"`
+	ContentPath string  `json:"content_path"`
+	State       string  `json:"state"`
+	Size        int64   `json:"size"`
+	Progress    float64 `json:"progress"`
+	ETA         int64   `json:"eta"`
+	SavePath    string  `json:"save_path"`
+	Category    string  `json:"category"`
+}
+
+// contentName returns the actual on-disk name of the torrent content.
+// content_path is the real filesystem path; its base name is the folder or file
+// that qBittorrent created, which may differ from the display Name.
+func (t torrentInfo) contentName() string {
+	if t.ContentPath != "" {
+		return filepath.Base(t.ContentPath)
+	}
+	return t.Name
 }
 
 func (s *DownloaderService) qbtConfig() (qbtURL, username, password string) {
@@ -154,7 +165,7 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 				hash = t.Hash
 			}
 			if downloadPath != "" {
-				savePath = filepath.Join(downloadPath, t.Name)
+				savePath = filepath.Join(downloadPath, t.contentName())
 			}
 		} else if hash == "" && entry.TorrentName != nil && *entry.TorrentName != "" {
 			// Fallback: search by name if hash still unknown
@@ -163,7 +174,7 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 					if t.Name == *entry.TorrentName {
 						hash = t.Hash
 						if downloadPath != "" {
-							savePath = filepath.Join(downloadPath, t.Name)
+							savePath = filepath.Join(downloadPath, t.contentName())
 						}
 						break
 					}
@@ -244,14 +255,14 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 				slog.Info("Torrent is moving files — deferring completion", "id", entry.ID, "hash", *entry.TorrentHash)
 				continue
 			}
-			// Rebuild save_path from the torrent's current name + local downloadPath.
-			// The DB-cached name may be stale if qBittorrent updated it after metadata fetch.
-			// We use downloadPath (not t.SavePath) because qBittorrent's path is from its own
-			// container and is not accessible to us.
-			if t.Name != "" {
+			// Rebuild save_path from the torrent's actual content name + local downloadPath.
+			// content_path gives the real on-disk name (may differ from display Name).
+			// We use downloadPath (not t.SavePath) because qBittorrent's path is from its
+			// own container and is not accessible to us.
+			if name := t.contentName(); name != "" {
 				downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 				if downloadPath != "" {
-					actualPath := filepath.Join(downloadPath, t.Name)
+					actualPath := filepath.Join(downloadPath, name)
 					entry.SavePath = &actualPath
 				}
 			}
