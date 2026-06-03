@@ -22,6 +22,7 @@ interface Settings {
     qbittorrentUsername: string
     qbittorrentPassword: string
     downloadPath: string
+    symlinkTargetDownloadPath: string
     mediaPath: string
     allowedVideoExtensions: string
     downloaderInterval: string
@@ -91,6 +92,7 @@ export function SettingsPage() {
                 qbittorrentUsername: data.qbittorrentUsername || "",
                 qbittorrentPassword: data.qbittorrentPassword || "",
                 downloadPath: data.downloadPath || "/app/downloads",
+                symlinkTargetDownloadPath: data.symlinkTargetDownloadPath || "",
                 mediaPath: data.mediaPath || "/app/media",
                 allowedVideoExtensions: data.allowedVideoExtensions || ".mkv,.mp4,.avi,.mov,.wmv,.m4v",
                 downloaderInterval: data.downloaderInterval || "1",
@@ -434,6 +436,13 @@ export function SettingsPage() {
                             value={settings.downloadPath}
                             onChange={(e) => update("downloadPath", e.currentTarget.value)}
                             placeholder="/app/downloads"
+                        />
+                        <TextInput
+                            label="Symlink target download path"
+                            description="Host path to the downloads directory, used as the symlink target so media clients outside the container can resolve links. Leave blank to use Download path."
+                            value={settings.symlinkTargetDownloadPath}
+                            onChange={(e) => update("symlinkTargetDownloadPath", e.currentTarget.value)}
+                            placeholder="/mnt/data/downloads"
                         />
                         <TextInput
                             label="Media path"
