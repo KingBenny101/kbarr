@@ -22,6 +22,7 @@ interface EpisodesResponse {
 }
 
 interface MonitoredItem {
+    id?: number
     external_id: string
     source: string
     is_episode: boolean
@@ -29,6 +30,7 @@ interface MonitoredItem {
     season: number
     status?: string
     available?: boolean
+    monitored?: boolean
 }
 
 export function MediaDetailPage() {
@@ -117,6 +119,7 @@ export function MediaDetailPage() {
                         is_season: false,
                         source: episode?.source || media.source,
                         external_id: episode?.external_id || "",
+                        monitored: true,
                     }
                 }),
                 ...(includeSeason ? [{
@@ -129,6 +132,7 @@ export function MediaDetailPage() {
                     is_season: true,
                     source: media.source,
                     external_id: media.source_id,
+                    monitored: true,
                 }] : []),
             ]
 
@@ -190,16 +194,15 @@ export function MediaDetailPage() {
                 is_season: false,
                 source: episode.source,
                 external_id: episode.external_id,
+                monitored: true,
             }),
         })
 
-        const updatedMonitored = [...monitoredItems, {
-            external_id: episode.external_id,
-            source: episode.source,
-            is_episode: true,
-            is_season: false,
-            season: 1,
-        }]
+        // Immediately reflect the change in local state
+        const existing = monitoredItems.find((i) => i.external_id === episode.external_id && i.is_episode)
+        const updatedMonitored = existing
+            ? monitoredItems.map((i) => i.external_id === episode.external_id && i.is_episode ? { ...i, monitored: true } : i)
+            : [...monitoredItems, { external_id: episode.external_id, source: episode.source, is_episode: true, is_season: false, season: 1, monitored: true }]
 
         // Check if all episodes are now monitored — if so, add season monitor
         const allEpsRes = await apiFetch(`${API_URL}/api/library/${id}/episodes?limit=10000`)
@@ -250,11 +253,13 @@ export function MediaDetailPage() {
             setMonitorEntireSeason(false)
         }
 
+        // Immediately reflect unmonitor in local state by toggling monitored=false
         setMonitoredItems((prev) =>
-            prev.filter((item) =>
-                !(item.external_id === episode.external_id && item.is_episode) &&
-                !(seasonMonitor && item.is_season && item.external_id === seasonMonitor.external_id)
-            )
+            prev.map((item) => {
+                if (item.external_id === episode.external_id && item.is_episode) return { ...item, monitored: false }
+                if (seasonMonitor && item.is_season && item.external_id === seasonMonitor.external_id) return { ...item, monitored: false }
+                return item
+            })
         )
     }
 
@@ -562,8 +567,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                     {episodes.map((episode) => {
                         const monitorEntry = monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
                         const available = monitorEntry?.available === true
-                        const activeStatuses = new Set(["monitored", "searching", "queued", "downloading", "downloaded", "missing"])
-                        const monitored = !!monitorEntry && !available && activeStatuses.has(monitorEntry.status ?? "")
+                        const monitored = monitorEntry?.monitored === true
                         const link = episodeSourceUrl(episode)
                         return (
                             <Table.Tr key={episode.ID}>
