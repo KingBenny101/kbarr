@@ -22,6 +22,8 @@ interface Settings {
     qbittorrentUsername: string
     qbittorrentPassword: string
     downloadPath: string
+    mediaPath: string
+    allowedVideoExtensions: string
     downloaderInterval: string
     stallTimeout: string
     devMode: string
@@ -88,7 +90,9 @@ export function SettingsPage() {
                 qbittorrentUrl: data.qbittorrentUrl || "http://host.docker.internal:8080",
                 qbittorrentUsername: data.qbittorrentUsername || "",
                 qbittorrentPassword: data.qbittorrentPassword || "",
-                downloadPath: data.downloadPath || "/data/torrents",
+                downloadPath: data.downloadPath || "",
+                mediaPath: data.mediaPath || "",
+                allowedVideoExtensions: data.allowedVideoExtensions || ".mkv,.mp4,.avi,.mov,.wmv,.m4v",
                 downloaderInterval: data.downloaderInterval || "1",
                 stallTimeout: data.stallTimeout || "300",
                 devMode: data.devMode || "false",
@@ -426,10 +430,24 @@ export function SettingsPage() {
                         />
                         <TextInput
                             label="Download path"
-                            description="Base directory where torrents are saved. A subfolder per anime title is created automatically."
+                            description="Absolute path where qBittorrent saves files. Must match DOWNLOAD_DIR_HOST in your .env."
                             value={settings.downloadPath}
                             onChange={(e) => update("downloadPath", e.currentTarget.value)}
-                            placeholder="/data/torrents"
+                            placeholder="/home/user/Downloads"
+                        />
+                        <TextInput
+                            label="Media path"
+                            description="Absolute path where named symlinks are created. Must match MEDIA_DIR_HOST in your .env."
+                            value={settings.mediaPath}
+                            onChange={(e) => update("mediaPath", e.currentTarget.value)}
+                            placeholder="/home/user/Media/Anime"
+                        />
+                        <TextInput
+                            label="Allowed video extensions"
+                            description="Comma-separated list of file extensions to symlink on completion."
+                            value={settings.allowedVideoExtensions}
+                            onChange={(e) => update("allowedVideoExtensions", e.currentTarget.value)}
+                            placeholder=".mkv,.mp4,.avi,.mov,.wmv,.m4v"
                         />
                         <TextInput
                             label="Stall timeout (sec)"

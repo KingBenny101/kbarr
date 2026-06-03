@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
-import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Progress, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
-import { IconExternalLink, IconFlask, IconTrash } from "@tabler/icons-react"
+import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Progress, ScrollArea, Stack, Table, Text, TextInput, Title, Tooltip } from "@mantine/core"
+import { IconExternalLink, IconFlask, IconLink, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
 
@@ -44,6 +44,7 @@ export function DownloadQueuePage() {
     const [deleteTarget, setDeleteTarget] = useState<DownloadItem | null>(null)
     const [blacklist, setBlacklist] = useState(false)
     const [unmonitor, setUnmonitor] = useState(false)
+    const [deleteFiles, setDeleteFiles] = useState(false)
     const [deleting, setDeleting] = useState(false)
     const [testModalOpen, setTestModalOpen] = useState(false)
     const [testURL, setTestURL] = useState("")
@@ -111,10 +112,21 @@ export function DownloadQueuePage() {
         return () => clearInterval(interval)
     }, [])
 
+    const handleRetrySymlinks = async (item: DownloadItem) => {
+        try {
+            const res = await apiFetch(`${API_URL}/api/downloads/${item.id}/symlink`, { method: "POST" })
+            if (!res.ok) throw new Error()
+            showToast("Symlink creation triggered — check logs", "success")
+        } catch {
+            showToast("Failed to trigger symlink creation", "error")
+        }
+    }
+
     const openDeleteModal = (item: DownloadItem) => {
         setDeleteTarget(item)
         setBlacklist(false)
         setUnmonitor(false)
+        setDeleteFiles(false)
     }
 
     const confirmDelete = async () => {
@@ -124,7 +136,7 @@ export function DownloadQueuePage() {
             const response = await apiFetch(`${API_URL}/api/downloads/${deleteTarget.id}`, {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ blacklist, unmonitor }),
+                body: JSON.stringify({ blacklist, unmonitor, deleteFiles }),
             })
             if (!response.ok) throw new Error()
             setQueue((items) => items.filter((item) => item.id !== deleteTarget.id))
@@ -158,6 +170,11 @@ export function DownloadQueuePage() {
                             onChange={(e) => setUnmonitor(e.currentTarget.checked)}
                         />
                     )}
+                    <Checkbox
+                        label="Delete downloaded files and symlinks"
+                        checked={deleteFiles}
+                        onChange={(e) => setDeleteFiles(e.currentTarget.checked)}
+                    />
                     <Group justify="flex-end" gap="xs">
                         <Button variant="subtle" color="gray" onClick={() => setDeleteTarget(null)}>Cancel</Button>
                         <Button color="red" loading={deleting} onClick={confirmDelete}>Remove</Button>
@@ -277,9 +294,18 @@ export function DownloadQueuePage() {
                                                 </Stack>
                                             </Table.Td>
                                             <Table.Td ta="right">
-                                                <ActionIcon variant="subtle" color="red" onClick={() => openDeleteModal(item)} aria-label="Remove from queue">
-                                                    <IconTrash size={18} />
-                                                </ActionIcon>
+                                                <Group gap={4} justify="flex-end" wrap="nowrap">
+                                                    {item.status === "completed" && (
+                                                        <Tooltip label="Retry symlink creation">
+                                                            <ActionIcon variant="subtle" color="blue" onClick={() => handleRetrySymlinks(item)} aria-label="Retry symlinks">
+                                                                <IconLink size={18} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    )}
+                                                    <ActionIcon variant="subtle" color="red" onClick={() => openDeleteModal(item)} aria-label="Remove from queue">
+                                                        <IconTrash size={18} />
+                                                    </ActionIcon>
+                                                </Group>
                                             </Table.Td>
                                         </Table.Tr>
                                     ))
