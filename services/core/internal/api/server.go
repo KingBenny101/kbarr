@@ -60,6 +60,7 @@ func NewRouter(metadataClient *clients.MetadataClient, version string, authStore
 			r.Delete("/api/downloads/{id}", handlers.HandleDeleteDownload)
 			r.Post("/api/downloads/test", handlers.HandleAddTestDownload)
 			r.Post("/api/downloads/trigger", handlers.HandleTriggerDownloader(handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083")))
+			r.Post("/api/downloads/{id}/symlink", handlers.HandleCreateSymlinks(handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083")))
 			r.Delete("/api/downloads/blacklist", handlers.HandleClearBlacklist)
 
 		// Library

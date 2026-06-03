@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -46,6 +47,44 @@ func HandleClearBlacklist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func HandleCreateSymlinks(downloaderAddr string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+
+		var entry db.DownloadQueue
+		if err := db.GetDownloadQueueEntry(context.Background(), id, &entry); err != nil {
+			slog.Error("Failed to fetch download queue entry", "id", id, "error", err)
+			http.Error(w, "entry not found", http.StatusNotFound)
+			return
+		}
+
+		savePath := ""
+		if entry.SavePath != nil {
+			savePath = *entry.SavePath
+		}
+		title := ""
+		if entry.Title != nil {
+			title = *entry.Title
+		}
+
+		body, _ := json.Marshal(map[string]string{"save_path": savePath, "title": title})
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, downloaderAddr+"/symlinks/create", bytes.NewReader(body))
+		if err != nil {
+			http.Error(w, "failed to build request", http.StatusInternalServerError)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			slog.Error("Failed to reach downloader for symlink creation", "error", err)
+			http.Error(w, "downloader unreachable", http.StatusBadGateway)
+			return
+		}
+		resp.Body.Close()
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func HandleDeleteDownload(w http.ResponseWriter, r *http.Request) {

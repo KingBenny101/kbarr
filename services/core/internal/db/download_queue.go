@@ -24,6 +24,17 @@ func GetAllDownloadQueue() ([]DownloadQueue, error) {
 	return entries, nil
 }
 
+func GetDownloadQueueEntry(ctx context.Context, id string, entry *DownloadQueue) error {
+	if err := ensureDB(); err != nil {
+		return err
+	}
+	numID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid id %q: %w", id, err)
+	}
+	return DB.NewSelect().Model(entry).Where("id = ? AND deleted_at IS NULL", numID).Scan(ctx)
+}
+
 func InsertTestDownloadQueueEntry(ctx context.Context, torrentURL, title string) error {
 	if err := ensureDB(); err != nil {
 		return err
@@ -43,8 +54,9 @@ func InsertTestDownloadQueueEntry(ctx context.Context, torrentURL, title string)
 }
 
 type DeleteOptions struct {
-	Blacklist bool `json:"blacklist"`
-	Unmonitor bool `json:"unmonitor"`
+	Blacklist   bool `json:"blacklist"`
+	Unmonitor   bool `json:"unmonitor"`
+	DeleteFiles bool `json:"deleteFiles"`
 }
 
 func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions) error {
@@ -57,10 +69,15 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 		return fmt.Errorf("invalid id %q: %w", id, err)
 	}
 
-	// Fetch row before deleting so we can remove from qBittorrent, blacklist, and reset monitor
+	// Fetch row before soft-deleting so we can remove from qBittorrent, blacklist, reset monitor, and delete files
 	var entry DownloadQueue
 	if err := DB.NewSelect().Model(&entry).Where("id = ? AND deleted_at IS NULL", numID).Scan(ctx); err == nil {
-		if entry.TorrentHash != nil && *entry.TorrentHash != "" {
+		status := ""
+		if entry.Status != nil {
+			status = *entry.Status
+		}
+		// Only remove from qBittorrent for in-progress torrents
+		if status != "completed" && entry.TorrentHash != nil && *entry.TorrentHash != "" {
 			removeFromQBittorrent(ctx, *entry.TorrentHash)
 		}
 		if opts.Blacklist {
@@ -81,9 +98,19 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 		if entry.MonitorID != nil {
 			resetMonitorOnQueueDelete(ctx, *entry.MonitorID, opts.Unmonitor)
 		}
+		if opts.DeleteFiles && entry.SavePath != nil && *entry.SavePath != "" {
+			title := ""
+			if entry.Title != nil {
+				title = *entry.Title
+			}
+			deleteDownloadedFiles(ctx, *entry.SavePath, title)
+		}
 	}
 
-	_, err = DB.NewDelete().Model((*DownloadQueue)(nil)).Where("id = ?", numID).Exec(ctx)
+	_, err = DB.NewUpdate().Model((*DownloadQueue)(nil)).
+		Set("deleted_at = now(), updated_at = now()").
+		Where("id = ?", numID).
+		Exec(ctx)
 	return err
 }
 
@@ -110,6 +137,26 @@ func resetMonitorOnQueueDelete(ctx context.Context, monitorID int64, unmonitor b
 			Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
 			Exec(ctx)
 	}
+}
+
+func deleteDownloadedFiles(ctx context.Context, savePath, title string) {
+	downloaderAddr := strings.TrimRight(os.Getenv("DOWNLOADER_HEALTH_ADDR"), "/")
+	if downloaderAddr == "" {
+		downloaderAddr = "http://localhost:8083"
+	}
+	body, _ := json.Marshal(map[string]string{"save_path": savePath, "symlink_dir": title})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, downloaderAddr+"/files/delete", bytes.NewReader(body))
+	if err != nil {
+		slog.Warn("Failed to build files/delete request", "save_path", savePath, "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Warn("Failed to delete downloaded files", "save_path", savePath, "error", err)
+		return
+	}
+	resp.Body.Close()
 }
 
 func removeFromQBittorrent(ctx context.Context, hash string) {
