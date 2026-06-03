@@ -40,11 +40,11 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		return
 	}
 
-	// Check all episode monitors (both directions)
+	// Check all episode monitors (both directions, including unmonitored)
 	var monitors []db.Monitor
 	err := bunDB.NewSelect().
 		Model(&monitors).
-		Where("is_episode = true AND status != 'unmonitored' AND deleted_at IS NULL").
+		Where("is_episode = true AND deleted_at IS NULL").
 		Scan(ctx)
 	if err != nil {
 		slog.Error("availability: failed to fetch episode monitors", "error", err)
@@ -75,12 +75,26 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 				Exec(ctx)
 			slog.Info("availability: episode marked available", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", episode, "file", matches[0])
 		} else if !fileExists && status == "available" {
+			// Determine whether to revert to 'monitored' or 'unmonitored':
+			// if a completed download queue entry exists for this monitor it was
+			// downloaded by kbarr, so revert to monitored (re-search).
+			// Otherwise it was manually placed — revert to unmonitored.
+			var queueCount int
+			bunDB.NewSelect().
+				TableExpr("download_queue").
+				ColumnExpr("COUNT(*)").
+				Where("monitor_id = ? AND status = 'completed' AND deleted_at IS NULL", mon.ID).
+				Scan(ctx, &queueCount)
+			revertStatus := "unmonitored"
+			if queueCount > 0 {
+				revertStatus = "monitored"
+			}
 			bunDB.NewUpdate().
 				Model((*db.Monitor)(nil)).
-				Set("status = 'monitored', updated_at = now()").
+				Set("status = ?, updated_at = now()", revertStatus).
 				Where("id = ?", mon.ID).
 				Exec(ctx)
-			slog.Info("availability: episode reverted to monitored (file removed)", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", episode)
+			slog.Info("availability: episode reverted (file removed)", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", episode, "new_status", revertStatus)
 		}
 	}
 
