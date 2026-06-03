@@ -80,6 +80,34 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient *clie
 
 	slog.Info("Detailed info added", "id", id)
 
+	var monitors []models.Monitor
+	for _, ep := range prepared.Episodes {
+		epNum, err := strconv.Atoi(ep.Number)
+		if err != nil {
+			// Skip non-integer episode numbers (specials, credits, etc.)
+			continue
+		}
+		monitors = append(monitors, models.Monitor{
+			LibraryID:     uint(id),
+			Title:         prepared.Title,
+			EpisodeTitle:  ep.Title,
+			Season:        1,
+			EpisodeNumber: epNum,
+			IsEpisode:     true,
+			IsSeason:      false,
+			Source:        ep.Source,
+			ExternalID:    ep.ExternalID,
+			Status:        "unmonitored",
+		})
+	}
+	if len(monitors) > 0 {
+		if err := db.InsertMonitorsBulk(monitors); err != nil {
+			slog.Warn("Failed to create episode monitors on add", "id", id, "error", err)
+		} else {
+			slog.Info("Created episode monitors", "id", id, "count", len(monitors), "status", "unmonitored")
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

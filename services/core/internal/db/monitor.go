@@ -19,7 +19,20 @@ func InsertMonitor(m models.Monitor) error {
 	}
 
 	if count > 0 {
-		return nil // Already monitored
+		// Row exists — update status if the caller is explicitly (re)monitoring it.
+		targetStatus := m.Status
+		if targetStatus == "" {
+			targetStatus = "monitored"
+		}
+		_, err := DB.NewUpdate().Model((*Monitor)(nil)).
+			Set("status = ?, updated_at = now()", targetStatus).
+			Where("library_id IS NOT DISTINCT FROM ?", int64Ptr(int64(m.LibraryID))).
+			Where("season IS NOT DISTINCT FROM ?", int64Ptr(int64(m.Season))).
+			Where("episode_number IS NOT DISTINCT FROM ?", int64Ptr(int64(m.EpisodeNumber))).
+			Where("is_episode IS NOT DISTINCT FROM ?", boolPtr(m.IsEpisode)).
+			Where("deleted_at IS NULL").
+			Exec(ctx)
+		return err
 	}
 
 	_, err := createMonitor(ctx, int64Ptr(int64(m.LibraryID)), stringPtr(m.Title), stringPtr(m.EpisodeTitle), int64Ptr(int64(m.Season)), int64Ptr(int64(m.EpisodeNumber)), boolPtr(m.IsEpisode), boolPtr(m.IsSeason), stringPtr(m.Source), stringPtr(m.ExternalID), stringPtr(m.Status))
