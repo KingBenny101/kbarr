@@ -328,20 +328,20 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 
 	s.db.NewUpdate().
 		Model((*models.Monitor)(nil)).
-		Set("status = 'available', updated_at = now()").
+		Set("status = 'downloaded', updated_at = now()").
 		Where("id = ?", *entry.MonitorID).
 		Exec(ctx)
 
-	// Season pack completion: also mark all episode monitors as available
+	// Season pack completion: also mark all episode monitors as downloaded
 	if mon.IsSeason != nil && *mon.IsSeason && mon.LibraryID != nil {
 		s.db.NewUpdate().
 			Model((*models.Monitor)(nil)).
-			Set("status = 'available', updated_at = now()").
+			Set("status = 'downloaded', updated_at = now()").
 			Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
 			Exec(ctx)
-		slog.Info("Season pack complete — all episodes marked available", "monitor_id", *entry.MonitorID, "library_id", *mon.LibraryID)
+		slog.Info("Season pack complete — all episodes marked downloaded, awaiting availability check", "monitor_id", *entry.MonitorID, "library_id", *mon.LibraryID)
 	} else {
-		slog.Info("Episode complete — marked available", "monitor_id", *entry.MonitorID)
+		slog.Info("Episode complete — marked downloaded, awaiting availability check", "monitor_id", *entry.MonitorID)
 	}
 }
 
