@@ -18,6 +18,31 @@ import (
 var invalidFilenameChars = regexp.MustCompile(`[/\\:*?"<>|]`)
 var episodePattern = regexp.MustCompile(`(?i)[Ss](\d+)[Ee](\d+)`)
 
+var (
+	seasonInTitleRe = regexp.MustCompile(`(?i)\bseason\s*(\d+)\b`)
+	ordinalSeasonRe = regexp.MustCompile(`(?i)\b(\d+)(?:st|nd|rd|th)\s+season\b`)
+)
+
+// effectiveSeason returns the season to use for monitor indexing.
+// AniDB stores sequels like "Grand Blue Dreaming Season 2" as standalone entries
+// with season=1; the embedded number in the title is the source of truth.
+func effectiveSeason(title string, dbSeason int64) int64 {
+	if dbSeason > 1 {
+		return dbSeason
+	}
+	if m := ordinalSeasonRe.FindStringSubmatch(title); m != nil {
+		if n, err := strconv.ParseInt(m[1], 10, 64); err == nil && n > 1 {
+			return n
+		}
+	}
+	if m := seasonInTitleRe.FindStringSubmatch(title); m != nil {
+		if n, err := strconv.ParseInt(m[1], 10, 64); err == nil && n > 1 {
+			return n
+		}
+	}
+	return dbSeason
+}
+
 func sanitizeFilename(name string) string {
 	return strings.TrimSpace(invalidFilenameChars.ReplaceAllString(name, "_"))
 }
@@ -91,10 +116,11 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		if m.Title == nil || m.EpisodeNumber == nil {
 			continue
 		}
-		season := int64(1)
+		dbSeason := int64(1)
 		if m.Season != nil && *m.Season > 0 {
-			season = *m.Season
+			dbSeason = *m.Season
 		}
+		season := effectiveSeason(*m.Title, dbSeason)
 		k := seKey{sanitizeFilename(*m.Title), season, *m.EpisodeNumber}
 		monitorsByKey[k] = m
 		nk := seKeyNoTitle{season, *m.EpisodeNumber}
@@ -189,10 +215,11 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		if !mon.Available || mon.Title == nil || mon.EpisodeNumber == nil {
 			continue
 		}
-		season := int64(1)
+		dbSeason := int64(1)
 		if mon.Season != nil && *mon.Season > 0 {
-			season = *mon.Season
+			dbSeason = *mon.Season
 		}
+		season := effectiveSeason(*mon.Title, dbSeason)
 		fk := fileKey{sanitizeFilename(*mon.Title), season, *mon.EpisodeNumber}
 		if _, exists := foundOnDisk[fk]; exists {
 			continue
