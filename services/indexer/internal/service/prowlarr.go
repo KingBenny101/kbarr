@@ -538,7 +538,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	var monitors []models.Monitor
 	err := s.db.NewSelect().
 		Model(&monitors).
-		Where("(status = 'monitored' OR (status = 'searching' AND updated_at < now() - interval '10 minutes')) AND deleted_at IS NULL").
+		Where("(status = 'monitored' OR (status = 'searching' AND updated_at < now() - interval '10 minutes')) AND status NOT IN ('downloaded', 'downloading', 'queued') AND deleted_at IS NULL").
 		OrderExpr("is_season DESC").
 		Limit(1).
 		Scan(ctx)
