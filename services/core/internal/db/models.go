@@ -69,8 +69,8 @@ type Monitor struct {
 	Source        *string    `bun:"source" json:"source"`
 	ExternalID    *string    `bun:"external_id" json:"external_id"`
 	Status        *string    `bun:"status" json:"status"`
+	Available     bool       `bun:"available,notnull,default:false" json:"available"`
 }
-
 
 
 type DownloadQueue struct {

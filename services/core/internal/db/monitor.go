@@ -55,19 +55,19 @@ func DeleteMonitor(id uint) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
-
 	ctx := context.Background()
-	if err := softDeleteMonitorByID(ctx, int64(id)); err != nil {
-		return fmt.Errorf("failed to delete monitor entry: %w", err)
-	}
-	return nil
+	_, err := DB.NewUpdate().Model((*Monitor)(nil)).
+		Set("status = 'unmonitored', updated_at = now()").
+		Where("id = ? AND deleted_at IS NULL", int64(id)).
+		Exec(ctx)
+	return err
 }
 
+// DeleteMonitorsByLibraryID hard-deletes all monitors for a library (used when removing the whole series).
 func DeleteMonitorsByLibraryID(libraryID uint) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
-
 	ctx := context.Background()
 	if err := softDeleteMonitorsByLibraryID(ctx, int64Ptr(int64(libraryID))); err != nil {
 		return fmt.Errorf("failed to delete monitor entries for library ID %d: %w", libraryID, err)
@@ -79,12 +79,12 @@ func DeleteMonitorsBySeason(libraryID uint, season int) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
-
 	ctx := context.Background()
-	if err := softDeleteMonitorsByLibraryIDAndSeason(ctx, int64Ptr(int64(libraryID)), int64Ptr(int64(season))); err != nil {
-		return fmt.Errorf("failed to delete monitor entries for library ID %d season %d: %w", libraryID, season, err)
-	}
-	return nil
+	_, err := DB.NewUpdate().Model((*Monitor)(nil)).
+		Set("status = 'unmonitored', updated_at = now()").
+		Where("library_id = ? AND season = ? AND deleted_at IS NULL", int64(libraryID), int64(season)).
+		Exec(ctx)
+	return err
 }
 
 func GetAllMonitored() ([]models.Monitor, error) {
@@ -123,9 +123,12 @@ func UnmonitorByDetails(libraryID uint, externalID string) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
-
 	ctx := context.Background()
-	if err := softDeleteMonitorsByLibraryIDAndExternalID(ctx, int64Ptr(int64(libraryID)), stringPtr(externalID)); err != nil {
+	_, err := DB.NewUpdate().Model((*Monitor)(nil)).
+		Set("status = 'unmonitored', updated_at = now()").
+		Where("library_id = ? AND external_id = ? AND deleted_at IS NULL", int64(libraryID), externalID).
+		Exec(ctx)
+	if err != nil {
 		return fmt.Errorf("failed to unmonitor: %w", err)
 	}
 	return nil
@@ -133,7 +136,7 @@ func UnmonitorByDetails(libraryID uint, externalID string) error {
 
 func listMonitors(ctx context.Context) []Monitor {
 	var items []Monitor
-	if err := DB.NewSelect().Model(&items).Scan(ctx); err != nil {
+	if err := DB.NewSelect().Model(&items).Where("status != 'unmonitored' AND deleted_at IS NULL").Scan(ctx); err != nil {
 		return nil
 	}
 	return items

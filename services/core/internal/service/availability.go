@@ -169,16 +169,12 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 				slog.Info("availability: no monitor found for file", "title", dirName, "season", s, "episode", e)
 				continue
 			}
-			status := ""
-			if mon.Status != nil {
-				status = *mon.Status
-			}
-			if status == "available" {
+			if mon.Available {
 				slog.Debug("availability: already available", "monitor_id", mon.ID)
 				continue
 			}
 			if _, err := bunDB.NewUpdate().Model((*db.Monitor)(nil)).
-				Set("status = 'available', updated_at = now()").
+				Set("available = true, updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx); err != nil {
 				slog.Warn("availability: failed to update monitor", "monitor_id", mon.ID, "error", err)
 			} else {
@@ -187,10 +183,10 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		}
 	}
 
-	// Phase 2: revert available monitors whose file is no longer on disk.
+	// Phase 2: clear available=true for monitors whose file is no longer on disk.
 	for i := range allMonitors {
 		mon := &allMonitors[i]
-		if mon.Status == nil || *mon.Status != "available" || mon.Title == nil {
+		if !mon.Available || mon.Title == nil || mon.EpisodeNumber == nil {
 			continue
 		}
 		season := int64(1)
@@ -202,18 +198,24 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 			continue
 		}
 		slog.Info("availability: file missing for available monitor", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", *mon.EpisodeNumber)
-		var queueCount int
-		bunDB.NewSelect().TableExpr("download_queue").ColumnExpr("COUNT(*)").
-			Where("monitor_id = ? AND status = 'completed' AND deleted_at IS NULL", mon.ID).
-			Scan(ctx, &queueCount)
-		revertStatus := "unmonitored"
-		if queueCount > 0 {
-			revertStatus = "monitored"
+
+		// If status is 'downloaded' (kbarr managed the download), re-queue for search.
+		// Otherwise (manual copy) just clear available — leave status unchanged.
+		currentStatus := ""
+		if mon.Status != nil {
+			currentStatus = *mon.Status
 		}
-		bunDB.NewUpdate().Model((*db.Monitor)(nil)).
-			Set("status = ?, updated_at = now()", revertStatus).
-			Where("id = ?", mon.ID).Exec(ctx)
-		slog.Info("availability: episode reverted", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", *mon.EpisodeNumber, "new_status", revertStatus)
+		if currentStatus == "downloaded" {
+			bunDB.NewUpdate().Model((*db.Monitor)(nil)).
+				Set("available = false, status = 'monitored', updated_at = now()").
+				Where("id = ?", mon.ID).Exec(ctx)
+			slog.Info("availability: episode reverted to monitored (kbarr download removed)", "monitor_id", mon.ID, "title", *mon.Title)
+		} else {
+			bunDB.NewUpdate().Model((*db.Monitor)(nil)).
+				Set("available = false, updated_at = now()").
+				Where("id = ?", mon.ID).Exec(ctx)
+			slog.Info("availability: episode marked unavailable (manual file removed)", "monitor_id", mon.ID, "title", *mon.Title)
+		}
 	}
 
 	// Phase 3: sync season monitors.
@@ -234,15 +236,14 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		slog.Info("availability: season monitor check", "monitor_id", sm.ID, "library_id", *sm.LibraryID, "total_episodes", total, "available_episodes", available, "current_status", *sm.Status)
 
 		allAvailable := total > 0 && available == total
-		isAvailable := *sm.Status == "available"
-		if allAvailable && !isAvailable {
+		if allAvailable && !sm.Available {
 			bunDB.NewUpdate().Model((*db.Monitor)(nil)).
-				Set("status = 'available', updated_at = now()").Where("id = ?", sm.ID).Exec(ctx)
+				Set("available = true, updated_at = now()").Where("id = ?", sm.ID).Exec(ctx)
 			slog.Info("availability: season marked available", "monitor_id", sm.ID)
-		} else if !allAvailable && isAvailable {
+		} else if !allAvailable && sm.Available {
 			bunDB.NewUpdate().Model((*db.Monitor)(nil)).
-				Set("status = 'monitored', updated_at = now()").Where("id = ?", sm.ID).Exec(ctx)
-			slog.Info("availability: season reverted to monitored", "monitor_id", sm.ID)
+				Set("available = false, updated_at = now()").Where("id = ?", sm.ID).Exec(ctx)
+			slog.Info("availability: season marked unavailable", "monitor_id", sm.ID)
 		}
 	}
 

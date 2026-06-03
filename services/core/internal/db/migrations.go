@@ -58,6 +58,13 @@ func runMigrations(ctx context.Context) error {
 		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS size BIGINT`,
 		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS seeders INT`,
 		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS progress_updated_at TIMESTAMPTZ`,
+
+		// monitors: separate availability tracking from monitoring workflow
+		`ALTER TABLE monitors ADD COLUMN IF NOT EXISTS available boolean NOT NULL DEFAULT false`,
+		// migrate existing 'available' status rows to the new scheme
+		`UPDATE monitors SET available = true WHERE status = 'available'`,
+		`UPDATE monitors SET status = 'downloaded' WHERE status = 'available' AND EXISTS (SELECT 1 FROM download_queue WHERE monitor_id = monitors.id AND status = 'completed' AND deleted_at IS NULL)`,
+		`UPDATE monitors SET status = 'unmonitored' WHERE status = 'available' AND NOT EXISTS (SELECT 1 FROM download_queue WHERE monitor_id = monitors.id AND status = 'completed' AND deleted_at IS NULL)`,
 	}
 
 	for _, stmt := range stmts {

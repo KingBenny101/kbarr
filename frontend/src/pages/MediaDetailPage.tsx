@@ -28,6 +28,7 @@ interface MonitoredItem {
     is_season: boolean
     season: number
     status?: string
+    available?: boolean
 }
 
 export function MediaDetailPage() {
@@ -560,8 +561,9 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                 <Table.Tbody>
                     {episodes.map((episode) => {
                         const monitorEntry = monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
-                        const monitored = !!monitorEntry
-                        const available = monitorEntry?.status === "available"
+                        const available = monitorEntry?.available === true
+                        const activeStatuses = new Set(["monitored", "searching", "queued", "downloading", "downloaded", "missing"])
+                        const monitored = !!monitorEntry && !available && activeStatuses.has(monitorEntry.status ?? "")
                         const link = episodeSourceUrl(episode)
                         return (
                             <Table.Tr key={episode.ID}>
