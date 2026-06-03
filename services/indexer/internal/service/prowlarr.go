@@ -538,7 +538,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	var monitors []models.Monitor
 	err := s.db.NewSelect().
 		Model(&monitors).
-		Where("(status = 'monitored' OR (status = 'searching' AND updated_at < now() - interval '10 minutes')) AND status NOT IN ('downloaded', 'downloading', 'queued') AND deleted_at IS NULL").
+		Where("monitored = true AND available = false AND (status = 'pending' OR (status = 'searching' AND updated_at < now() - interval '10 minutes')) AND deleted_at IS NULL").
 		OrderExpr("is_season DESC").
 		Limit(1).
 		Scan(ctx)
@@ -556,12 +556,11 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	}
 	slog.Info("Processing monitor", "id", mon.ID, "title", title)
 
-	// Claim the monitor atomically. Accept both 'monitored' and 'searching' so that
-	// a monitor re-queued after a 10-minute stall can be re-processed.
+	// Claim the monitor atomically.
 	res, err := s.db.NewUpdate().
 		Model((*models.Monitor)(nil)).
 		Set("status = 'searching', updated_at = now()").
-		Where("id = ? AND (status = 'monitored' OR status = 'searching')", mon.ID).
+		Where("id = ? AND (status = 'pending' OR status = 'searching')", mon.ID).
 		Exec(ctx)
 	if err != nil {
 		slog.Error("Failed to claim monitor", "id", mon.ID, "error", err)
@@ -664,7 +663,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 				s.db.NewUpdate().
 					Model((*models.Monitor)(nil)).
 					Set("status = 'queued', updated_at = now()").
-					Where("library_id = ? AND is_episode = true AND status = 'monitored' AND deleted_at IS NULL", *mon.LibraryID).
+					Where("library_id = ? AND is_episode = true AND monitored = true AND status = 'pending' AND deleted_at IS NULL", *mon.LibraryID).
 					Exec(ctx)
 			}
 		} else {
@@ -681,9 +680,9 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	for _, mon := range episodeMons {
 		if mon.LibraryID == nil || seasonFound[*mon.LibraryID] {
 			if mon.LibraryID != nil && seasonFound[*mon.LibraryID] {
-				slog.Info("Skipping episode — season pack already queued, resetting to monitored", "monitor_id", mon.ID)
+				slog.Info("Skipping episode — season pack already queued, resetting to pending", "monitor_id", mon.ID)
 				s.db.NewUpdate().Model((*models.Monitor)(nil)).
-					Set("status = 'monitored', updated_at = now()").
+					Set("status = 'pending', updated_at = now()").
 					Where("id = ?", mon.ID).Exec(ctx)
 			}
 			continue

@@ -136,7 +136,8 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 				Where("id = ?", entry.ID).Exec(ctx)
 			if entry.MonitorID != nil {
 				s.db.NewUpdate().Model((*models.Monitor)(nil)).
-					Set("status = 'monitored', updated_at = now()").
+					Set("status = 'pending', updated_at = now()").
+
 					Where("id = ?", *entry.MonitorID).Exec(ctx)
 			}
 			continue
@@ -262,7 +263,8 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 			if entry.MonitorID != nil {
 				s.db.NewUpdate().
 					Model((*models.Monitor)(nil)).
-					Set("status = 'monitored', updated_at = now()").
+					Set("status = 'pending', updated_at = now()").
+
 					Where("id = ?", *entry.MonitorID).
 					Exec(ctx)
 			}
