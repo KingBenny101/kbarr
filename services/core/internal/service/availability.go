@@ -199,17 +199,18 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		}
 		slog.Info("availability: file missing for available monitor", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", *mon.EpisodeNumber)
 
-		// If status is 'downloaded' (kbarr managed the download), re-queue for search.
-		// Otherwise (manual copy) just clear available — leave status unchanged.
+		// If the episode was kbarr-downloaded (status='downloaded'), reset to pending
+		// so the indexer re-searches if the user still wants it (monitored=true).
+		// For manual copies (status anything else), just clear available.
 		currentStatus := ""
 		if mon.Status != nil {
 			currentStatus = *mon.Status
 		}
 		if currentStatus == "downloaded" {
 			bunDB.NewUpdate().Model((*db.Monitor)(nil)).
-				Set("available = false, status = 'monitored', updated_at = now()").
+				Set("available = false, status = 'pending', updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx)
-			slog.Info("availability: episode reverted to monitored (kbarr download removed)", "monitor_id", mon.ID, "title", *mon.Title)
+			slog.Info("availability: episode reset to pending (kbarr download removed)", "monitor_id", mon.ID, "title", *mon.Title)
 		} else {
 			bunDB.NewUpdate().Model((*db.Monitor)(nil)).
 				Set("available = false, updated_at = now()").
