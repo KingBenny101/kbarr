@@ -124,22 +124,31 @@ func resetMonitorOnQueueDelete(ctx context.Context, monitorID int64, unmonitor b
 		return
 	}
 
-	newStatus := "monitored"
 	if unmonitor {
-		newStatus = "unmonitored"
+		DB.NewUpdate().Model((*Monitor)(nil)).
+			Set("monitored = false, updated_at = now()").
+			Where("id = ?", monitorID).
+			Exec(ctx)
+	} else {
+		DB.NewUpdate().Model((*Monitor)(nil)).
+			Set("monitored = true, status = 'pending', updated_at = now()").
+			Where("id = ?", monitorID).
+			Exec(ctx)
 	}
-
-	DB.NewUpdate().Model((*Monitor)(nil)).
-		Set("status = ?, updated_at = now()", newStatus).
-		Where("id = ?", monitorID).
-		Exec(ctx)
 
 	// For season monitors, also reset all episode monitors in the same library
 	if mon.IsSeason != nil && *mon.IsSeason && mon.LibraryID != nil {
-		DB.NewUpdate().Model((*Monitor)(nil)).
-			Set("status = ?, updated_at = now()", newStatus).
-			Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
-			Exec(ctx)
+		if unmonitor {
+			DB.NewUpdate().Model((*Monitor)(nil)).
+				Set("monitored = false, updated_at = now()").
+				Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
+				Exec(ctx)
+		} else {
+			DB.NewUpdate().Model((*Monitor)(nil)).
+				Set("monitored = true, status = 'pending', updated_at = now()").
+				Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
+				Exec(ctx)
+		}
 	}
 }
 

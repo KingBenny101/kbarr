@@ -19,13 +19,9 @@ func InsertMonitor(m models.Monitor) error {
 	}
 
 	if count > 0 {
-		// Row exists — update status if the caller is explicitly (re)monitoring it.
-		targetStatus := m.Status
-		if targetStatus == "" {
-			targetStatus = "monitored"
-		}
+		// Row exists — update monitored flag and reset status to pending when explicitly (re)monitoring.
 		_, err := DB.NewUpdate().Model((*Monitor)(nil)).
-			Set("status = ?, updated_at = now()", targetStatus).
+			Set("monitored = ?, status = 'pending', updated_at = now()", m.Monitored).
 			Where("library_id IS NOT DISTINCT FROM ?", int64Ptr(int64(m.LibraryID))).
 			Where("season IS NOT DISTINCT FROM ?", int64Ptr(int64(m.Season))).
 			Where("episode_number IS NOT DISTINCT FROM ?", int64Ptr(int64(m.EpisodeNumber))).
@@ -35,7 +31,7 @@ func InsertMonitor(m models.Monitor) error {
 		return err
 	}
 
-	_, err := createMonitor(ctx, int64Ptr(int64(m.LibraryID)), stringPtr(m.Title), stringPtr(m.EpisodeTitle), int64Ptr(int64(m.Season)), int64Ptr(int64(m.EpisodeNumber)), boolPtr(m.IsEpisode), boolPtr(m.IsSeason), stringPtr(m.Source), stringPtr(m.ExternalID), stringPtr(m.Status))
+	_, err := createMonitor(ctx, int64Ptr(int64(m.LibraryID)), stringPtr(m.Title), stringPtr(m.EpisodeTitle), int64Ptr(int64(m.Season)), int64Ptr(int64(m.EpisodeNumber)), boolPtr(m.IsEpisode), boolPtr(m.IsSeason), stringPtr(m.Source), stringPtr(m.ExternalID), m.Monitored)
 	if err != nil {
 		return fmt.Errorf("failed to insert monitor entry: %w", err)
 	}
@@ -57,7 +53,7 @@ func DeleteMonitor(id uint) error {
 	}
 	ctx := context.Background()
 	_, err := DB.NewUpdate().Model((*Monitor)(nil)).
-		Set("status = 'unmonitored', updated_at = now()").
+		Set("monitored = false, updated_at = now()").
 		Where("id = ? AND deleted_at IS NULL", int64(id)).
 		Exec(ctx)
 	return err
@@ -81,7 +77,7 @@ func DeleteMonitorsBySeason(libraryID uint, season int) error {
 	}
 	ctx := context.Background()
 	_, err := DB.NewUpdate().Model((*Monitor)(nil)).
-		Set("status = 'unmonitored', updated_at = now()").
+		Set("monitored = false, updated_at = now()").
 		Where("library_id = ? AND season = ? AND deleted_at IS NULL", int64(libraryID), int64(season)).
 		Exec(ctx)
 	return err
@@ -125,7 +121,7 @@ func UnmonitorByDetails(libraryID uint, externalID string) error {
 	}
 	ctx := context.Background()
 	_, err := DB.NewUpdate().Model((*Monitor)(nil)).
-		Set("status = 'unmonitored', updated_at = now()").
+		Set("monitored = false, updated_at = now()").
 		Where("library_id = ? AND external_id = ? AND deleted_at IS NULL", int64(libraryID), externalID).
 		Exec(ctx)
 	if err != nil {
@@ -136,7 +132,7 @@ func UnmonitorByDetails(libraryID uint, externalID string) error {
 
 func listMonitors(ctx context.Context) []Monitor {
 	var items []Monitor
-	if err := DB.NewSelect().Model(&items).Where("status != 'unmonitored' AND deleted_at IS NULL").Scan(ctx); err != nil {
+	if err := DB.NewSelect().Model(&items).Where("monitored = true AND deleted_at IS NULL").Scan(ctx); err != nil {
 		return nil
 	}
 	return items
@@ -144,17 +140,14 @@ func listMonitors(ctx context.Context) []Monitor {
 
 func listMonitorsByLibraryID(ctx context.Context, libraryID *int64) []Monitor {
 	var items []Monitor
-	if err := DB.NewSelect().Model(&items).Where("library_id IS NOT DISTINCT FROM ?", libraryID).Scan(ctx); err != nil {
+	if err := DB.NewSelect().Model(&items).Where("library_id IS NOT DISTINCT FROM ? AND deleted_at IS NULL", libraryID).Scan(ctx); err != nil {
 		return nil
 	}
 	return items
 }
 
-func createMonitor(ctx context.Context, libraryID *int64, title *string, episodeTitle *string, season *int64, episodeNumber *int64, isEpisode *bool, isSeason *bool, source *string, externalID *string, status *string) (*Monitor, error) {
-	defaultStatus := "monitored"
-	if status == nil || *status == "" {
-		status = &defaultStatus
-	}
+func createMonitor(ctx context.Context, libraryID *int64, title *string, episodeTitle *string, season *int64, episodeNumber *int64, isEpisode *bool, isSeason *bool, source *string, externalID *string, monitored bool) (*Monitor, error) {
+	status := stringPtr("pending")
 	item := &Monitor{
 		LibraryID:     libraryID,
 		Title:         title,
@@ -166,6 +159,7 @@ func createMonitor(ctx context.Context, libraryID *int64, title *string, episode
 		Source:        source,
 		ExternalID:    externalID,
 		Status:        status,
+		Monitored:     monitored,
 	}
 	if _, err := DB.NewInsert().Model(item).Returning("*").Exec(ctx); err != nil {
 		return nil, err
