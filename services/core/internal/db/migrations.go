@@ -59,21 +59,26 @@ func runMigrations(ctx context.Context) error {
 		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS seeders INT`,
 		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS progress_updated_at TIMESTAMPTZ`,
 
-		// monitors: separate availability tracking from monitoring workflow
-		`ALTER TABLE monitors ADD COLUMN IF NOT EXISTS available boolean NOT NULL DEFAULT false`,
-		// migrate existing 'available' status rows to the new scheme
-		`UPDATE monitors SET available = true WHERE status = 'available'`,
-		`UPDATE monitors SET status = 'downloaded' WHERE status = 'available' AND EXISTS (SELECT 1 FROM download_queue WHERE monitor_id = monitors.id AND status = 'completed' AND deleted_at IS NULL)`,
-		`UPDATE monitors SET status = 'unmonitored' WHERE status = 'available' AND NOT EXISTS (SELECT 1 FROM download_queue WHERE monitor_id = monitors.id AND status = 'completed' AND deleted_at IS NULL)`,
+		// monitors: add available column and migrate old 'available' status rows (runs once)
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='monitors' AND column_name='available') THEN
+				ALTER TABLE monitors ADD COLUMN available boolean NOT NULL DEFAULT false;
+				UPDATE monitors SET available = true WHERE status = 'available';
+				UPDATE monitors SET status = 'downloaded' WHERE status = 'available' AND EXISTS (SELECT 1 FROM download_queue WHERE monitor_id = monitors.id AND status = 'completed' AND deleted_at IS NULL);
+				UPDATE monitors SET status = 'unmonitored' WHERE status = 'available' AND NOT EXISTS (SELECT 1 FROM download_queue WHERE monitor_id = monitors.id AND status = 'completed' AND deleted_at IS NULL);
+			END IF;
+		END $$`,
 
-		// monitors: add explicit monitored boolean (user intent), rename status values
-		`ALTER TABLE monitors ADD COLUMN IF NOT EXISTS monitored boolean NOT NULL DEFAULT false`,
-		// set monitored=true for all entries that were actively being tracked
-		`UPDATE monitors SET monitored = true WHERE status NOT IN ('unmonitored') AND deleted_at IS NULL`,
-		// rename status='monitored' to 'pending' (status now tracks workflow only)
-		`UPDATE monitors SET status = 'pending' WHERE status = 'monitored'`,
-		// clear old 'unmonitored' status value (now represented by monitored=false)
-		`UPDATE monitors SET status = 'pending' WHERE status = 'unmonitored'`,
+		// monitors: add monitored boolean and rename status values (runs once)
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='monitors' AND column_name='monitored') THEN
+				ALTER TABLE monitors ADD COLUMN monitored boolean NOT NULL DEFAULT false;
+				UPDATE monitors SET monitored = true WHERE status NOT IN ('unmonitored') AND deleted_at IS NULL;
+				UPDATE monitors SET status = 'pending' WHERE status = 'monitored';
+				UPDATE monitors SET status = 'pending' WHERE status = 'unmonitored';
+				UPDATE monitors SET status = 'pending' WHERE status = 'available';
+			END IF;
+		END $$`,
 	}
 
 	for _, stmt := range stmts {
