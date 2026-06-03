@@ -76,9 +76,13 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 		if entry.Status != nil {
 			status = *entry.Status
 		}
-		// Only remove from qBittorrent for in-progress torrents
-		if status != "completed" && entry.TorrentHash != nil && *entry.TorrentHash != "" {
-			removeFromQBittorrent(ctx, *entry.TorrentHash)
+		if entry.TorrentHash != nil && *entry.TorrentHash != "" {
+			if status == "completed" {
+				// Remove torrent and let qBittorrent delete the files when requested
+				removeFromQBittorrent(ctx, *entry.TorrentHash, opts.DeleteFiles)
+			} else {
+				removeFromQBittorrent(ctx, *entry.TorrentHash, false)
+			}
 		}
 		if opts.Blacklist {
 			hash := ""
@@ -159,12 +163,12 @@ func deleteDownloadedFiles(ctx context.Context, savePath, title string) {
 	resp.Body.Close()
 }
 
-func removeFromQBittorrent(ctx context.Context, hash string) {
+func removeFromQBittorrent(ctx context.Context, hash string, deleteFiles bool) {
 	downloaderAddr := strings.TrimRight(os.Getenv("DOWNLOADER_HEALTH_ADDR"), "/")
 	if downloaderAddr == "" {
 		downloaderAddr = "http://localhost:8083"
 	}
-	body, _ := json.Marshal(map[string]string{"hash": hash})
+	body, _ := json.Marshal(map[string]interface{}{"hash": hash, "deleteFiles": deleteFiles})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, downloaderAddr+"/torrent/delete", bytes.NewReader(body))
 	if err != nil {
 		slog.Warn("Failed to build qBittorrent remove request", "hash", hash, "error", err)

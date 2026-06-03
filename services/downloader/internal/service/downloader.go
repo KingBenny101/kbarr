@@ -253,7 +253,7 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 		if stallTimeout > 0 && entry.ProgressUpdatedAt != nil && time.Since(*entry.ProgressUpdatedAt) > stallTimeout {
 			slog.Warn("Torrent stalled — blacklisting and removing", "id", entry.ID, "hash", *entry.TorrentHash, "stalled_for", time.Since(*entry.ProgressUpdatedAt).Round(time.Second))
 			s.blacklistTorrent(ctx, entry)
-			_ = s.deleteTorrent(ctx, qbtURL, *entry.TorrentHash)
+			_ = s.deleteTorrent(ctx, qbtURL, *entry.TorrentHash, false)
 			s.db.NewUpdate().
 				Model((*models.DownloadQueue)(nil)).
 				Set("deleted_at = now(), updated_at = now()").
@@ -270,11 +270,11 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 	}
 }
 
-func (s *DownloaderService) LoginAndDelete(ctx context.Context, qbtURL, username, password, hash string) error {
+func (s *DownloaderService) LoginAndDelete(ctx context.Context, qbtURL, username, password, hash string, deleteFiles bool) error {
 	if err := s.login(ctx, qbtURL, username, password); err != nil {
 		return err
 	}
-	return s.deleteTorrent(ctx, qbtURL, hash)
+	return s.deleteTorrent(ctx, qbtURL, hash, deleteFiles)
 }
 
 func (s *DownloaderService) blacklistTorrent(ctx context.Context, entry models.DownloadQueue) {
@@ -288,8 +288,12 @@ func (s *DownloaderService) blacklistTorrent(ctx context.Context, entry models.D
 	}
 }
 
-func (s *DownloaderService) deleteTorrent(ctx context.Context, qbtURL, hash string) error {
-	form := url.Values{"hashes": {hash}, "deleteFiles": {"false"}}
+func (s *DownloaderService) deleteTorrent(ctx context.Context, qbtURL, hash string, deleteFiles bool) error {
+	deleteFilesStr := "false"
+	if deleteFiles {
+		deleteFilesStr = "true"
+	}
+	form := url.Values{"hashes": {hash}, "deleteFiles": {deleteFilesStr}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, qbtURL+"/api/v2/torrents/delete", strings.NewReader(form.Encode()))
 	if err != nil {
 		return err

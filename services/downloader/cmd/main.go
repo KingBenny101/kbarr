@@ -42,7 +42,8 @@ func main() {
 	mux.HandleFunc("GET /logs", logger.HandleLogs)
 	mux.HandleFunc("POST /torrent/delete", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Hash string `json:"hash"`
+			Hash        string `json:"hash"`
+			DeleteFiles bool   `json:"deleteFiles"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Hash == "" {
 			http.Error(w, "hash is required", http.StatusBadRequest)
@@ -51,7 +52,7 @@ func main() {
 		qbtURL := strings.TrimRight(config.Get(db.DB, "qbittorrentUrl", "http://localhost:8080"), "/")
 		username := config.Get(db.DB, "qbittorrentUsername", "")
 		password := config.Get(db.DB, "qbittorrentPassword", "")
-		if err := svc.LoginAndDelete(r.Context(), qbtURL, username, password, body.Hash); err != nil {
+		if err := svc.LoginAndDelete(r.Context(), qbtURL, username, password, body.Hash, body.DeleteFiles); err != nil {
 			slog.Error("Failed to delete torrent from qBittorrent", "hash", body.Hash, "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -82,13 +83,6 @@ func main() {
 			return
 		}
 		mediaPath := strings.TrimRight(config.Get(db.DB, "mediaPath", ""), "/")
-		if body.SavePath != "" {
-			if err := os.RemoveAll(body.SavePath); err != nil {
-				slog.Warn("files/delete: failed to remove save path", "path", body.SavePath, "error", err)
-			} else {
-				slog.Info("files/delete: removed save path", "path", body.SavePath)
-			}
-		}
 		if body.SymlinkDir != "" {
 			cleaned := filepath.Join(mediaPath, filepath.Base(body.SymlinkDir))
 			if err := os.RemoveAll(cleaned); err != nil {
