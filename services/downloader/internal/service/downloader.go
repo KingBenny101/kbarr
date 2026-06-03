@@ -358,13 +358,6 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
 	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
 	rawExts := config.Get(s.db, "allowedVideoExtensions", ".mkv,.mp4,.avi,.mov,.wmv,.m4v")
 
-	// Always rebase using the current downloadPath setting so that old DB entries
-	// with a stale base path (e.g. /data/torrents/...) still resolve correctly.
-	downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
-	if downloadPath != "" && savePath != "" {
-		savePath = filepath.Join(downloadPath, filepath.Base(savePath))
-	}
-
 	slog.Info("createSymlinks: start", "save_path", savePath, "media_path", mediaPath, "entry_title", entryTitle)
 
 	if mediaPath == "" {

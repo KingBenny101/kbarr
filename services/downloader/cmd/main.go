@@ -81,18 +81,12 @@ func main() {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
-		downloadPath := strings.TrimRight(config.Get(db.DB, "downloadPath", ""), "/")
 		mediaPath := strings.TrimRight(config.Get(db.DB, "mediaPath", ""), "/")
 		if body.SavePath != "" {
-			// Rebase against current downloadPath so stale DB paths resolve correctly
-			savePath := body.SavePath
-			if downloadPath != "" {
-				savePath = filepath.Join(downloadPath, filepath.Base(savePath))
-			}
-			if err := os.RemoveAll(savePath); err != nil {
-				slog.Warn("files/delete: failed to remove save path", "path", savePath, "error", err)
+			if err := os.RemoveAll(body.SavePath); err != nil {
+				slog.Warn("files/delete: failed to remove save path", "path", body.SavePath, "error", err)
 			} else {
-				slog.Info("files/delete: removed save path", "path", savePath)
+				slog.Info("files/delete: removed save path", "path", body.SavePath)
 			}
 		}
 		if body.SymlinkDir != "" {
