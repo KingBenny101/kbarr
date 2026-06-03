@@ -240,6 +240,21 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 		}
 
 		if t.Progress >= 1.0 {
+			if t.State == "moving" {
+				slog.Info("Torrent is moving files — deferring completion", "id", entry.ID, "hash", *entry.TorrentHash)
+				continue
+			}
+			// Rebuild save_path from the torrent's current name + local downloadPath.
+			// The DB-cached name may be stale if qBittorrent updated it after metadata fetch.
+			// We use downloadPath (not t.SavePath) because qBittorrent's path is from its own
+			// container and is not accessible to us.
+			if t.Name != "" {
+				downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
+				if downloadPath != "" {
+					actualPath := filepath.Join(downloadPath, t.Name)
+					entry.SavePath = &actualPath
+				}
+			}
 			s.onComplete(ctx, entry)
 			continue
 		}
