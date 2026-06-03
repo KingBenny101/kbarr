@@ -253,7 +253,7 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 		if stallTimeout > 0 && entry.ProgressUpdatedAt != nil && time.Since(*entry.ProgressUpdatedAt) > stallTimeout {
 			slog.Warn("Torrent stalled — blacklisting and removing", "id", entry.ID, "hash", *entry.TorrentHash, "stalled_for", time.Since(*entry.ProgressUpdatedAt).Round(time.Second))
 			s.blacklistTorrent(ctx, entry)
-			_ = s.deleteTorrent(ctx, qbtURL, *entry.TorrentHash, false)
+			_ = s.deleteTorrent(ctx, qbtURL, *entry.TorrentHash, true)
 			s.db.NewUpdate().
 				Model((*models.DownloadQueue)(nil)).
 				Set("deleted_at = now(), updated_at = now()").
