@@ -9,17 +9,19 @@ import (
 )
 
 type GuessitResult struct {
-	Title   string
-	Season  int
-	Episode int
-	Type    string // "episode", "movie", etc.
+	Title        string
+	Season       int
+	Episode      int
+	Type         string // "episode", "movie", etc.
+	ReleaseGroup string
 }
 
 type rawGuessit struct {
-	Title   string          `json:"title"`
-	Season  json.RawMessage `json:"season"`
-	Episode json.RawMessage `json:"episode"`
-	Type    string          `json:"type"`
+	Title        string          `json:"title"`
+	Season       json.RawMessage `json:"season"`
+	Episode      json.RawMessage `json:"episode"`
+	Type         string          `json:"type"`
+	ReleaseGroup string          `json:"release_group"`
 }
 
 func guessitExe() string {
@@ -52,10 +54,11 @@ func runGuessit(filename string) GuessitResult {
 		return GuessitResult{}
 	}
 	return GuessitResult{
-		Title:   raw.Title,
-		Season:  intFromRaw(raw.Season),
-		Episode: intFromRaw(raw.Episode),
-		Type:    raw.Type,
+		Title:        raw.Title,
+		Season:       intFromRaw(raw.Season),
+		Episode:      intFromRaw(raw.Episode),
+		Type:         raw.Type,
+		ReleaseGroup: raw.ReleaseGroup,
 	}
 }
 

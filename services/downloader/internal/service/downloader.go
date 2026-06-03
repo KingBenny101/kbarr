@@ -424,7 +424,11 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
 			if season == 0 {
 				season = 1
 			}
-			linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, g.Episode, ext)
+			if g.ReleaseGroup != "" {
+				linkName = fmt.Sprintf("%s - S%02dE%02d [%s]%s", resolvedTitle, season, g.Episode, g.ReleaseGroup, ext)
+			} else {
+				linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, g.Episode, ext)
+			}
 		} else {
 			linkName = sanitizeFilename(info.Name())
 		}
