@@ -40,11 +40,11 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		return
 	}
 
-	// Check episode monitors
+	// Check all episode monitors (both directions)
 	var monitors []db.Monitor
 	err := bunDB.NewSelect().
 		Model(&monitors).
-		Where("is_episode = true AND status NOT IN ('available', 'unmonitored') AND deleted_at IS NULL").
+		Where("is_episode = true AND status != 'unmonitored' AND deleted_at IS NULL").
 		Scan(ctx)
 	if err != nil {
 		slog.Error("availability: failed to fetch episode monitors", "error", err)
@@ -52,7 +52,7 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 	}
 
 	for _, mon := range monitors {
-		if mon.EpisodeNumber == nil || mon.Title == nil {
+		if mon.EpisodeNumber == nil || mon.Title == nil || mon.Status == nil {
 			continue
 		}
 		title := sanitizeFilename(*mon.Title)
@@ -61,30 +61,34 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 			season = *mon.Season
 		}
 		episode := *mon.EpisodeNumber
+		status := *mon.Status
 
 		pattern := filepath.Join(mediaPath, title, fmt.Sprintf("*S%02dE%02d*", season, episode))
-		matches, err := filepath.Glob(pattern)
-		if err != nil || len(matches) == 0 {
-			continue
-		}
+		matches, _ := filepath.Glob(pattern)
+		fileExists := len(matches) > 0
 
-		_, err = bunDB.NewUpdate().
-			Model((*db.Monitor)(nil)).
-			Set("status = 'available', updated_at = now()").
-			Where("id = ?", mon.ID).
-			Exec(ctx)
-		if err != nil {
-			slog.Warn("availability: failed to mark episode available", "monitor_id", mon.ID, "error", err)
-		} else {
+		if fileExists && status != "available" {
+			bunDB.NewUpdate().
+				Model((*db.Monitor)(nil)).
+				Set("status = 'available', updated_at = now()").
+				Where("id = ?", mon.ID).
+				Exec(ctx)
 			slog.Info("availability: episode marked available", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", episode, "file", matches[0])
+		} else if !fileExists && status == "available" {
+			bunDB.NewUpdate().
+				Model((*db.Monitor)(nil)).
+				Set("status = 'monitored', updated_at = now()").
+				Where("id = ?", mon.ID).
+				Exec(ctx)
+			slog.Info("availability: episode reverted to monitored (file removed)", "monitor_id", mon.ID, "title", *mon.Title, "season", season, "episode", episode)
 		}
 	}
 
-	// Promote season monitors whose every episode is now available
+	// Sync season monitors based on episode availability
 	var seasonMonitors []db.Monitor
 	err = bunDB.NewSelect().
 		Model(&seasonMonitors).
-		Where("is_season = true AND status != 'available' AND status != 'unmonitored' AND deleted_at IS NULL AND library_id IS NOT NULL").
+		Where("is_season = true AND status != 'unmonitored' AND deleted_at IS NULL AND library_id IS NOT NULL").
 		Scan(ctx)
 	if err != nil {
 		slog.Error("availability: failed to fetch season monitors", "error", err)
@@ -92,6 +96,9 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 	}
 
 	for _, sm := range seasonMonitors {
+		if sm.Status == nil {
+			continue
+		}
 		var total, available int
 		bunDB.NewSelect().
 			TableExpr("monitors").
@@ -99,13 +106,23 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 			Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *sm.LibraryID).
 			Scan(ctx, &total, &available)
 
-		if total > 0 && available == total {
+		allAvailable := total > 0 && available == total
+		isAvailable := *sm.Status == "available"
+
+		if allAvailable && !isAvailable {
 			bunDB.NewUpdate().
 				Model((*db.Monitor)(nil)).
 				Set("status = 'available', updated_at = now()").
 				Where("id = ?", sm.ID).
 				Exec(ctx)
 			slog.Info("availability: season marked available", "monitor_id", sm.ID, "library_id", *sm.LibraryID)
+		} else if !allAvailable && isAvailable {
+			bunDB.NewUpdate().
+				Model((*db.Monitor)(nil)).
+				Set("status = 'monitored', updated_at = now()").
+				Where("id = ?", sm.ID).
+				Exec(ctx)
+			slog.Info("availability: season reverted to monitored (episode removed)", "monitor_id", sm.ID, "library_id", *sm.LibraryID)
 		}
 	}
 }
