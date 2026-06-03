@@ -90,8 +90,8 @@ export function SettingsPage() {
                 qbittorrentUrl: data.qbittorrentUrl || "http://host.docker.internal:8080",
                 qbittorrentUsername: data.qbittorrentUsername || "",
                 qbittorrentPassword: data.qbittorrentPassword || "",
-                downloadPath: data.downloadPath || "",
-                mediaPath: data.mediaPath || "",
+                downloadPath: data.downloadPath || "/app/downloads",
+                mediaPath: data.mediaPath || "/app/media",
                 allowedVideoExtensions: data.allowedVideoExtensions || ".mkv,.mp4,.avi,.mov,.wmv,.m4v",
                 downloaderInterval: data.downloaderInterval || "1",
                 stallTimeout: data.stallTimeout || "300",
@@ -433,14 +433,14 @@ export function SettingsPage() {
                             description="Absolute path where qBittorrent saves files. Must match DOWNLOAD_DIR_HOST in your .env."
                             value={settings.downloadPath}
                             onChange={(e) => update("downloadPath", e.currentTarget.value)}
-                            placeholder="/home/user/Downloads"
+                            placeholder="/app/downloads"
                         />
                         <TextInput
                             label="Media path"
                             description="Absolute path where named symlinks are created. Must match MEDIA_DIR_HOST in your .env."
                             value={settings.mediaPath}
                             onChange={(e) => update("mediaPath", e.currentTarget.value)}
-                            placeholder="/home/user/Media/Anime"
+                            placeholder="/app/media"
                         />
                         <TextInput
                             label="Allowed video extensions"
