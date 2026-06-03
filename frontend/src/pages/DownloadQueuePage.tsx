@@ -126,7 +126,7 @@ export function DownloadQueuePage() {
         setDeleteTarget(item)
         setBlacklist(false)
         setUnmonitor(false)
-        setDeleteFiles(false)
+        setDeleteFiles(item.status === "completed")
     }
 
     const confirmDelete = async () => {
