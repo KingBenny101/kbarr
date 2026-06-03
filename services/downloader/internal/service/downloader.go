@@ -58,14 +58,36 @@ type torrentInfo struct {
 	Category    string  `json:"category"`
 }
 
+// pathBase extracts the final path component handling both '/' (POSIX) and '\'
+// (Windows) separators. filepath.Base on Linux does not split on '\'.
+func pathBase(p string) string {
+	if i := strings.LastIndexAny(p, "/\\"); i >= 0 {
+		return p[i+1:]
+	}
+	return p
+}
+
+// joinSymlinkTarget joins base and rel using the appropriate path separator.
+// If base looks like a Windows path (contains '\' or a drive letter) it uses '\';
+// otherwise it falls back to filepath.Join.
+func joinSymlinkTarget(base, rel string) string {
+	if strings.Contains(base, "\\") || (len(base) >= 2 && base[1] == ':') {
+		rel = strings.ReplaceAll(rel, "/", "\\")
+		return strings.TrimRight(base, "\\/") + "\\" + rel
+	}
+	return filepath.Join(base, rel)
+}
+
 // contentName returns the actual on-disk name of the torrent content.
 // content_path is the real filesystem path; its base name is the folder or file
 // that qBittorrent created, which may differ from the display Name.
+// pathBase is used instead of filepath.Base to correctly handle Windows paths
+// returned by a natively-running qBittorrent instance.
 func (t torrentInfo) contentName() string {
 	if t.ContentPath != "" {
-		return filepath.Base(t.ContentPath)
+		return pathBase(t.ContentPath)
 	}
-	return t.Name
+	return pathBase(t.Name)
 }
 
 func (s *DownloaderService) qbtConfig() (qbtURL, username, password string) {
@@ -420,7 +442,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 	// (e.g. Windows paths from before a settings change) resolve correctly.
 	downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 	if downloadPath != "" && savePath != "" {
-		savePath = filepath.Join(downloadPath, filepath.Base(savePath))
+		savePath = filepath.Join(downloadPath, pathBase(savePath))
 	}
 
 	// symlinkTargetDownloadPath is the path the host uses to reach the downloads directory.
@@ -531,7 +553,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 		linkTarget := path
 		if symlinkTargetBase != downloadPath && downloadPath != "" {
 			if rel, err := filepath.Rel(downloadPath, path); err == nil {
-				linkTarget = filepath.Join(symlinkTargetBase, rel)
+				linkTarget = joinSymlinkTarget(symlinkTargetBase, rel)
 			}
 		}
 
