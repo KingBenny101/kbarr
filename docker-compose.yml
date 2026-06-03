@@ -36,8 +36,7 @@ services:
         condition: service_healthy
     volumes:
       - ${DATA_DIR_HOST:-./data}:/app/data
-      - ${DOWNLOAD_DIR_HOST:-./data/downloads}:/app/downloads
-      - ${MEDIA_DIR_HOST:-./data/media}:/app/media
+      - ${LIBRARY_DIR_HOST:-./data/library}:/library
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:${PORT:-8282}/api/health || exit 1"]
       interval: 10s
@@ -104,8 +103,7 @@ services:
       core:
         condition: service_healthy
     volumes:
-      - ${DOWNLOAD_DIR_HOST:-./data/downloads}:/app/downloads
-      - ${MEDIA_DIR_HOST:-./data/media}:/app/media
+      - ${LIBRARY_DIR_HOST:-./data/library}:/library
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
       interval: 30s

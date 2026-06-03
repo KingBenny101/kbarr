@@ -67,16 +67,6 @@ func pathBase(p string) string {
 	return p
 }
 
-// joinSymlinkTarget joins base and rel using the appropriate path separator.
-// If base looks like a Windows path (contains '\' or a drive letter) it uses '\';
-// otherwise it falls back to filepath.Join.
-func joinSymlinkTarget(base, rel string) string {
-	if strings.Contains(base, "\\") || (len(base) >= 2 && base[1] == ':') {
-		rel = strings.ReplaceAll(rel, "/", "\\")
-		return strings.TrimRight(base, "\\/") + "\\" + rel
-	}
-	return filepath.Join(base, rel)
-}
 
 // contentName returns the actual on-disk name of the torrent content.
 // content_path is the real filesystem path; its base name is the folder or file
@@ -485,19 +475,14 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 		savePath = filepath.Join(downloadPath, pathBase(savePath))
 	}
 
-	// symlinkTargetDownloadPath is the path the host uses to reach the downloads directory.
-	// Symlink targets are written with this prefix so they resolve outside the container.
-	// Falls back to downloadPath if not configured (i.e. no container/host path difference).
-	symlinkTargetBase := strings.TrimRight(config.Get(s.db, "symlinkTargetDownloadPath", downloadPath), "/")
-
-	slog.Info("createSymlinks: start", "save_path", savePath, "media_path", mediaPath, "entry_title", entryTitle)
+	slog.Info("createHardlinks: start", "save_path", savePath, "media_path", mediaPath, "entry_title", entryTitle)
 
 	if mediaPath == "" {
-		slog.Warn("createSymlinks: mediaPath is not configured — skipping")
+		slog.Warn("createHardlinks: mediaPath is not configured — skipping")
 		return
 	}
 	if savePath == "" {
-		slog.Warn("createSymlinks: savePath is empty — skipping")
+		slog.Warn("createHardlinks: savePath is empty — skipping")
 		return
 	}
 
@@ -507,7 +492,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 			allowedExts[t] = true
 		}
 	}
-	slog.Info("createSymlinks: allowed extensions", "exts", rawExts)
+	slog.Info("createHardlinks: allowed extensions", "exts", rawExts)
 
 	walkRoot := savePath
 	if _, err := os.Stat(savePath); err != nil {
@@ -517,7 +502,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 		base := filepath.Base(savePath)
 		entries, readErr := os.ReadDir(parent)
 		if readErr != nil {
-			slog.Warn("createSymlinks: save_path does not exist and parent is not readable", "path", savePath, "error", err)
+			slog.Warn("createHardlinks: save_path does not exist and parent is not readable", "path", savePath, "error", err)
 			return
 		}
 		var match string
@@ -528,33 +513,33 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 			}
 		}
 		if match == "" {
-			slog.Warn("createSymlinks: save_path does not exist or is not accessible", "path", savePath, "error", err)
+			slog.Warn("createHardlinks: save_path does not exist or is not accessible", "path", savePath, "error", err)
 			return
 		}
-		slog.Info("createSymlinks: resolved single-file torrent", "path", match)
+		slog.Info("createHardlinks: resolved single-file torrent", "path", match)
 		walkRoot = match
 	}
 
 	walked = true
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			slog.Warn("createSymlinks: walk error on entry", "path", path, "error", err)
+			slog.Warn("createHardlinks: walk error on entry", "path", path, "error", err)
 			return nil
 		}
 		if info.IsDir() {
-			slog.Info("createSymlinks: entering directory", "path", path)
+			slog.Info("createHardlinks: entering directory", "path", path)
 			return nil
 		}
 
 		ext := strings.ToLower(filepath.Ext(path))
 		if !allowedExts[ext] {
-			slog.Info("createSymlinks: skipping (extension not allowed)", "file", info.Name(), "ext", ext)
+			slog.Info("createHardlinks: skipping (extension not allowed)", "file", info.Name(), "ext", ext)
 			return nil
 		}
 		hasVideo = true
 
 		g := runGuessit(info.Name())
-		slog.Info("createSymlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
+		slog.Info("createHardlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
 
 		resolvedTitle := entryTitle
 		if resolvedTitle == "" {
@@ -562,7 +547,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 		}
 		resolvedTitle = sanitizeFilename(resolvedTitle)
 		if resolvedTitle == "" {
-			slog.Warn("createSymlinks: could not determine title, skipping", "file", path)
+			slog.Warn("createHardlinks: could not determine title, skipping", "file", path)
 			return nil
 		}
 
@@ -581,54 +566,35 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 			linkName = sanitizeFilename(info.Name())
 		}
 		linkPath := filepath.Join(mediaPath, resolvedTitle, linkName)
-		slog.Info("createSymlinks: planned symlink", "src", path, "dst", linkPath)
+		slog.Info("createHardlinks: planned symlink", "src", path, "dst", linkPath)
 
 		destDir := filepath.Dir(linkPath)
 		if err := os.MkdirAll(destDir, 0755); err != nil {
-			slog.Warn("createSymlinks: failed to create directory", "path", destDir, "error", err)
+			slog.Warn("createHardlinks: failed to create directory", "path", destDir, "error", err)
 			return nil
 		}
 
-		// Translate the container-internal path to the host-accessible symlink target.
-		linkTarget := path
-		if symlinkTargetBase != downloadPath && downloadPath != "" {
-			if rel, err := filepath.Rel(downloadPath, path); err == nil {
-				linkTarget = joinSymlinkTarget(symlinkTargetBase, rel)
+		if dstInfo, err := os.Stat(linkPath); err == nil {
+			srcInfo, _ := os.Stat(path)
+			if srcInfo != nil && os.SameFile(srcInfo, dstInfo) {
+				slog.Info("createHardlinks: already linked, skipping", "dst", linkPath)
+			} else {
+				slog.Info("createHardlinks: destination exists with different content, skipping", "dst", linkPath)
 			}
-		}
-
-		// Remove any existing symlink in the target directory that points to the same source,
-		// so stale/raw-named symlinks get replaced with the clean name on retry.
-		if entries, err := os.ReadDir(destDir); err == nil {
-			for _, de := range entries {
-				candidate := filepath.Join(destDir, de.Name())
-				if target, err := os.Readlink(candidate); err == nil && (target == linkTarget || target == path) {
-					if candidate == linkPath {
-						slog.Info("createSymlinks: symlink already correct, skipping", "dst", linkPath)
-						return nil
-					}
-					slog.Info("createSymlinks: removing stale symlink", "old", candidate, "new", linkPath)
-					os.Remove(candidate)
-				}
-			}
-		}
-
-		if _, err := os.Lstat(linkPath); err == nil {
-			slog.Info("createSymlinks: symlink already exists, skipping", "dst", linkPath)
 			return nil
 		}
 
-		if err := os.Symlink(linkTarget, linkPath); err != nil {
-			slog.Warn("createSymlinks: failed to create symlink", "src", linkTarget, "dst", linkPath, "error", err)
+		if err := os.Link(path, linkPath); err != nil {
+			slog.Warn("createHardlinks: failed", "src", path, "dst", linkPath, "error", err)
 		} else {
-			slog.Info("createSymlinks: created symlink", "src", linkTarget, "dst", linkPath)
+			slog.Info("createHardlinks: created", "src", path, "dst", linkPath)
 		}
 		return nil
 	})
 	if err != nil {
-		slog.Warn("createSymlinks: walk failed", "path", savePath, "error", err)
+		slog.Warn("createHardlinks: walk failed", "path", savePath, "error", err)
 	}
-	slog.Info("createSymlinks: done", "save_path", savePath)
+	slog.Info("createHardlinks: done", "save_path", savePath)
 	return
 }
 

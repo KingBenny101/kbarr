@@ -22,7 +22,6 @@ interface Settings {
     qbittorrentUsername: string
     qbittorrentPassword: string
     downloadPath: string
-    symlinkTargetDownloadPath: string
     mediaPath: string
     allowedVideoExtensions: string
     downloaderInterval: string
@@ -91,9 +90,8 @@ export function SettingsPage() {
                 qbittorrentUrl: data.qbittorrentUrl || "http://host.docker.internal:8080",
                 qbittorrentUsername: data.qbittorrentUsername || "",
                 qbittorrentPassword: data.qbittorrentPassword || "",
-                downloadPath: data.downloadPath || "/app/downloads",
-                symlinkTargetDownloadPath: data.symlinkTargetDownloadPath || "",
-                mediaPath: data.mediaPath || "/app/media",
+                downloadPath: data.downloadPath || "/library/downloads",
+                mediaPath: data.mediaPath || "/library/media",
                 allowedVideoExtensions: data.allowedVideoExtensions || ".mkv,.mp4,.avi,.mov,.wmv,.m4v",
                 downloaderInterval: data.downloaderInterval || "1",
                 stallTimeout: data.stallTimeout || "300",
@@ -432,24 +430,17 @@ export function SettingsPage() {
                         />
                         <TextInput
                             label="Download path"
-                            description="Absolute path where qBittorrent saves files. Must match DOWNLOAD_DIR_HOST in your .env."
+                            description="Absolute path inside the container where qBittorrent saves files (e.g. /library/downloads). Must be under the LIBRARY_DIR_HOST mount."
                             value={settings.downloadPath}
                             onChange={(e) => update("downloadPath", e.currentTarget.value)}
-                            placeholder="/app/downloads"
-                        />
-                        <TextInput
-                            label="Symlink target download path"
-                            description="Host path to the downloads directory, used as the symlink target so media clients outside the container can resolve links. Leave blank to use Download path."
-                            value={settings.symlinkTargetDownloadPath}
-                            onChange={(e) => update("symlinkTargetDownloadPath", e.currentTarget.value)}
-                            placeholder="/mnt/data/downloads"
+                            placeholder="/library/downloads"
                         />
                         <TextInput
                             label="Media path"
-                            description="Absolute path where named symlinks are created. Must match MEDIA_DIR_HOST in your .env."
+                            description="Absolute path inside the container where organised hardlinks are created (e.g. /library/media). Must be under the same LIBRARY_DIR_HOST mount as Download path."
                             value={settings.mediaPath}
                             onChange={(e) => update("mediaPath", e.currentTarget.value)}
-                            placeholder="/app/media"
+                            placeholder="/library/media"
                         />
                         <TextInput
                             label="Allowed video extensions"
