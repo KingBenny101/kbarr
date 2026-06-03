@@ -325,17 +325,41 @@ func (s *DownloaderService) deleteTorrent(ctx context.Context, qbtURL, hash stri
 }
 
 func (s *DownloaderService) onComplete(ctx context.Context, entry models.DownloadQueue) {
+	// Create symlinks for all video files in the download directory.
+	// Check the result before deciding whether to mark as completed or re-queue.
+	var walked, hasVideo bool
+	if entry.SavePath != nil && *entry.SavePath != "" {
+		walked, hasVideo = s.createSymlinks(ctx, *entry.SavePath, entry.Title)
+	}
+
+	// If we successfully walked the directory but found no supported video files,
+	// blacklist this torrent and re-queue the monitor so a different release is tried.
+	// Guard on mediaPath being set: if it's unset that's a config issue, not a bad torrent.
+	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
+	if walked && !hasVideo && mediaPath != "" {
+		slog.Warn("No supported video files — blacklisting and re-queuing", "id", entry.ID, "save_path", *entry.SavePath)
+		s.blacklistTorrent(ctx, entry)
+		qbtURL, username, password := s.qbtConfig()
+		if err := s.login(ctx, qbtURL, username, password); err == nil && entry.TorrentHash != nil {
+			_ = s.deleteTorrent(ctx, qbtURL, *entry.TorrentHash, true)
+		}
+		s.db.NewUpdate().Model((*models.DownloadQueue)(nil)).
+			Set("deleted_at = now(), updated_at = now()").
+			Where("id = ?", entry.ID).Exec(ctx)
+		if entry.MonitorID != nil {
+			s.db.NewUpdate().Model((*models.Monitor)(nil)).
+				Set("status = 'pending', updated_at = now()").
+				Where("id = ?", *entry.MonitorID).Exec(ctx)
+		}
+		return
+	}
+
 	// Mark as completed (keep row visible in UI)
 	s.db.NewUpdate().
 		Model((*models.DownloadQueue)(nil)).
 		Set("status = 'completed', progress = 1, updated_at = now()").
 		Where("id = ?", entry.ID).
 		Exec(ctx)
-
-	// Create symlinks for all video files in the download directory
-	if entry.SavePath != nil && *entry.SavePath != "" {
-		s.createSymlinks(ctx, *entry.SavePath, entry.Title)
-	}
 
 	if entry.MonitorID == nil {
 		return
@@ -366,16 +390,18 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	}
 }
 
-func (s *DownloaderService) createSymlinks(_ context.Context, savePath string, entryTitle *string) {
+func (s *DownloaderService) createSymlinks(_ context.Context, savePath string, entryTitle *string) (walked, hasVideo bool) {
 	title := ""
 	if entryTitle != nil {
 		title = *entryTitle
 	}
-	s.CreateSymlinks(savePath, title)
+	return s.CreateSymlinks(savePath, title)
 }
 
 // CreateSymlinks is the public entry point used by both onComplete and the manual /symlinks/create endpoint.
-func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
+// It returns (walked, hasVideo): walked=true if the save path was found and traversed,
+// hasVideo=true if at least one supported video file was encountered.
+func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked, hasVideo bool) {
 	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
 	rawExts := config.Get(s.db, "allowedVideoExtensions", ".mkv,.mp4,.avi,.mov,.wmv,.m4v")
 
@@ -431,6 +457,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
 		walkRoot = match
 	}
 
+	walked = true
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			slog.Warn("createSymlinks: walk error on entry", "path", path, "error", err)
@@ -446,6 +473,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
 			slog.Info("createSymlinks: skipping (extension not allowed)", "file", info.Name(), "ext", ext)
 			return nil
 		}
+		hasVideo = true
 
 		g := runGuessit(info.Name())
 		slog.Info("createSymlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
@@ -515,6 +543,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
 		slog.Warn("createSymlinks: walk failed", "path", savePath, "error", err)
 	}
 	slog.Info("createSymlinks: done", "save_path", savePath)
+	return
 }
 
 func (s *DownloaderService) resolveMonitor(ctx context.Context, monitorID int64) *models.Monitor {
