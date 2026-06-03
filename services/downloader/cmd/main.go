@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -54,6 +55,53 @@ func main() {
 			slog.Error("Failed to delete torrent from qBittorrent", "hash", body.Hash, "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
+	})
+	mux.HandleFunc("POST /symlinks/create", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			SavePath string `json:"save_path"`
+			Title    string `json:"title"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SavePath == "" {
+			http.Error(w, "save_path is required", http.StatusBadRequest)
+			return
+		}
+		svc.CreateSymlinks(body.SavePath, body.Title)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
+	})
+	mux.HandleFunc("POST /files/delete", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			SavePath   string `json:"save_path"`
+			SymlinkDir string `json:"symlink_dir"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		downloadPath := strings.TrimRight(config.Get(db.DB, "downloadPath", ""), "/")
+		mediaPath := strings.TrimRight(config.Get(db.DB, "mediaPath", ""), "/")
+		if body.SavePath != "" {
+			// Rebase against current downloadPath so stale DB paths resolve correctly
+			savePath := body.SavePath
+			if downloadPath != "" {
+				savePath = filepath.Join(downloadPath, filepath.Base(savePath))
+			}
+			if err := os.RemoveAll(savePath); err != nil {
+				slog.Warn("files/delete: failed to remove save path", "path", savePath, "error", err)
+			} else {
+				slog.Info("files/delete: removed save path", "path", savePath)
+			}
+		}
+		if body.SymlinkDir != "" {
+			cleaned := filepath.Join(mediaPath, filepath.Base(body.SymlinkDir))
+			if err := os.RemoveAll(cleaned); err != nil {
+				slog.Warn("files/delete: failed to remove symlink dir", "path", cleaned, "error", err)
+			} else {
+				slog.Info("files/delete: removed symlink dir", "path", cleaned)
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})

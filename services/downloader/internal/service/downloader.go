@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -121,19 +122,12 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 		return
 	}
 
-	basePath := strings.TrimRight(config.Get(s.db, "downloadPath", "/data/torrents"), "/")
-
 	for _, entry := range entries {
 		if entry.TorrentURL == nil || *entry.TorrentURL == "" {
 			continue
 		}
-		title := ""
-		if entry.Title != nil {
-			title = sanitizeFilename(*entry.Title)
-		}
-		savePath := filepath.Join(basePath, title)
 
-		hash, err := s.addTorrent(ctx, qbtURL, *entry.TorrentURL, savePath)
+		hash, err := s.addTorrent(ctx, qbtURL, *entry.TorrentURL)
 		if err != nil {
 			slog.Error("Failed to add torrent — blacklisting and re-queuing", "id", entry.ID, "error", err)
 			s.blacklistTorrent(ctx, entry)
@@ -148,13 +142,28 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 			continue
 		}
 
-		// For .torrent URLs the magnet hash is empty — query qBittorrent by name to resolve it
-		if hash == "" && entry.TorrentName != nil && *entry.TorrentName != "" {
-			time.Sleep(2 * time.Second)
+		// Wait briefly then query qBittorrent to resolve the hash (for .torrent uploads)
+		// and the actual torrent name (which determines the subdirectory).
+		downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
+		var savePath string
+		time.Sleep(2 * time.Second)
+		if items, err := s.fetchTorrents(ctx, qbtURL, hash, ""); err == nil && len(items) > 0 {
+			t := items[0]
+			if hash == "" {
+				hash = t.Hash
+			}
+			if downloadPath != "" {
+				savePath = filepath.Join(downloadPath, t.Name)
+			}
+		} else if hash == "" && entry.TorrentName != nil && *entry.TorrentName != "" {
+			// Fallback: search by name if hash still unknown
 			if items, err := s.fetchTorrents(ctx, qbtURL, "", ""); err == nil {
 				for _, t := range items {
 					if t.Name == *entry.TorrentName {
 						hash = t.Hash
+						if downloadPath != "" {
+							savePath = filepath.Join(downloadPath, t.Name)
+						}
 						break
 					}
 				}
@@ -295,12 +304,17 @@ func (s *DownloaderService) deleteTorrent(ctx context.Context, qbtURL, hash stri
 }
 
 func (s *DownloaderService) onComplete(ctx context.Context, entry models.DownloadQueue) {
-	// Soft-delete the queue entry
+	// Mark as completed (keep row visible in UI)
 	s.db.NewUpdate().
 		Model((*models.DownloadQueue)(nil)).
-		Set("deleted_at = now(), updated_at = now()").
+		Set("status = 'completed', progress = 1, updated_at = now()").
 		Where("id = ?", entry.ID).
 		Exec(ctx)
+
+	// Create symlinks for all video files in the download directory
+	if entry.SavePath != nil && *entry.SavePath != "" {
+		s.createSymlinks(ctx, *entry.SavePath, entry.Title)
+	}
 
 	if entry.MonitorID == nil {
 		return
@@ -331,6 +345,132 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	}
 }
 
+func (s *DownloaderService) createSymlinks(_ context.Context, savePath string, entryTitle *string) {
+	title := ""
+	if entryTitle != nil {
+		title = *entryTitle
+	}
+	s.CreateSymlinks(savePath, title)
+}
+
+// CreateSymlinks is the public entry point used by both onComplete and the manual /symlinks/create endpoint.
+func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
+	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
+	rawExts := config.Get(s.db, "allowedVideoExtensions", ".mkv,.mp4,.avi,.mov,.wmv,.m4v")
+
+	// Always rebase using the current downloadPath setting so that old DB entries
+	// with a stale base path (e.g. /data/torrents/...) still resolve correctly.
+	downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
+	if downloadPath != "" && savePath != "" {
+		savePath = filepath.Join(downloadPath, filepath.Base(savePath))
+	}
+
+	slog.Info("createSymlinks: start", "save_path", savePath, "media_path", mediaPath, "entry_title", entryTitle)
+
+	if mediaPath == "" {
+		slog.Warn("createSymlinks: mediaPath is not configured — skipping")
+		return
+	}
+	if savePath == "" {
+		slog.Warn("createSymlinks: savePath is empty — skipping")
+		return
+	}
+
+	allowedExts := map[string]bool{}
+	for _, e := range strings.Split(rawExts, ",") {
+		if t := strings.TrimSpace(strings.ToLower(e)); t != "" {
+			allowedExts[t] = true
+		}
+	}
+	slog.Info("createSymlinks: allowed extensions", "exts", rawExts)
+
+	if _, err := os.Stat(savePath); err != nil {
+		slog.Warn("createSymlinks: save_path does not exist or is not accessible", "path", savePath, "error", err)
+		return
+	}
+
+	err := filepath.Walk(savePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			slog.Warn("createSymlinks: walk error on entry", "path", path, "error", err)
+			return nil
+		}
+		if info.IsDir() {
+			slog.Info("createSymlinks: entering directory", "path", path)
+			return nil
+		}
+
+		ext := strings.ToLower(filepath.Ext(path))
+		if !allowedExts[ext] {
+			slog.Info("createSymlinks: skipping (extension not allowed)", "file", info.Name(), "ext", ext)
+			return nil
+		}
+
+		g := runGuessit(info.Name())
+		slog.Info("createSymlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
+
+		resolvedTitle := g.Title
+		if resolvedTitle == "" {
+			resolvedTitle = entryTitle
+		}
+		resolvedTitle = sanitizeFilename(resolvedTitle)
+		if resolvedTitle == "" {
+			slog.Warn("createSymlinks: could not determine title, skipping", "file", path)
+			return nil
+		}
+
+		var linkName string
+		if g.Episode > 0 {
+			season := g.Season
+			if season == 0 {
+				season = 1
+			}
+			linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, g.Episode, ext)
+		} else {
+			linkName = sanitizeFilename(info.Name())
+		}
+		linkPath := filepath.Join(mediaPath, resolvedTitle, linkName)
+		slog.Info("createSymlinks: planned symlink", "src", path, "dst", linkPath)
+
+		destDir := filepath.Dir(linkPath)
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			slog.Warn("createSymlinks: failed to create directory", "path", destDir, "error", err)
+			return nil
+		}
+
+		// Remove any existing symlink in the target directory that points to the same source,
+		// so stale/raw-named symlinks get replaced with the clean name on retry.
+		if entries, err := os.ReadDir(destDir); err == nil {
+			for _, de := range entries {
+				candidate := filepath.Join(destDir, de.Name())
+				if target, err := os.Readlink(candidate); err == nil && target == path {
+					if candidate == linkPath {
+						slog.Info("createSymlinks: symlink already correct, skipping", "dst", linkPath)
+						return nil
+					}
+					slog.Info("createSymlinks: removing stale symlink", "old", candidate, "new", linkPath)
+					os.Remove(candidate)
+				}
+			}
+		}
+
+		if _, err := os.Lstat(linkPath); err == nil {
+			slog.Info("createSymlinks: symlink already exists, skipping", "dst", linkPath)
+			return nil
+		}
+
+		if err := os.Symlink(path, linkPath); err != nil {
+			slog.Warn("createSymlinks: failed to create symlink", "src", path, "dst", linkPath, "error", err)
+		} else {
+			slog.Info("createSymlinks: created symlink", "src", path, "dst", linkPath)
+		}
+		return nil
+	})
+	if err != nil {
+		slog.Warn("createSymlinks: walk failed", "path", savePath, "error", err)
+	}
+	slog.Info("createSymlinks: done", "save_path", savePath)
+}
+
 func (s *DownloaderService) resolveMonitor(ctx context.Context, monitorID int64) *models.Monitor {
 	var mon models.Monitor
 	if err := s.db.NewSelect().Model(&mon).Where("id = ?", monitorID).Scan(ctx); err != nil {
@@ -339,7 +479,7 @@ func (s *DownloaderService) resolveMonitor(ctx context.Context, monitorID int64)
 	return &mon
 }
 
-func (s *DownloaderService) addTorrent(ctx context.Context, qbtURL, torrentURL, savePath string) (string, error) {
+func (s *DownloaderService) addTorrent(ctx context.Context, qbtURL, torrentURL string) (string, error) {
 	if qbtURL == "" {
 		return "", fmt.Errorf("qBittorrent URL is not configured")
 	}
@@ -378,10 +518,8 @@ func (s *DownloaderService) addTorrent(ctx context.Context, qbtURL, torrentURL, 
 		}
 	}
 
-	if savePath != "" {
-		if err := writer.WriteField("savepath", savePath); err != nil {
-			return "", err
-		}
+	if err := writer.WriteField("tags", "kbarr"); err != nil {
+		return "", err
 	}
 	if err := writer.Close(); err != nil {
 		return "", err
