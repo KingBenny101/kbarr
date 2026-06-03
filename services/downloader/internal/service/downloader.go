@@ -377,12 +377,33 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) {
 	}
 	slog.Info("createSymlinks: allowed extensions", "exts", rawExts)
 
+	walkRoot := savePath
 	if _, err := os.Stat(savePath); err != nil {
-		slog.Warn("createSymlinks: save_path does not exist or is not accessible", "path", savePath, "error", err)
-		return
+		// savePath doesn't exist — single-file torrent where t.Name has no extension.
+		// Look in the parent directory for a file whose base name (without ext) matches.
+		parent := filepath.Dir(savePath)
+		base := filepath.Base(savePath)
+		entries, readErr := os.ReadDir(parent)
+		if readErr != nil {
+			slog.Warn("createSymlinks: save_path does not exist and parent is not readable", "path", savePath, "error", err)
+			return
+		}
+		var match string
+		for _, e := range entries {
+			if !e.IsDir() && strings.TrimSuffix(e.Name(), filepath.Ext(e.Name())) == base {
+				match = filepath.Join(parent, e.Name())
+				break
+			}
+		}
+		if match == "" {
+			slog.Warn("createSymlinks: save_path does not exist or is not accessible", "path", savePath, "error", err)
+			return
+		}
+		slog.Info("createSymlinks: resolved single-file torrent", "path", match)
+		walkRoot = match
 	}
 
-	err := filepath.Walk(savePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			slog.Warn("createSymlinks: walk error on entry", "path", path, "error", err)
 			return nil
