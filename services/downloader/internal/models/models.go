@@ -42,4 +42,5 @@ type Monitor struct {
 	LibraryID     *int64     `bun:"library_id"`
 	IsSeason      *bool      `bun:"is_season"`
 	IsEpisode     *bool      `bun:"is_episode"`
+	Monitored     bool       `bun:"monitored"`
 }

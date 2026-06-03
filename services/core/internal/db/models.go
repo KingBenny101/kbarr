@@ -70,6 +70,7 @@ type Monitor struct {
 	ExternalID    *string    `bun:"external_id" json:"external_id"`
 	Status        *string    `bun:"status" json:"status"`
 	Available     bool       `bun:"available,notnull,default:false" json:"available"`
+	Monitored     bool       `bun:"monitored,notnull,default:false" json:"monitored"`
 }
 
 

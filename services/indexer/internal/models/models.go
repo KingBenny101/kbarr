@@ -22,8 +22,9 @@ type Monitor struct {
 	Source        *string    `bun:"source"`
 	ExternalID    *string    `bun:"external_id"`
 	Status        *string    `bun:"status"`
+	Available     bool       `bun:"available"`
+	Monitored     bool       `bun:"monitored"`
 }
-
 
 type DownloadQueue struct {
 	bun.BaseModel `bun:"table:download_queue"`

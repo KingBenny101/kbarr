@@ -12,6 +12,7 @@ type Monitor struct {
 	IsSeason      bool   `json:"is_season"`
 	Source        string `json:"source"`
 	ExternalID    string `json:"external_id"`
-	Status        string `json:"status"` // monitored, searching, downloading, downloaded, missing, unmonitored
+	Status        string `json:"status"` // pending, searching, queued, downloading, downloaded, missing
 	Available     bool   `json:"available"`
+	Monitored     bool   `json:"monitored"`
 }

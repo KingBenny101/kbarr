@@ -171,6 +171,7 @@ func monitorFromModel(m models.Monitor) Monitor {
 		ExternalID:    stringPtr(m.ExternalID),
 		Status:        stringPtr(m.Status),
 		Available:     m.Available,
+		Monitored:     m.Monitored,
 	}
 }
 
@@ -193,6 +194,7 @@ func monitorToModel(m Monitor) models.Monitor {
 		ExternalID:    derefString(m.ExternalID),
 		Status:        derefString(m.Status),
 		Available:     m.Available,
+		Monitored:     m.Monitored,
 	}
 }
 
