@@ -412,6 +412,11 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 		savePath = filepath.Join(downloadPath, filepath.Base(savePath))
 	}
 
+	// symlinkTargetDownloadPath is the path the host uses to reach the downloads directory.
+	// Symlink targets are written with this prefix so they resolve outside the container.
+	// Falls back to downloadPath if not configured (i.e. no container/host path difference).
+	symlinkTargetBase := strings.TrimRight(config.Get(s.db, "symlinkTargetDownloadPath", downloadPath), "/")
+
 	slog.Info("createSymlinks: start", "save_path", savePath, "media_path", mediaPath, "entry_title", entryTitle)
 
 	if mediaPath == "" {
@@ -511,12 +516,20 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 			return nil
 		}
 
+		// Translate the container-internal path to the host-accessible symlink target.
+		linkTarget := path
+		if symlinkTargetBase != downloadPath && downloadPath != "" {
+			if rel, err := filepath.Rel(downloadPath, path); err == nil {
+				linkTarget = filepath.Join(symlinkTargetBase, rel)
+			}
+		}
+
 		// Remove any existing symlink in the target directory that points to the same source,
 		// so stale/raw-named symlinks get replaced with the clean name on retry.
 		if entries, err := os.ReadDir(destDir); err == nil {
 			for _, de := range entries {
 				candidate := filepath.Join(destDir, de.Name())
-				if target, err := os.Readlink(candidate); err == nil && target == path {
+				if target, err := os.Readlink(candidate); err == nil && (target == linkTarget || target == path) {
 					if candidate == linkPath {
 						slog.Info("createSymlinks: symlink already correct, skipping", "dst", linkPath)
 						return nil
@@ -532,10 +545,10 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 			return nil
 		}
 
-		if err := os.Symlink(path, linkPath); err != nil {
-			slog.Warn("createSymlinks: failed to create symlink", "src", path, "dst", linkPath, "error", err)
+		if err := os.Symlink(linkTarget, linkPath); err != nil {
+			slog.Warn("createSymlinks: failed to create symlink", "src", linkTarget, "dst", linkPath, "error", err)
 		} else {
-			slog.Info("createSymlinks: created symlink", "src", path, "dst", linkPath)
+			slog.Info("createSymlinks: created symlink", "src", linkTarget, "dst", linkPath)
 		}
 		return nil
 	})
