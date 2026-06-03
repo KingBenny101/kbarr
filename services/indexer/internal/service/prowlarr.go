@@ -380,16 +380,61 @@ func (s *IndexerService) currentMonitorInterval() time.Duration {
 
 var episodeInTitlePattern = regexp.MustCompile(`(?i)S\d{2}E\d{2}`)
 
+var (
+	seasonInTitleRe = regexp.MustCompile(`(?i)\bseason\s*(\d+)\b`)
+	ordinalSeasonRe = regexp.MustCompile(`(?i)\b(\d+)(?:st|nd|rd|th)\s+season\b`)
+)
+
+// extractSeasonFromTitle returns the season number embedded in a show title,
+// e.g. "Grand Blue Dreaming Season 2" → 2, "Attack on Titan 4th Season" → 4.
+// Returns 0 if no season pattern is found.
+func extractSeasonFromTitle(title string) int {
+	if m := ordinalSeasonRe.FindStringSubmatch(title); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	if m := seasonInTitleRe.FindStringSubmatch(title); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	return 0
+}
+
+// stripSeasonFromTitle removes season indicators ("Season 2", "2nd Season") from a title
+// so that base-title similarity comparisons work correctly.
+func stripSeasonFromTitle(title string) string {
+	s := ordinalSeasonRe.ReplaceAllString(title, "")
+	s = seasonInTitleRe.ReplaceAllString(s, "")
+	return strings.Join(strings.Fields(s), " ")
+}
+
+// expandWithStrippedSeasons appends stripped-season variants to the titles list so
+// guessit-parsed titles (which drop "Season N") still score well in similarity checks.
+func expandWithStrippedSeasons(titles []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(titles)*2)
+	for _, t := range titles {
+		if !seen[t] {
+			out = append(out, t)
+			seen[t] = true
+		}
+		if stripped := stripSeasonFromTitle(t); stripped != t && stripped != "" && !seen[stripped] {
+			out = append(out, stripped)
+			seen[stripped] = true
+		}
+	}
+	return out
+}
+
 // seasonQuery searches by title only — anime seasons are separate titles,
 // not S01/S02 suffixes. Guessit + alternate-title filtering handles season matching.
 func seasonQuery(title string, _ int64) string {
 	return title
 }
 
-// episodeQuery appends just the episode number in the common anime format ("- 01").
-// Prowlarr indexers and guessit both handle this reliably for anime.
+// episodeQuery appends the episode number prefixed with "E" (e.g. "E06").
 func episodeQuery(title string, _ int64, episode int64) string {
-	return fmt.Sprintf("%s %02d", title, episode)
+	return fmt.Sprintf("%s E%02d", title, episode)
 }
 
 func isSeasonPack(r models.SearchResult) bool {
@@ -616,8 +661,13 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 			continue
 		}
 		season := int64(1)
-		if mon.Season != nil {
+		if mon.Season != nil && *mon.Season > 0 {
 			season = *mon.Season
+		}
+		if season == 1 {
+			if embedded := extractSeasonFromTitle(*mon.Title); embedded > 1 {
+				season = int64(embedded)
+			}
 		}
 
 		// Count episode monitors for this library/season to detect single-episode seasons.
@@ -692,8 +742,16 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 		}
 
 		season := int64(1)
-		if mon.Season != nil {
+		if mon.Season != nil && *mon.Season > 0 {
 			season = *mon.Season
+		}
+		// If the DB stores season 1 but the title embeds a season number (e.g. "Grand Blue
+		// Dreaming Season 2"), AniDB has recorded this sequel as a standalone entry. Use
+		// the embedded season so guessit-parsed torrent filenames match correctly.
+		if season == 1 {
+			if embedded := extractSeasonFromTitle(title); embedded > 1 {
+				season = int64(embedded)
+			}
 		}
 		episode := int64(0)
 		if mon.EpisodeNumber != nil {
@@ -753,6 +811,9 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 // episodeCount is the total number of episodes in the season (0 = unknown).
 // When episodeCount == 1, a torrent with guessit episode == 1 is accepted as a season pack.
 func buildMatchLog(results []models.SearchResult, titles []string, threshold float64, season, episode, episodeCount int) []MatchEntry {
+	// Include stripped-season variants so guessit-parsed titles (which drop "Season N")
+	// still match our DB titles at full similarity.
+	expandedTitles := expandWithStrippedSeasons(titles)
 	entries := make([]MatchEntry, 0, len(results))
 	for _, r := range results {
 		filename := r.FileName
@@ -760,7 +821,7 @@ func buildMatchLog(results []models.SearchResult, titles []string, threshold flo
 			filename = r.Title
 		}
 		g := runGuessit(filename)
-		sim := bestTitleSimilarity(g.Title, titles)
+		sim := bestTitleSimilarity(g.Title, expandedTitles)
 		e := MatchEntry{
 			TorrentTitle:  r.Title,
 			GuessitTitle:  g.Title,
