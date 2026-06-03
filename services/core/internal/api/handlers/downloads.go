@@ -52,24 +52,7 @@ func HandleClearBlacklist(w http.ResponseWriter, r *http.Request) {
 func HandleCreateSymlinks(downloaderAddr string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
-
-		var entry db.DownloadQueue
-		if err := db.GetDownloadQueueEntry(context.Background(), id, &entry); err != nil {
-			slog.Error("Failed to fetch download queue entry", "id", id, "error", err)
-			http.Error(w, "entry not found", http.StatusNotFound)
-			return
-		}
-
-		savePath := ""
-		if entry.SavePath != nil {
-			savePath = *entry.SavePath
-		}
-		title := ""
-		if entry.Title != nil {
-			title = *entry.Title
-		}
-
-		body, _ := json.Marshal(map[string]string{"save_path": savePath, "title": title})
+		body, _ := json.Marshal(map[string]string{"id": id})
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, downloaderAddr+"/symlinks/create", bytes.NewReader(body))
 		if err != nil {
 			http.Error(w, "failed to build request", http.StatusInternalServerError)

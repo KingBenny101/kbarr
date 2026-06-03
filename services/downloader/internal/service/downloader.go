@@ -431,6 +431,46 @@ func (s *DownloaderService) createSymlinks(_ context.Context, savePath string, e
 	return s.CreateSymlinks(savePath, title)
 }
 
+// CreateSymlinksForEntry is used by the manual /symlinks/create endpoint.
+// It looks up the download queue entry by ID, queries qBittorrent for the
+// current content_path (falling back to the DB save_path if the torrent is
+// no longer tracked), and calls CreateSymlinks with the resolved path.
+func (s *DownloaderService) CreateSymlinksForEntry(ctx context.Context, id int64) (walked, hasVideo bool) {
+	var entry models.DownloadQueue
+	if err := s.db.NewSelect().Model(&entry).Where("id = ?", id).Scan(ctx); err != nil {
+		slog.Error("CreateSymlinksForEntry: entry not found", "id", id, "error", err)
+		return
+	}
+
+	title := ""
+	if entry.Title != nil {
+		title = *entry.Title
+	}
+
+	savePath := ""
+	if entry.SavePath != nil {
+		savePath = *entry.SavePath
+	}
+
+	// Prefer the live content_path from qBittorrent over the potentially-stale DB value.
+	if entry.TorrentHash != nil && *entry.TorrentHash != "" {
+		qbtURL, username, password := s.qbtConfig()
+		if err := s.login(ctx, qbtURL, username, password); err == nil {
+			if items, err := s.fetchTorrents(ctx, qbtURL, *entry.TorrentHash, ""); err == nil && len(items) > 0 {
+				if name := items[0].contentName(); name != "" {
+					downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
+					if downloadPath != "" {
+						savePath = filepath.Join(downloadPath, name)
+						slog.Info("CreateSymlinksForEntry: resolved live path from qBittorrent", "id", id, "save_path", savePath)
+					}
+				}
+			}
+		}
+	}
+
+	return s.CreateSymlinks(savePath, title)
+}
+
 // CreateSymlinks is the public entry point used by both onComplete and the manual /symlinks/create endpoint.
 // It returns (walked, hasVideo): walked=true if the save path was found and traversed,
 // hasVideo=true if at least one supported video file was encountered.

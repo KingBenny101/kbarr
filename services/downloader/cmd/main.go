@@ -62,14 +62,13 @@ func main() {
 	})
 	mux.HandleFunc("POST /symlinks/create", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			SavePath string `json:"save_path"`
-			Title    string `json:"title"`
+			ID int64 `json:"id"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SavePath == "" {
-			http.Error(w, "save_path is required", http.StatusBadRequest)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ID == 0 {
+			http.Error(w, "id is required", http.StatusBadRequest)
 			return
 		}
-		svc.CreateSymlinks(body.SavePath, body.Title)
+		svc.CreateSymlinksForEntry(r.Context(), body.ID)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
 	})
