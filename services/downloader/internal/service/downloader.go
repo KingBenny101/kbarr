@@ -478,9 +478,9 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 		g := runGuessit(info.Name())
 		slog.Info("createSymlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
 
-		resolvedTitle := g.Title
+		resolvedTitle := entryTitle
 		if resolvedTitle == "" {
-			resolvedTitle = entryTitle
+			resolvedTitle = g.Title
 		}
 		resolvedTitle = sanitizeFilename(resolvedTitle)
 		if resolvedTitle == "" {
