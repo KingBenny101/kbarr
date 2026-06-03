@@ -700,7 +700,9 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 			episode = *mon.EpisodeNumber
 		}
 
-		var goodEpisodes []models.SearchResult
+		// Search each title in order; only advance to the next when pickBest
+		// rejects all candidates from the current title (quality cap, blacklist, etc.).
+		var selectedBest *models.SearchResult
 		for _, t := range titles {
 			q := episodeQuery(t, season, episode)
 			results, err := s.Search(q)
@@ -710,10 +712,10 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 			}
 			slog.Info("Episode search", "query", q, "results", len(results))
 
-			// Evaluate ALL results with guessit+similarity, sort, save debug file.
 			matchLog := buildMatchLog(results, titles, threshold, int(season), int(episode), 0)
 			saveMatchingDebug(q, matchLog, s.cacheFileLimit())
 
+			var goodEpisodes []models.SearchResult
 			for _, e := range matchLog {
 				if e.Passed {
 					for i := range results {
@@ -724,15 +726,17 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 					}
 				}
 			}
-			if len(goodEpisodes) > 0 {
+			slog.Info("Episode results", "monitor_id", mon.ID, "title", t, "matching", len(goodEpisodes))
+
+			if best := s.pickBest(ctx, goodEpisodes); best != nil {
+				selectedBest = best
 				break
 			}
 		}
-		slog.Info("Episode results", "monitor_id", mon.ID, "matching", len(goodEpisodes))
 
-		if best := s.pickBest(ctx, goodEpisodes); best != nil {
-			slog.Info("Episode torrent selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
-			s.queueDownload(ctx, mon, best)
+		if selectedBest != nil {
+			slog.Info("Episode torrent selected", "monitor_id", mon.ID, "torrent", selectedBest.Title, "seeds", selectedBest.Seeds, "size_mb", selectedBest.Size/1024/1024)
+			s.queueDownload(ctx, mon, selectedBest)
 		} else {
 			slog.Info("No qualifying torrent for episode, marking missing", "monitor_id", mon.ID)
 			s.db.NewUpdate().Model((*models.Monitor)(nil)).
