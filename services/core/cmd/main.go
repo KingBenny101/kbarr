@@ -14,6 +14,7 @@ import (
 	"github.com/kingbenny101/kbarr/services/core/internal/auth"
 	"github.com/kingbenny101/kbarr/services/core/internal/clients"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
+	coreservice "github.com/kingbenny101/kbarr/services/core/internal/service"
 	coreversion "github.com/kingbenny101/kbarr/services/core/internal/version"
 	"github.com/kingbenny101/kbarr/shared/logger"
 )
@@ -54,6 +55,10 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+	go coreservice.PollAvailability(bgCtx, db.DB)
 
 	go func() {
 		slog.Info("Server running on", "url", "http://localhost:"+port)
