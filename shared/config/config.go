@@ -35,6 +35,8 @@ var DefaultSettings = map[string]string{
 	"devMode":              "false",
 	"authUsername":         "",
 	"authPasswordHash":     "",
+	"indexerProvider":      "prowlarr",
+	"kbdexUrl":             "http://localhost:8000",
 }
 
 type Setting struct {
