@@ -444,7 +444,7 @@ export function SettingsPage() {
                         />
                         <TextInput
                             label="Allowed video extensions"
-                            description="Comma-separated list of file extensions to symlink on completion."
+                            description="Comma-separated list of file extensions to hardlink on completion."
                             value={settings.allowedVideoExtensions}
                             onChange={(e) => update("allowedVideoExtensions", e.currentTarget.value)}
                             placeholder=".mkv,.mp4,.avi,.mov,.wmv,.m4v"

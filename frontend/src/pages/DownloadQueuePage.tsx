@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
-import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Progress, ScrollArea, Stack, Table, Text, TextInput, Title, Tooltip } from "@mantine/core"
-import { IconExternalLink, IconFlask, IconLink, IconTrash } from "@tabler/icons-react"
+import { useEffect, useMemo, useState } from "react"
+import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Pagination, Progress, ScrollArea, Stack, Table, Text, TextInput, Title, Tooltip, UnstyledButton } from "@mantine/core"
+import { IconChevronDown, IconChevronUp, IconExternalLink, IconFlask, IconLink, IconSearch, IconSelector, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
 
@@ -36,6 +36,24 @@ function statusTone(status: string | null): "gray" | "blue" | "green" | "red" | 
     }
 }
 
+const ALL_STATUSES = ["pending", "downloading", "completed", "failed"] as const
+type StatusFilter = typeof ALL_STATUSES[number] | "all"
+
+type SortField = "title" | "size" | "seeders" | "added" | "status"
+type SortDir = "asc" | "desc"
+
+const STATUS_PRIORITY: Record<string, number> = {
+    downloading: 0,
+    pending: 1,
+    failed: 2,
+    completed: 3,
+}
+
+function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+    if (field !== sortField) return <IconSelector size={14} style={{ opacity: 0.4 }} />
+    return sortDir === "asc" ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />
+}
+
 export function DownloadQueuePage() {
     const [queue, setQueue] = useState<DownloadItem[]>([])
     const [loading, setLoading] = useState(true)
@@ -50,6 +68,13 @@ export function DownloadQueuePage() {
     const [testURL, setTestURL] = useState("")
     const [testTitle, setTestTitle] = useState("")
     const [submitting, setSubmitting] = useState(false)
+
+    const [search, setSearch] = useState("")
+    const [activeStatus, setActiveStatus] = useState<StatusFilter>("all")
+    const [sortField, setSortField] = useState<SortField>("added")
+    const [sortDir, setSortDir] = useState<SortDir>("desc")
+    const [currentPage, setCurrentPage] = useState(1)
+    const itemsPerPage = 15
 
     useEffect(() => {
         apiFetch(`${API_URL}/api/settings`)
@@ -112,13 +137,13 @@ export function DownloadQueuePage() {
         return () => clearInterval(interval)
     }, [])
 
-    const handleRetrySymlinks = async (item: DownloadItem) => {
+    const handleRetryHardlinks = async (item: DownloadItem) => {
         try {
             const res = await apiFetch(`${API_URL}/api/downloads/${item.id}/symlink`, { method: "POST" })
             if (!res.ok) throw new Error()
-            showToast("Symlink creation triggered — check logs", "success")
+            showToast("Hardlink creation triggered — check logs", "success")
         } catch {
-            showToast("Failed to trigger symlink creation", "error")
+            showToast("Failed to trigger hardlink creation", "error")
         }
     }
 
@@ -149,9 +174,52 @@ export function DownloadQueuePage() {
         }
     }
 
-    const pending = queue.filter((i) => i.status === "pending").length
-    const downloading = queue.filter((i) => i.status === "downloading").length
-    const completed = queue.filter((i) => i.status === "completed").length
+    const toggleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDir((d) => d === "asc" ? "desc" : "asc")
+        } else {
+            setSortField(field)
+            setSortDir("asc")
+        }
+        setCurrentPage(1)
+    }
+
+    const setFilter = (s: StatusFilter) => {
+        setActiveStatus(s)
+        setCurrentPage(1)
+    }
+
+    const statusCounts = useMemo(() => {
+        const counts: Record<string, number> = {}
+        for (const item of queue) counts[item.status ?? "unknown"] = (counts[item.status ?? "unknown"] ?? 0) + 1
+        return counts
+    }, [queue])
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        let list = queue.filter((item) => {
+            if (activeStatus !== "all" && item.status !== activeStatus) return false
+            if (q) {
+                const haystack = `${item.title ?? ""} ${item.torrent_name ?? ""}`.toLowerCase()
+                if (!haystack.includes(q)) return false
+            }
+            return true
+        })
+        list = [...list].sort((a, b) => {
+            let cmp = 0
+            if (sortField === "title") cmp = (a.title ?? "").localeCompare(b.title ?? "")
+            else if (sortField === "size") cmp = (a.size ?? 0) - (b.size ?? 0)
+            else if (sortField === "seeders") cmp = (a.seeders ?? 0) - (b.seeders ?? 0)
+            else if (sortField === "added") cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            else if (sortField === "status") cmp = (STATUS_PRIORITY[a.status ?? ""] ?? 99) - (STATUS_PRIORITY[b.status ?? ""] ?? 99)
+            return sortDir === "asc" ? cmp : -cmp
+        })
+        return list
+    }, [queue, search, activeStatus, sortField, sortDir])
+
+    const totalPages = Math.ceil(filtered.length / itemsPerPage)
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const visible = filtered.slice(startIndex, startIndex + itemsPerPage)
 
     return (
         <Stack gap="lg">
@@ -171,7 +239,7 @@ export function DownloadQueuePage() {
                         />
                     )}
                     <Checkbox
-                        label="Delete downloaded files and symlinks"
+                        label="Delete downloaded files and hardlinks"
                         checked={deleteFiles}
                         onChange={(e) => setDeleteFiles(e.currentTarget.checked)}
                     />
@@ -209,9 +277,16 @@ export function DownloadQueuePage() {
 
             <Card withBorder radius="xl">
                 <Stack gap="md">
-                    <Group justify="space-between">
-                        <Title order={3}>Queue status</Title>
-                        <Group gap="xs">
+                    <Group justify="space-between" align="flex-start">
+                        <div>
+                            <Title order={3}>Queue status</Title>
+                            <Text c="dimmed" size="sm">
+                                {filtered.length !== queue.length
+                                    ? `${filtered.length} of ${queue.length} items`
+                                    : `${queue.length} item${queue.length !== 1 ? "s" : ""}`}
+                            </Text>
+                        </div>
+                        <Group gap="xs" wrap="wrap" justify="flex-end">
                             {devMode && (
                                 <Button variant="light" color="orange" size="xs" leftSection={<IconFlask size={14} />} onClick={() => setTestModalOpen(true)}>
                                     Add test torrent
@@ -220,24 +295,64 @@ export function DownloadQueuePage() {
                             <Button variant="light" color="gray" size="xs" loading={triggering} onClick={handleTrigger}>
                                 Process now
                             </Button>
-                            {downloading > 0 && <StatusPill label={`${downloading} downloading`} tone="blue" />}
-                            {pending > 0 && <StatusPill label={`${pending} pending`} tone="yellow" />}
-                            {completed > 0 && <StatusPill label={`${completed} completed`} tone="green" />}
-                            {queue.length === 0 && <StatusPill label="Empty" tone="gray" />}
                         </Group>
                     </Group>
+
+                    <Group gap="xs" wrap="wrap">
+                        <StatusPill
+                            label={`All (${queue.length})`}
+                            tone={activeStatus === "all" ? "blue" : "gray"}
+                            onClick={() => setFilter("all")}
+                        />
+                        {ALL_STATUSES.filter((s) => statusCounts[s]).map((s) => (
+                            <StatusPill
+                                key={s}
+                                label={`${s} (${statusCounts[s]})`}
+                                tone={activeStatus === s ? statusTone(s) : "gray"}
+                                onClick={() => setFilter(s)}
+                            />
+                        ))}
+                    </Group>
+
+                    <TextInput
+                        placeholder="Search by title or torrent name…"
+                        leftSection={<IconSearch size={16} />}
+                        value={search}
+                        onChange={(e) => { setSearch(e.currentTarget.value); setCurrentPage(1) }}
+                    />
+
                     <ScrollArea type="auto">
                         <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
                             <Table.Thead>
                                 <Table.Tr>
-                                    <Table.Th>Media</Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Media <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
                                     <Table.Th>Torrent name</Table.Th>
                                     <Table.Th>Indexer</Table.Th>
-                                    <Table.Th>Size</Table.Th>
-                                    <Table.Th>Seeders</Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("size")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Size <SortIcon field="size" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("seeders")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Seeders <SortIcon field="seeders" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
                                     <Table.Th>Hash</Table.Th>
-                                    <Table.Th>Added</Table.Th>
-                                    <Table.Th>Status</Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("added")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Added <SortIcon field="added" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
+                                    <Table.Th>
+                                        <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
+                                        </UnstyledButton>
+                                    </Table.Th>
                                     <Table.Th w={72} />
                                 </Table.Tr>
                             </Table.Thead>
@@ -248,14 +363,16 @@ export function DownloadQueuePage() {
                                             <Text ta="center" py="md">Loading queue...</Text>
                                         </Table.Td>
                                     </Table.Tr>
-                                ) : queue.length === 0 ? (
+                                ) : filtered.length === 0 ? (
                                     <Table.Tr>
                                         <Table.Td colSpan={9}>
-                                            <Text ta="center" py="md" c="dimmed">Download queue is empty.</Text>
+                                            <Text ta="center" py="md" c="dimmed">
+                                                {queue.length === 0 ? "Download queue is empty." : "No items match the current filter."}
+                                            </Text>
                                         </Table.Td>
                                     </Table.Tr>
                                 ) : (
-                                    queue.map((item) => (
+                                    visible.map((item) => (
                                         <Table.Tr key={item.id}>
                                             <Table.Td fw={700} style={{ whiteSpace: "nowrap" }}>{item.title ?? "—"}</Table.Td>
                                             <Table.Td>
@@ -296,8 +413,8 @@ export function DownloadQueuePage() {
                                             <Table.Td ta="right">
                                                 <Group gap={4} justify="flex-end" wrap="nowrap">
                                                     {item.status === "completed" && (
-                                                        <Tooltip label="Retry symlink creation">
-                                                            <ActionIcon variant="subtle" color="blue" onClick={() => handleRetrySymlinks(item)} aria-label="Retry symlinks">
+                                                        <Tooltip label="Retry hardlink creation">
+                                                            <ActionIcon variant="subtle" color="blue" onClick={() => handleRetryHardlinks(item)} aria-label="Retry hardlinks">
                                                                 <IconLink size={18} />
                                                             </ActionIcon>
                                                         </Tooltip>
@@ -313,6 +430,15 @@ export function DownloadQueuePage() {
                             </Table.Tbody>
                         </Table>
                     </ScrollArea>
+
+                    {totalPages > 1 && (
+                        <Group justify="space-between" align="center">
+                            <Text size="sm" c="dimmed">
+                                Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filtered.length)} of {filtered.length}
+                            </Text>
+                            <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} color="gray" />
+                        </Group>
+                    )}
                 </Stack>
             </Card>
         </Stack>

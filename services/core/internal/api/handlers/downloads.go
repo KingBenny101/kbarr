@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
@@ -51,8 +52,13 @@ func HandleClearBlacklist(w http.ResponseWriter, r *http.Request) {
 
 func HandleCreateSymlinks(downloaderAddr string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := chi.URLParam(r, "id")
-		body, _ := json.Marshal(map[string]string{"id": id})
+		rawID := chi.URLParam(r, "id")
+		id, err := strconv.ParseInt(rawID, 10, 64)
+		if err != nil || id == 0 {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		body, _ := json.Marshal(map[string]int64{"id": id})
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, downloaderAddr+"/symlinks/create", bytes.NewReader(body))
 		if err != nil {
 			http.Error(w, "failed to build request", http.StatusInternalServerError)
@@ -61,7 +67,7 @@ func HandleCreateSymlinks(downloaderAddr string) http.HandlerFunc {
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			slog.Error("Failed to reach downloader for symlink creation", "error", err)
+			slog.Error("Failed to reach downloader for hardlink creation", "error", err)
 			http.Error(w, "downloader unreachable", http.StatusBadGateway)
 			return
 		}
