@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /workspace
 RUN apk add --no-cache ca-certificates nodejs npm
