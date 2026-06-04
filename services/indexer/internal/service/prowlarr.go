@@ -8,17 +8,17 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 
+	"github.com/adrg/strutil/metrics"
 	"github.com/kingbenny101/kbarr/services/indexer/internal/models"
 	"github.com/kingbenny101/kbarr/shared/config"
+	"github.com/kingbenny101/kbarr/shared/parser"
 	"github.com/uptrace/bun"
 )
 
@@ -34,93 +34,10 @@ func New(db *bun.DB) *IndexerService {
 	}
 }
 
-// ── guessit ──────────────────────────────────────────────────────────────────
+// ── parser ────────────────────────────────────────────────────────────────────
 
-type rawGuessit struct {
-	Title        string          `json:"title"`
-	Season       json.RawMessage `json:"season"`
-	Episode      json.RawMessage `json:"episode"`
-	ScreenSize   string          `json:"screen_size"`
-	VideoCodec   string          `json:"video_codec"`
-	ColorDepth   string          `json:"color_depth"`
-	Source       string          `json:"source"`
-	ReleaseGroup string          `json:"release_group"`
-	Type         string          `json:"type"`
-}
-
-type GuessitResult struct {
-	Title        string
-	Season       int
-	Episode      int
-	ScreenSize   string
-	VideoCodec   string
-	ColorDepth   string
-	Source       string
-	ReleaseGroup string
-	Type         string
-}
-
-var guessitRawMemo sync.Map // filename → []byte
-
-// runGuessitRaw runs the guessit binary and returns raw JSON bytes.
-// Results are memoized so each unique filename is only parsed once per process.
-func runGuessitRaw(filename string) []byte {
-	if filename == "" {
-		return nil
-	}
-	if v, ok := guessitRawMemo.Load(filename); ok {
-		b, _ := v.([]byte)
-		return b
-	}
-	exe := guessitExe()
-	out, err := exec.Command(exe, "-j", "-n", filename).Output()
-	if err != nil {
-		slog.Warn("guessit failed", "exe", exe, "filename", filename, "error", err)
-		guessitRawMemo.Store(filename, []byte(nil))
-		return nil
-	}
-	slog.Debug("guessit output", "filename", filename, "output", string(out))
-	guessitRawMemo.Store(filename, out)
-	return out
-}
-
-func runGuessit(filename string) GuessitResult {
-	out := runGuessitRaw(filename)
-	if len(out) == 0 {
-		return GuessitResult{}
-	}
-	var raw rawGuessit
-	if err := json.Unmarshal(out, &raw); err != nil {
-		return GuessitResult{}
-	}
-	g := GuessitResult{
-		Title:        raw.Title,
-		ScreenSize:   raw.ScreenSize,
-		VideoCodec:   raw.VideoCodec,
-		ColorDepth:   raw.ColorDepth,
-		Source:       raw.Source,
-		ReleaseGroup: raw.ReleaseGroup,
-		Type:         raw.Type,
-	}
-	g.Season = intFromRaw(raw.Season)
-	g.Episode = intFromRaw(raw.Episode)
-	return g
-}
-
-// intFromRaw handles guessit fields that can be either int or []int.
-func intFromRaw(raw json.RawMessage) int {
-	if len(raw) == 0 {
-		return 0
-	}
-	var n int
-	if err := json.Unmarshal(raw, &n); err == nil {
-		return n
-	}
-	var arr []int
-	if err := json.Unmarshal(raw, &arr); err == nil && len(arr) > 0 {
-		return arr[0]
-	}
-	return 0
+func runGuessit(filename string) parser.ParseResult {
+	return parser.Parse(filename)
 }
 
 // ── title helpers ─────────────────────────────────────────────────────────────
@@ -141,8 +58,20 @@ func normalizeTitle(s string) string {
 	return strings.TrimSpace(b.String())
 }
 
-// titleSimilarity returns a 0–100 Dice-coefficient similarity between two titles
-// after normalisation. It is equivalent in spirit to rapidfuzz token_set_ratio.
+var bigramDice = func() *metrics.SorensenDice {
+	m := metrics.NewSorensenDice()
+	m.NgramSize = 2
+	return m
+}()
+
+// titleSimilarity returns a 0–100 similarity between two titles after normalisation.
+// It takes the max of:
+//   - word-level Dice (symmetric baseline)
+//   - word-level overlap (rewards containment, but only when titles are similarly
+//     sized — guarded by a 0.6 length ratio to avoid short generic prefixes like
+//     "Sword Art Online" scoring 100% against "Sword Art Online II")
+//   - character bigram Dice on space-stripped strings (handles romanized Japanese
+//     compounding, e.g. "futari inai" vs "futariinai")
 func titleSimilarity(a, b string) float64 {
 	na, nb := normalizeTitle(a), normalizeTitle(b)
 	if na == "" || nb == "" {
@@ -151,8 +80,8 @@ func titleSimilarity(a, b string) float64 {
 	if na == nb {
 		return 100
 	}
-	tA := strings.Fields(na)
-	tB := strings.Fields(nb)
+
+	tA, tB := strings.Fields(na), strings.Fields(nb)
 	freq := map[string]int{}
 	for _, t := range tA {
 		freq[t]++
@@ -164,7 +93,34 @@ func titleSimilarity(a, b string) float64 {
 			freq[t]--
 		}
 	}
-	return float64(2*inter) / float64(len(tA)+len(tB)) * 100
+	minLen, maxLen := len(tA), len(tB)
+	if minLen > maxLen {
+		minLen, maxLen = maxLen, minLen
+	}
+
+	diceScore := float64(2*inter) / float64(len(tA)+len(tB)) * 100
+
+	// Only promote the overlap score when the shorter title is at least 60% as
+	// long as the longer. Below that the parsed title is too short to reliably
+	// distinguish related shows sharing a common prefix.
+	overlapScore := diceScore
+	if float64(minLen)/float64(maxLen) >= 0.6 {
+		overlapScore = float64(inter) / float64(minLen) * 100
+	}
+
+	// Character bigram Dice on space-stripped strings
+	sa := strings.ReplaceAll(na, " ", "")
+	sb := strings.ReplaceAll(nb, " ", "")
+	charScore := bigramDice.Compare(sa, sb) * 100
+
+	best := diceScore
+	if overlapScore > best {
+		best = overlapScore
+	}
+	if charScore > best {
+		best = charScore
+	}
+	return best
 }
 
 // bestTitleSimilarity returns the highest similarity between guessedTitle and any candidate.
@@ -188,7 +144,7 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 
 	if cached, ok := cacheLoad(s.db, cleanedQuery); ok {
 		slog.Info("Prowlarr search (cache hit)", "query", cleanedQuery, "results", len(cached), "file", cacheKey(cleanedQuery))
-		go saveGuessitDebugForQuery(cleanedQuery, cached, s.cacheFileLimit())
+		go saveParserDebugForQuery(cleanedQuery, cached, s.cacheFileLimit())
 		return cached, nil
 	}
 
@@ -254,7 +210,7 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 
 	slog.Info("Prowlarr search complete", "query", cleanedQuery, "results", len(results))
 	cacheSave(cleanedQuery, results, s.cacheFileLimit())
-	go saveGuessitDebugForQuery(cleanedQuery, results, s.cacheFileLimit())
+	go saveParserDebugForQuery(cleanedQuery, results, s.cacheFileLimit())
 	return results, nil
 }
 
@@ -286,71 +242,6 @@ func (s *IndexerService) getSearchTitles(ctx context.Context, libraryID int64, m
 	return titles
 }
 
-// isGoodSeasonResult returns true if guessit parses the filename, the title
-// similarity meets the threshold, and the season number matches.
-func (s *IndexerService) isGoodSeasonResult(r models.SearchResult, titles []string, season int, threshold float64) bool {
-	filename := r.FileName
-	if filename == "" {
-		filename = r.Title
-	}
-	g := runGuessit(filename)
-	effectiveSeason := g.Season
-	if effectiveSeason == 0 {
-		effectiveSeason = 1
-	}
-	sim := bestTitleSimilarity(g.Title, titles)
-	if sim < threshold {
-		slog.Debug("Season result rejected (title similarity)", "torrent", r.Title, "guessit_title", g.Title, "similarity", sim, "threshold", threshold)
-		return false
-	}
-	if g.Episode > 0 {
-		return false // individual episode, not a season pack
-	}
-	return effectiveSeason == season
-}
-
-// isGoodEpisodeResult returns true if guessit parses the filename, the title
-// similarity meets the threshold, and season+episode numbers match.
-func (s *IndexerService) isGoodEpisodeResult(r models.SearchResult, titles []string, season, episode int, threshold float64) bool {
-	filename := r.FileName
-	if filename == "" {
-		filename = r.Title
-	}
-	g := runGuessit(filename)
-	effectiveSeason := g.Season
-	if effectiveSeason == 0 {
-		effectiveSeason = 1
-	}
-	sim := bestTitleSimilarity(g.Title, titles)
-	if sim < threshold {
-		slog.Debug("Episode result rejected (title similarity)", "torrent", r.Title, "guessit_title", g.Title, "similarity", sim, "threshold", threshold)
-		return false
-	}
-	return effectiveSeason == season && g.Episode == episode
-}
-
-// searchUntilGood queries Prowlarr with each title in order and returns the
-// first batch that contains at least one result passing isGood. This avoids
-// hitting every alternate title when the first query already yields a match.
-func (s *IndexerService) searchUntilGood(ctx context.Context, titles []string, buildQuery func(string) string, isGood func(models.SearchResult) bool) []models.SearchResult {
-	for _, title := range titles {
-		q := buildQuery(title)
-		results, err := s.Search(q)
-		if err != nil {
-			slog.Warn("Search failed", "query", q, "error", err)
-			continue
-		}
-		for _, r := range results {
-			if isGood(r) {
-				slog.Info("Good result found", "query", q, "torrent", r.Title)
-				return results
-			}
-		}
-		slog.Info("No good result for query, trying next title", "query", q, "results", len(results))
-	}
-	return nil
-}
-
 // ── poll loop ─────────────────────────────────────────────────────────────────
 
 func (s *IndexerService) PollAndQueue(ctx context.Context) {
@@ -378,12 +269,20 @@ func (s *IndexerService) currentMonitorInterval() time.Duration {
 	return config.GetSeconds(s.db, "prowlarrInterval", 1*time.Second, 1*time.Second)
 }
 
-var episodeInTitlePattern = regexp.MustCompile(`(?i)S\d{2}E\d{2}`)
 
 var (
 	seasonInTitleRe = regexp.MustCompile(`(?i)\bseason\s*(\d+)\b`)
 	ordinalSeasonRe = regexp.MustCompile(`(?i)\b(\d+)(?:st|nd|rd|th)\s+season\b`)
+	westernEpPattern = regexp.MustCompile(`(?i)S\d{1,2}E\d{1,2}`)
 )
+
+// isIndividualEpisode returns true if the result is a single episode rather than
+// a season pack. It checks anitogo's parsed episode number first, then falls back
+// to a SxxExx regex on the raw filename and torrent title — anitogo can miss the
+// pattern when non-standard delimiters (e.g. double dashes) surround it.
+func isIndividualEpisode(parsedEp int, filename, torrentTitle string) bool {
+	return parsedEp > 0 || westernEpPattern.MatchString(filename) || westernEpPattern.MatchString(torrentTitle)
+}
 
 // extractSeasonFromTitle returns the season number embedded in a show title,
 // e.g. "Grand Blue Dreaming Season 2" → 2, "Attack on Titan 4th Season" → 4.
@@ -426,20 +325,28 @@ func expandWithStrippedSeasons(titles []string) []string {
 	return out
 }
 
-// seasonQuery searches by title only — anime seasons are separate titles,
-// not S01/S02 suffixes. Guessit + alternate-title filtering handles season matching.
-func seasonQuery(title string, _ int64) string {
-	return title
+// seasonQueries returns query variants for a season pack search, tried in order
+// until one yields a usable result. Bare title first; batch/complete keywords as
+// fallbacks to find packs that indexers label explicitly.
+func seasonQueries(title string) []string {
+	return []string{
+		title,
+		title + " Batch",
+		title + " Complete",
+	}
 }
 
-// episodeQuery appends the episode number prefixed with "E" (e.g. "E06").
-func episodeQuery(title string, _ int64, episode int64) string {
-	return fmt.Sprintf("%s E%02d", title, episode)
+// episodeQueries returns query variants for a single-episode search, tried in
+// order. The dash-space convention is most common in anime releases; bare number
+// and E-prefix are fallbacks for releases that use different schemes.
+func episodeQueries(title string, episode int64) []string {
+	return []string{
+		fmt.Sprintf("%s - %02d", title, episode),
+		fmt.Sprintf("%s %02d", title, episode),
+		fmt.Sprintf("%s E%02d", title, episode),
+	}
 }
 
-func isSeasonPack(r models.SearchResult) bool {
-	return !episodeInTitlePattern.MatchString(r.Title)
-}
 
 func (s *IndexerService) isBlacklisted(ctx context.Context, name string) bool {
 	q := s.db.NewSelect().Model((*models.TorrentBlacklist)(nil)).WhereOr("torrent_name = ?", name)
@@ -579,7 +486,6 @@ func (s *IndexerService) queueDownload(ctx context.Context, mon models.Monitor, 
 // ── process monitors ──────────────────────────────────────────────────────────
 
 func (s *IndexerService) processMonitors(ctx context.Context) bool {
-
 	var monitors []models.Monitor
 	err := s.db.NewSelect().
 		Model(&monitors).
@@ -595,13 +501,13 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 		return false
 	}
 	mon := monitors[0]
-	title := ""
-	if mon.Title != nil {
-		title = *mon.Title
+	if mon.Title == nil || mon.LibraryID == nil {
+		return false
 	}
+	title := *mon.Title
+	libraryID := *mon.LibraryID
 	slog.Info("Processing monitor", "id", mon.ID, "title", title)
 
-	// Claim the monitor atomically.
 	res, err := s.db.NewUpdate().
 		Model((*models.Monitor)(nil)).
 		Set("status = 'searching', updated_at = now()").
@@ -616,193 +522,168 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 		return false
 	}
 
-	// Load alternate titles for this library
-	libraryID := int64(0)
-	if mon.LibraryID != nil {
-		libraryID = *mon.LibraryID
-	}
 	titles := s.getSearchTitles(ctx, libraryID, title)
 	slog.Info("Search titles", "monitor_id", mon.ID, "count", len(titles))
-
-	// Load ALL season monitors to know which libraries already have a season in-progress
-	var allSeasonMons []models.Monitor
-	_ = s.db.NewSelect().
-		Model(&allSeasonMons).
-		Where("is_season = true AND deleted_at IS NULL").
-		Scan(ctx)
-
-	seasonFound := map[int64]bool{}
-	for _, m := range allSeasonMons {
-		if m.LibraryID == nil || m.Status == nil {
-			continue
-		}
-		switch *m.Status {
-		case "queued", "downloading", "available":
-			seasonFound[*m.LibraryID] = true
-		}
-	}
-
-	var seasonMons, episodeMons []models.Monitor
-	for _, m := range monitors {
-		if m.IsSeason != nil && *m.IsSeason {
-			seasonMons = append(seasonMons, m)
-		}
-		if m.IsEpisode != nil && *m.IsEpisode {
-			episodeMons = append(episodeMons, m)
-		}
-	}
-
 	threshold := s.matchThreshold()
-	slog.Info("Match threshold", "threshold", threshold)
 
-	// Season monitors: try to find a full season pack first
-	for _, mon := range seasonMons {
-		if mon.Title == nil || mon.LibraryID == nil {
-			continue
+	if mon.IsSeason != nil && *mon.IsSeason {
+		s.runSeasonSearch(ctx, mon, title, libraryID, titles, threshold)
+	} else {
+		s.runEpisodeSearch(ctx, mon, title, libraryID, titles, threshold)
+	}
+	return true
+}
+
+// effectiveSeason returns the season number for a monitor. If the DB season is 1
+// but the title embeds a higher number (e.g. "Grand Blue Dreaming Season 2"),
+// the embedded value is used — AniDB records such sequels as standalone entries.
+func effectiveSeason(mon models.Monitor, title string) int64 {
+	season := int64(1)
+	if mon.Season != nil && *mon.Season > 0 {
+		season = *mon.Season
+	}
+	if season == 1 {
+		if embedded := extractSeasonFromTitle(title); embedded > 1 {
+			season = int64(embedded)
 		}
-		season := int64(1)
-		if mon.Season != nil && *mon.Season > 0 {
-			season = *mon.Season
-		}
-		if season == 1 {
-			if embedded := extractSeasonFromTitle(*mon.Title); embedded > 1 {
-				season = int64(embedded)
-			}
-		}
+	}
+	return season
+}
 
-		// Count episode monitors for this library/season to detect single-episode seasons.
-		episodeCount, _ := s.db.NewSelect().
-			Model((*models.Monitor)(nil)).
-			Where("library_id = ? AND season = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID, season).
-			Count(ctx)
-
-		var packs []models.SearchResult
-		for _, t := range titles {
-			q := seasonQuery(t, season)
-			results, err := s.Search(q)
-			if err != nil {
-				slog.Warn("Search failed", "query", q, "error", err)
-				continue
-			}
-			slog.Info("Season search", "query", q, "results", len(results), "episode_count", episodeCount)
-
-			// Evaluate ALL results with guessit+similarity, sort, save debug file.
-			matchLog := buildMatchLog(results, titles, threshold, int(season), -1, episodeCount)
-			saveMatchingDebug(q, matchLog, s.cacheFileLimit())
-
-			for _, e := range matchLog {
-				if e.Passed && isSeasonPackTitle(e.TorrentTitle) {
-					for i := range results {
-						if results[i].Title == e.TorrentTitle {
-							packs = append(packs, results[i])
-							break
-						}
-					}
-				}
-			}
-			if len(packs) > 0 {
+// asciiQueryTitles returns the subset of titles that contain only ASCII characters,
+// since Prowlarr searches torrent names which are almost always in romanized English.
+// Non-ASCII titles (Japanese, Chinese, etc.) are kept for similarity matching inside
+// buildMatchLog but skipped as search queries.
+// Falls back to the full list if every title is non-ASCII (shouldn't happen in practice).
+func asciiQueryTitles(titles []string) []string {
+	var out []string
+	for _, t := range titles {
+		ascii := true
+		for _, r := range t {
+			if r > 127 {
+				ascii = false
 				break
 			}
 		}
-		slog.Info("Season packs after filtering", "monitor_id", mon.ID, "packs", len(packs))
-
-		if best := s.pickBest(ctx, packs); best != nil {
-			slog.Info("Season pack selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
-			if s.queueDownload(ctx, mon, best) {
-				seasonFound[*mon.LibraryID] = true
-				s.db.NewUpdate().
-					Model((*models.Monitor)(nil)).
-					Set("status = 'queued', updated_at = now()").
-					Where("library_id = ? AND is_episode = true AND monitored = true AND status = 'pending' AND deleted_at IS NULL", *mon.LibraryID).
-					Exec(ctx)
-			}
-		} else {
-			slog.Info("No qualifying season pack, falling back to individual episodes", "monitor_id", mon.ID, "title", *mon.Title)
-			s.db.NewUpdate().
-				Model((*models.Monitor)(nil)).
-				Set("status = 'searching', updated_at = now()").
-				Where("id = ?", mon.ID).
-				Exec(ctx)
+		if ascii {
+			out = append(out, t)
 		}
 	}
+	if len(out) == 0 {
+		return titles
+	}
+	return out
+}
 
-	// Episode monitors: skip those whose library already has a season pack queued
-	for _, mon := range episodeMons {
-		if mon.LibraryID == nil || seasonFound[*mon.LibraryID] {
-			if mon.LibraryID != nil && seasonFound[*mon.LibraryID] {
-				slog.Info("Skipping episode — season pack already queued, resetting to pending", "monitor_id", mon.ID)
-				s.db.NewUpdate().Model((*models.Monitor)(nil)).
-					Set("status = 'pending', updated_at = now()").
-					Where("id = ?", mon.ID).Exec(ctx)
-			}
-			continue
-		}
-		if mon.Title == nil {
-			continue
-		}
-
-		season := int64(1)
-		if mon.Season != nil && *mon.Season > 0 {
-			season = *mon.Season
-		}
-		// If the DB stores season 1 but the title embeds a season number (e.g. "Grand Blue
-		// Dreaming Season 2"), AniDB has recorded this sequel as a standalone entry. Use
-		// the embedded season so guessit-parsed torrent filenames match correctly.
-		if season == 1 {
-			if embedded := extractSeasonFromTitle(title); embedded > 1 {
-				season = int64(embedded)
-			}
-		}
-		episode := int64(0)
-		if mon.EpisodeNumber != nil {
-			episode = *mon.EpisodeNumber
-		}
-
-		// Search each title in order; only advance to the next when pickBest
-		// rejects all candidates from the current title (quality cap, blacklist, etc.).
-		var selectedBest *models.SearchResult
-		for _, t := range titles {
-			q := episodeQuery(t, season, episode)
+// searchForBest tries each queryTitle then each query variant in order, stopping as
+// soon as pickBest returns a usable result. matchTitles (the full set including
+// non-ASCII alternates) is passed to buildMatchLog for similarity scoring.
+// Variants for a given title are only tried when the previous variant returned zero
+// matching candidates — if results came back but failed pickBest that is a
+// quality/blacklist problem, so we advance to the next title rather than burning more
+// API calls.
+func (s *IndexerService) searchForBest(ctx context.Context, queryTitles, matchTitles []string, threshold float64, buildQueries func(string) []string, season, episode, episodeCount int) *models.SearchResult {
+	for _, t := range queryTitles {
+		for _, q := range buildQueries(t) {
 			results, err := s.Search(q)
 			if err != nil {
 				slog.Warn("Search failed", "query", q, "error", err)
 				continue
 			}
-			slog.Info("Episode search", "query", q, "results", len(results))
-
-			matchLog := buildMatchLog(results, titles, threshold, int(season), int(episode), 0)
+			slog.Info("Search", "query", q, "results", len(results))
+			matchLog := buildMatchLog(results, matchTitles, threshold, season, episode, episodeCount)
 			saveMatchingDebug(q, matchLog, s.cacheFileLimit())
-
-			var goodEpisodes []models.SearchResult
+			var candidates []models.SearchResult
 			for _, e := range matchLog {
 				if e.Passed {
 					for i := range results {
 						if results[i].Title == e.TorrentTitle {
-							goodEpisodes = append(goodEpisodes, results[i])
+							candidates = append(candidates, results[i])
 							break
 						}
 					}
 				}
 			}
-			slog.Info("Episode results", "monitor_id", mon.ID, "title", t, "matching", len(goodEpisodes))
-
-			if best := s.pickBest(ctx, goodEpisodes); best != nil {
-				selectedBest = best
-				break
+			if len(candidates) == 0 {
+				// No matching results for this variant — try next variant.
+				continue
 			}
-		}
-
-		if selectedBest != nil {
-			slog.Info("Episode torrent selected", "monitor_id", mon.ID, "torrent", selectedBest.Title, "seeds", selectedBest.Seeds, "size_mb", selectedBest.Size/1024/1024)
-			s.queueDownload(ctx, mon, selectedBest)
-		} else {
-			slog.Info("No qualifying torrent for episode, marking missing", "monitor_id", mon.ID)
-			s.db.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("status = 'missing', updated_at = now()").
-				Where("id = ?", mon.ID).Exec(ctx)
+			if best := s.pickBest(ctx, candidates); best != nil {
+				return best
+			}
+			// Candidates exist but all failed pickBest (blacklisted/quality cap).
+			// No point trying more query variants for this title.
+			break
 		}
 	}
-	return true
+	return nil
+}
+
+func (s *IndexerService) runSeasonSearch(ctx context.Context, mon models.Monitor, title string, libraryID int64, titles []string, threshold float64) {
+	season := effectiveSeason(mon, title)
+
+	episodeCount, _ := s.db.NewSelect().
+		Model((*models.Monitor)(nil)).
+		Where("library_id = ? AND season = ? AND is_episode = true AND deleted_at IS NULL", libraryID, season).
+		Count(ctx)
+
+	best := s.searchForBest(ctx, asciiQueryTitles(titles), titles, threshold, func(t string) []string {
+		return seasonQueries(t)
+	}, int(season), -1, int(episodeCount))
+
+	if best != nil {
+		slog.Info("Season pack selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
+		if s.queueDownload(ctx, mon, best) {
+			s.db.NewUpdate().
+				Model((*models.Monitor)(nil)).
+				Set("status = 'queued', updated_at = now()").
+				Where("library_id = ? AND is_episode = true AND monitored = true AND status = 'pending' AND deleted_at IS NULL", libraryID).
+				Exec(ctx)
+		}
+	} else {
+		slog.Info("No qualifying season pack — falling back to individual episodes", "monitor_id", mon.ID, "title", title)
+		s.db.NewUpdate().
+			Model((*models.Monitor)(nil)).
+			Set("status = 'missing', updated_at = now()").
+			Where("id = ?", mon.ID).
+			Exec(ctx)
+	}
+}
+
+func (s *IndexerService) runEpisodeSearch(ctx context.Context, mon models.Monitor, title string, libraryID int64, titles []string, threshold float64) {
+	// If a season pack is already in-progress for this library, hold off and let
+	// the downloader resolve episodes from it.
+	seasonActive, _ := s.db.NewSelect().
+		Model((*models.Monitor)(nil)).
+		Where("library_id = ? AND is_season = true AND status IN ('queued','downloading','available') AND deleted_at IS NULL", libraryID).
+		Exists(ctx)
+	if seasonActive {
+		slog.Info("Skipping episode — season pack already in progress, resetting to pending", "monitor_id", mon.ID)
+		s.db.NewUpdate().Model((*models.Monitor)(nil)).
+			Set("status = 'pending', updated_at = now()").
+			Where("id = ?", mon.ID).Exec(ctx)
+		return
+	}
+
+	season := effectiveSeason(mon, title)
+	episode := int64(0)
+	if mon.EpisodeNumber != nil {
+		episode = *mon.EpisodeNumber
+	}
+
+	best := s.searchForBest(ctx, asciiQueryTitles(titles), titles, threshold, func(t string) []string {
+		return episodeQueries(t, episode)
+	}, int(season), int(episode), 0)
+
+	if best != nil {
+		slog.Info("Episode torrent selected", "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
+		s.queueDownload(ctx, mon, best)
+	} else {
+		slog.Info("No qualifying torrent for episode, marking missing", "monitor_id", mon.ID)
+		s.db.NewUpdate().Model((*models.Monitor)(nil)).
+			Set("status = 'missing', updated_at = now()").
+			Where("id = ?", mon.ID).Exec(ctx)
+	}
 }
 
 // buildMatchLog evaluates every result with guessit+similarity, marks passing ones,
@@ -838,8 +719,8 @@ func buildMatchLog(results []models.SearchResult, titles []string, threshold flo
 			e.Reason = fmt.Sprintf("similarity %.0f%% < threshold %.0f%%", sim, threshold)
 		} else if effectiveSeason != season {
 			e.Reason = fmt.Sprintf("season %d != %d", effectiveSeason, season)
-		} else if episode < 0 && g.Episode > 0 && !(episodeCount == 1 && g.Episode == 1) {
-			e.Reason = fmt.Sprintf("individual episode (ep %d), not a season pack", g.Episode)
+		} else if episode < 0 && isIndividualEpisode(g.Episode, filename, r.Title) && !(episodeCount == 1 && g.Episode == 1) {
+			e.Reason = fmt.Sprintf("individual episode (anitogo_ep=%d), not a season pack", g.Episode)
 		} else if episode >= 0 && g.Episode != episode {
 			e.Reason = fmt.Sprintf("episode %d != %d", g.Episode, episode)
 		} else {
@@ -853,6 +734,3 @@ func buildMatchLog(results []models.SearchResult, titles []string, threshold flo
 	return entries
 }
 
-func isSeasonPackTitle(title string) bool {
-	return !episodeInTitlePattern.MatchString(title)
-}
