@@ -9,6 +9,19 @@ import (
 	"github.com/kingbenny101/kbarr/shared/config"
 )
 
+func HandleTestKbdex(indexerAddr string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp, err := http.Post(indexerAddr+"/test/kbdex", "application/json", nil)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		io.Copy(w, resp.Body)
+	}
+}
+
 func HandleTestIndexer(indexerAddr string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
