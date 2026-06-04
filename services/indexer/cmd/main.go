@@ -38,7 +38,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /logs", logger.HandleLogs)
-	mux.HandleFunc("POST /test", func(w http.ResponseWriter, r *http.Request) {
+	testProwlarr := func(w http.ResponseWriter, r *http.Request) {
 		prowlarrURL := config.Get(db.DB, "prowlarrUrl", "http://localhost:9696")
 		apiKey := config.Get(db.DB, "prowlarrApiKey", "")
 		w.Header().Set("Content-Type", "application/json")
@@ -72,7 +72,40 @@ func main() {
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Connected to Prowlarr"})
+	}
+
+	testKbdex := func(w http.ResponseWriter, r *http.Request) {
+		kbdexURL := config.Get(db.DB, "kbdexUrl", "http://localhost:8000")
+		w.Header().Set("Content-Type", "application/json")
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet,
+			strings.TrimRight(kbdexURL, "/")+"/health", nil)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+			return
+		}
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
+			return
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusServiceUnavailable {
+			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": fmt.Sprintf("HTTP %d", resp.StatusCode)})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Connected to kbdex"})
+	}
+
+	mux.HandleFunc("POST /test", func(w http.ResponseWriter, r *http.Request) {
+		provider := config.Get(db.DB, "indexerProvider", "prowlarr")
+		if provider == "kbdex" {
+			testKbdex(w, r)
+		} else {
+			testProwlarr(w, r)
+		}
 	})
+	mux.HandleFunc("POST /test/kbdex", testKbdex)
 	go func() {
 		slog.Info("Health endpoint listening", "port", "8082")
 		if err := http.ListenAndServe(":8082", mux); err != nil {

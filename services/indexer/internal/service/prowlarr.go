@@ -142,7 +142,7 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 		return []models.SearchResult{}, nil
 	}
 
-	if cached, ok := cacheLoad(s.db, cleanedQuery); ok {
+	if cached, ok := cacheLoad(s.db, cacheDir(), cleanedQuery); ok {
 		slog.Info("Prowlarr search (cache hit)", "query", cleanedQuery, "results", len(cached), "file", cacheKey(cleanedQuery))
 		go saveParserDebugForQuery(cleanedQuery, cached, s.cacheFileLimit())
 		return cached, nil
@@ -209,7 +209,7 @@ func (s *IndexerService) Search(query string) ([]models.SearchResult, error) {
 	}
 
 	slog.Info("Prowlarr search complete", "query", cleanedQuery, "results", len(results))
-	cacheSave(cleanedQuery, results, s.cacheFileLimit())
+	cacheSave(cacheDir(), cleanedQuery, results, s.cacheFileLimit())
 	go saveParserDebugForQuery(cleanedQuery, results, s.cacheFileLimit())
 	return results, nil
 }
@@ -522,14 +522,18 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 		return false
 	}
 
-	titles := s.getSearchTitles(ctx, libraryID, title)
-	slog.Info("Search titles", "monitor_id", mon.ID, "count", len(titles))
-	threshold := s.matchThreshold()
-
-	if mon.IsSeason != nil && *mon.IsSeason {
-		s.runSeasonSearch(ctx, mon, title, libraryID, titles, threshold)
+	provider := config.Get(s.db, "indexerProvider", "prowlarr")
+	if provider == "kbdex" {
+		s.runKbdexSearch(ctx, mon, title, libraryID)
 	} else {
-		s.runEpisodeSearch(ctx, mon, title, libraryID, titles, threshold)
+		titles := s.getSearchTitles(ctx, libraryID, title)
+		slog.Info("Search titles", "monitor_id", mon.ID, "count", len(titles))
+		threshold := s.matchThreshold()
+		if mon.IsSeason != nil && *mon.IsSeason {
+			s.runSeasonSearch(ctx, mon, title, libraryID, titles, threshold)
+		} else {
+			s.runEpisodeSearch(ctx, mon, title, libraryID, titles, threshold)
+		}
 	}
 	return true
 }

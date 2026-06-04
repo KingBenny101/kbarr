@@ -27,6 +27,10 @@ func cacheDir() string {
 	return filepath.Join(indexerDir(), "prowlarr-cache")
 }
 
+func kbdexCacheDir() string {
+	return filepath.Join(indexerDir(), "kbdex-cache")
+}
+
 var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
 
 func cacheKey(query string) string {
@@ -80,8 +84,8 @@ func enforceFileLimit(dir string, limit int) {
 	}
 }
 
-func cacheLoad(db *bun.DB, query string) ([]models.SearchResult, bool) {
-	path := filepath.Join(cacheDir(), cacheKey(query))
+func cacheLoad(db *bun.DB, dir, query string) ([]models.SearchResult, bool) {
+	path := filepath.Join(dir, cacheKey(query))
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, false
@@ -97,7 +101,7 @@ func cacheLoad(db *bun.DB, query string) ([]models.SearchResult, bool) {
 	if err := json.Unmarshal(data, &results); err != nil {
 		return nil, false
 	}
-	slog.Debug("Prowlarr cache hit", "query", query)
+	slog.Debug("Cache hit", "dir", filepath.Base(dir), "query", query)
 	return results, true
 }
 
@@ -165,10 +169,9 @@ func saveMatchingDebug(query string, entries []MatchEntry, limit int) {
 	_ = os.WriteFile(filepath.Join(dir, cacheKey(query)), data, 0644)
 }
 
-func cacheSave(query string, results []models.SearchResult, limit int) {
-	dir := cacheDir()
+func cacheSave(dir, query string, results []models.SearchResult, limit int) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		slog.Warn("Failed to create prowlarr cache dir", "error", err)
+		slog.Warn("Failed to create cache dir", "dir", dir, "error", err)
 		return
 	}
 	data, err := json.Marshal(results)
@@ -178,6 +181,6 @@ func cacheSave(query string, results []models.SearchResult, limit int) {
 	enforceFileLimit(dir, limit)
 	path := filepath.Join(dir, cacheKey(query))
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		slog.Warn("Failed to write prowlarr cache", "query", query, "error", err)
+		slog.Warn("Failed to write cache", "dir", filepath.Base(dir), "query", query, "error", err)
 	}
 }
