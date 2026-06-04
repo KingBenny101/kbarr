@@ -80,6 +80,24 @@ func (t torrentInfo) contentName() string {
 	return pathBase(t.Name)
 }
 
+// contentRelPath returns the path of the torrent content relative to qBittorrent's
+// save directory. Unlike contentName, this preserves subdirectories — so for a
+// torrent whose root folder contains a file, it returns "FolderName/file.mkv"
+// instead of just "file.mkv".
+func (t torrentInfo) contentRelPath() string {
+	if t.ContentPath == "" {
+		return pathBase(t.Name)
+	}
+	if t.SavePath != "" {
+		cp := strings.ReplaceAll(t.ContentPath, "\\", "/")
+		sp := strings.TrimRight(strings.ReplaceAll(t.SavePath, "\\", "/"), "/")
+		if strings.HasPrefix(cp, sp+"/") {
+			return filepath.FromSlash(cp[len(sp)+1:])
+		}
+	}
+	return pathBase(t.ContentPath)
+}
+
 func (s *DownloaderService) qbtConfig() (qbtURL, username, password string) {
 	qbtURL = strings.TrimRight(config.Get(s.db, "qbittorrentUrl", "http://localhost:8080"), "/")
 	username = config.Get(s.db, "qbittorrentUsername", "")
@@ -160,8 +178,8 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 			if entry.MonitorID != nil {
 				s.db.NewUpdate().Model((*models.Monitor)(nil)).
 					Set("status = 'pending', updated_at = now()").
-
 					Where("id = ?", *entry.MonitorID).Exec(ctx)
+				s.releaseEpisodeMonitors(ctx, *entry.MonitorID)
 			}
 			continue
 		}
@@ -267,14 +285,15 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 				slog.Info("Torrent is moving files — deferring completion", "id", entry.ID, "hash", *entry.TorrentHash)
 				continue
 			}
-			// Rebuild save_path from the torrent's actual content name + local downloadPath.
-			// content_path gives the real on-disk name (may differ from display Name).
+			// Rebuild save_path from the torrent's actual content path + local downloadPath.
+			// contentRelPath preserves subdirectories (e.g. TorrentFolder/file.mkv) so
+			// we land at the right location when the torrent has a root folder.
 			// We use downloadPath (not t.SavePath) because qBittorrent's path is from its
 			// own container and is not accessible to us.
-			if name := t.contentName(); name != "" {
+			if rel := t.contentRelPath(); rel != "" {
 				downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 				if downloadPath != "" {
-					actualPath := filepath.Join(downloadPath, name)
+					actualPath := filepath.Join(downloadPath, rel)
 					entry.SavePath = &actualPath
 				}
 			}
@@ -302,9 +321,9 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 				s.db.NewUpdate().
 					Model((*models.Monitor)(nil)).
 					Set("status = 'pending', updated_at = now()").
-
 					Where("id = ?", *entry.MonitorID).
 					Exec(ctx)
+				s.releaseEpisodeMonitors(ctx, *entry.MonitorID)
 			}
 		}
 	}
@@ -348,11 +367,20 @@ func (s *DownloaderService) deleteTorrent(ctx context.Context, qbtURL, hash stri
 }
 
 func (s *DownloaderService) onComplete(ctx context.Context, entry models.DownloadQueue) {
-	// Create symlinks for all video files in the download directory.
-	// Check the result before deciding whether to mark as completed or re-queue.
+	// Resolve monitor upfront — needed for media_folder lookup and season pack handling.
+	var mon *models.Monitor
+	if entry.MonitorID != nil {
+		mon = s.resolveMonitor(ctx, *entry.MonitorID)
+	}
+	mediaFolder := s.resolveMediaFolder(ctx, mon)
+	episodeHint := 0
+	if mon != nil && mon.IsEpisode != nil && *mon.IsEpisode && mon.EpisodeNumber != nil && *mon.EpisodeNumber > 0 {
+		episodeHint = int(*mon.EpisodeNumber)
+	}
+
 	var walked, hasVideo bool
 	if entry.SavePath != nil && *entry.SavePath != "" {
-		walked, hasVideo = s.createSymlinks(ctx, *entry.SavePath, entry.Title)
+		walked, hasVideo = s.createSymlinks(ctx, *entry.SavePath, entry.Title, mediaFolder, episodeHint)
 	}
 
 	// If we successfully walked the directory but found no supported video files,
@@ -373,6 +401,7 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 			s.db.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("status = 'pending', updated_at = now()").
 				Where("id = ?", *entry.MonitorID).Exec(ctx)
+			s.releaseEpisodeMonitors(ctx, *entry.MonitorID)
 		}
 		return
 	}
@@ -384,12 +413,6 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 		Where("id = ?", entry.ID).
 		Exec(ctx)
 
-	if entry.MonitorID == nil {
-		return
-	}
-
-	// Look up monitor to check if it's a season monitor
-	mon := s.resolveMonitor(ctx, *entry.MonitorID)
 	if mon == nil {
 		return
 	}
@@ -413,12 +436,12 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	}
 }
 
-func (s *DownloaderService) createSymlinks(_ context.Context, savePath string, entryTitle *string) (walked, hasVideo bool) {
+func (s *DownloaderService) createSymlinks(_ context.Context, savePath string, entryTitle *string, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
 	title := ""
 	if entryTitle != nil {
 		title = *entryTitle
 	}
-	return s.CreateSymlinks(savePath, title)
+	return s.CreateSymlinks(savePath, title, mediaFolder, episodeHint)
 }
 
 // CreateSymlinksForEntry is used by the manual /symlinks/create endpoint.
@@ -447,10 +470,10 @@ func (s *DownloaderService) CreateSymlinksForEntry(ctx context.Context, id int64
 		qbtURL, username, password := s.qbtConfig()
 		if err := s.login(ctx, qbtURL, username, password); err == nil {
 			if items, err := s.fetchTorrents(ctx, qbtURL, *entry.TorrentHash, ""); err == nil && len(items) > 0 {
-				if name := items[0].contentName(); name != "" {
+				if rel := items[0].contentRelPath(); rel != "" {
 					downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 					if downloadPath != "" {
-						savePath = filepath.Join(downloadPath, name)
+						savePath = filepath.Join(downloadPath, rel)
 						slog.Info("CreateSymlinksForEntry: resolved live path from qBittorrent", "id", id, "save_path", savePath)
 					}
 				}
@@ -458,13 +481,22 @@ func (s *DownloaderService) CreateSymlinksForEntry(ctx context.Context, id int64
 		}
 	}
 
-	return s.CreateSymlinks(savePath, title)
+	var mediaFolder string
+	episodeHint := 0
+	if entry.MonitorID != nil {
+		mon := s.resolveMonitor(ctx, *entry.MonitorID)
+		mediaFolder = s.resolveMediaFolder(ctx, mon)
+		if mon != nil && mon.IsEpisode != nil && *mon.IsEpisode && mon.EpisodeNumber != nil && *mon.EpisodeNumber > 0 {
+			episodeHint = int(*mon.EpisodeNumber)
+		}
+	}
+	return s.CreateSymlinks(savePath, title, mediaFolder, episodeHint)
 }
 
 // CreateSymlinks is the public entry point used by both onComplete and the manual /symlinks/create endpoint.
 // It returns (walked, hasVideo): walked=true if the save path was found and traversed,
 // hasVideo=true if at least one supported video file was encountered.
-func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked, hasVideo bool) {
+func (s *DownloaderService) CreateSymlinks(savePath, entryTitle, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
 	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
 	rawExts := config.Get(s.db, "allowedVideoExtensions", ".mkv,.mp4,.avi,.mov,.wmv,.m4v")
 
@@ -472,7 +504,17 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 	// (e.g. Windows paths from before a settings change) resolve correctly.
 	downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 	if downloadPath != "" && savePath != "" {
-		savePath = filepath.Join(downloadPath, pathBase(savePath))
+		dp := filepath.ToSlash(strings.TrimRight(downloadPath, "/")) + "/"
+		sp := filepath.ToSlash(savePath)
+		if strings.HasPrefix(sp, dp) {
+			// Path is already under downloadPath — preserve the full sub-path so
+			// torrents with a root folder (TorrentFolder/file.mkv) resolve correctly.
+			savePath = filepath.Join(downloadPath, sp[len(dp):])
+		} else {
+			// Different root (e.g. stale Windows path or old entry) — remap using
+			// just the base name as before.
+			savePath = filepath.Join(downloadPath, pathBase(savePath))
+		}
 	}
 
 	slog.Info("createHardlinks: start", "save_path", savePath, "media_path", mediaPath, "entry_title", entryTitle)
@@ -541,26 +583,33 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle string) (walked,
 		g := runGuessit(info.Name())
 		slog.Info("createHardlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
 
-		resolvedTitle := entryTitle
+		resolvedTitle := mediaFolder
 		if resolvedTitle == "" {
-			resolvedTitle = g.Title
+			resolvedTitle = entryTitle
+			if resolvedTitle == "" {
+				resolvedTitle = g.Title
+			}
+			resolvedTitle = sanitizeFilename(resolvedTitle)
 		}
-		resolvedTitle = sanitizeFilename(resolvedTitle)
 		if resolvedTitle == "" {
 			slog.Warn("createHardlinks: could not determine title, skipping", "file", path)
 			return nil
 		}
 
+		episode := g.Episode
+		if episode == 0 {
+			episode = episodeHint
+		}
 		var linkName string
-		if g.Episode > 0 {
+		if episode > 0 {
 			season := g.Season
 			if season == 0 {
 				season = 1
 			}
 			if g.ReleaseGroup != "" {
-				linkName = fmt.Sprintf("%s - S%02dE%02d [%s]%s", resolvedTitle, season, g.Episode, g.ReleaseGroup, ext)
+				linkName = fmt.Sprintf("%s - S%02dE%02d [%s]%s", resolvedTitle, season, episode, g.ReleaseGroup, ext)
 			} else {
-				linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, g.Episode, ext)
+				linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, episode, ext)
 			}
 		} else {
 			linkName = sanitizeFilename(info.Name())
@@ -604,6 +653,42 @@ func (s *DownloaderService) resolveMonitor(ctx context.Context, monitorID int64)
 		return nil
 	}
 	return &mon
+}
+
+// resolveMediaFolder returns the pre-sanitized media_folder for the library entry
+// associated with the given monitor. Falls back to empty string on any error.
+func (s *DownloaderService) resolveMediaFolder(ctx context.Context, mon *models.Monitor) string {
+	if mon == nil || mon.LibraryID == nil {
+		return ""
+	}
+	var folder string
+	if err := s.db.NewSelect().
+		TableExpr("media").
+		ColumnExpr("media_folder").
+		Where("id = ?", *mon.LibraryID).
+		Scan(ctx, &folder); err != nil {
+		slog.Warn("resolveMediaFolder: failed", "library_id", *mon.LibraryID, "error", err)
+	}
+	return folder
+}
+
+// releaseEpisodeMonitors resets any episode monitors that were bulk-queued under
+// a season pack back to pending, so the indexer can search for them individually.
+// It is a no-op if monitorID does not belong to a season monitor.
+func (s *DownloaderService) releaseEpisodeMonitors(ctx context.Context, monitorID int64) {
+	res, err := s.db.NewUpdate().
+		Model((*models.Monitor)(nil)).
+		Set("status = 'pending', updated_at = now()").
+		Where(`is_episode = true AND status = 'queued' AND deleted_at IS NULL
+			AND library_id = (SELECT library_id FROM monitors WHERE id = ? AND is_season = true AND deleted_at IS NULL)`, monitorID).
+		Exec(ctx)
+	if err != nil {
+		slog.Warn("releaseEpisodeMonitors: update failed", "monitor_id", monitorID, "error", err)
+		return
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		slog.Info("releaseEpisodeMonitors: episode monitors released", "monitor_id", monitorID, "count", n)
+	}
 }
 
 func (s *DownloaderService) addTorrent(ctx context.Context, qbtURL, torrentURL string) (string, error) {
