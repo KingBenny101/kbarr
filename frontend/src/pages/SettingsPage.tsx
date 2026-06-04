@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Navigate, useLocation } from "react-router-dom"
-import { Alert, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, Select, Stack, Text, TextInput, Title } from "@mantine/core"
+import { Alert, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconAlertTriangle } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, showToast } from "@/utils"
 
@@ -8,6 +8,8 @@ interface Settings {
     anidbClient: string
     anidbVersion: string
     anidbSyncInterval: string
+    indexerProvider: string
+    kbdexUrl: string
     prowlarrUrl: string
     prowlarrApiKey: string
     prowlarrInterval: string
@@ -45,6 +47,7 @@ export function SettingsPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [testingIndexer, setTestingIndexer] = useState(false)
+    const [testingKbdex, setTestingKbdex] = useState(false)
     const [testingDownloader, setTestingDownloader] = useState(false)
     const [clearBlacklistModal, setClearBlacklistModal] = useState(false)
     const [clearingBlacklist, setClearingBlacklist] = useState(false)
@@ -77,6 +80,8 @@ export function SettingsPage() {
                 anidbClient: data.anidbClient || "",
                 anidbVersion: data.anidbVersion || "",
                 anidbSyncInterval: data.anidbSyncInterval || "1440",
+                indexerProvider: data.indexerProvider || "prowlarr",
+                kbdexUrl: data.kbdexUrl || "http://localhost:8000",
                 prowlarrUrl: data.prowlarrUrl || "http://host.docker.internal:9696",
                 prowlarrApiKey: data.prowlarrApiKey || "",
                 prowlarrInterval: data.prowlarrInterval || "1",
@@ -149,6 +154,16 @@ export function SettingsPage() {
             showToast(data.message, data.ok === "true" ? "success" : "error")
         } catch { showToast("Test failed", "error") }
         finally { setTestingIndexer(false) }
+    }
+
+    const handleTestKbdex = async () => {
+        setTestingKbdex(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/settings/test/kbdex`, { method: "POST" })
+            const data = await res.json()
+            showToast(data.message, data.ok === "true" ? "success" : "error")
+        } catch { showToast("Test failed", "error") }
+        finally { setTestingKbdex(false) }
     }
 
     const handleTestDownloader = async () => {
@@ -355,6 +370,17 @@ export function SettingsPage() {
                             <Title order={3}>Indexer</Title>
                             <Text size="sm" c="dimmed">Configure the indexer service behavior.</Text>
                         </div>
+                        <div>
+                            <Text size="sm" fw={500} mb={4}>Search provider</Text>
+                            <SegmentedControl
+                                value={settings.indexerProvider}
+                                onChange={(v) => update("indexerProvider", v)}
+                                data={[
+                                    { label: "Prowlarr", value: "prowlarr" },
+                                    { label: "kbdex", value: "kbdex" },
+                                ]}
+                            />
+                        </div>
                         <TextInput
                             label="Scan interval (sec)"
                             description="How often the monitor table is polled for new items to search."
@@ -404,6 +430,25 @@ export function SettingsPage() {
                         />
                         <Group justify="flex-end">
                             <Button variant="light" color="gray" loading={testingIndexer} onClick={handleTestIndexer}>
+                                Test connection
+                            </Button>
+                        </Group>
+                    </Stack>
+                </Card>
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
+                            <Title order={3}>kbdex</Title>
+                            <Text size="sm" c="dimmed">AniDB-aware torrent search. Uses the AniDB series ID to resolve titles and filter results natively.</Text>
+                        </div>
+                        <TextInput
+                            label="URL"
+                            value={settings.kbdexUrl}
+                            onChange={(e) => update("kbdexUrl", e.currentTarget.value)}
+                            placeholder="http://localhost:8000"
+                        />
+                        <Group justify="flex-end">
+                            <Button variant="light" color="gray" loading={testingKbdex} onClick={handleTestKbdex}>
                                 Test connection
                             </Button>
                         </Group>
