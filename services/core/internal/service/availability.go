@@ -70,12 +70,18 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 	}
 	slog.Info("availability: check start", "media_path", mediaPath)
 
-	// Load all episode monitors once, indexed by sanitized title for O(1) lookup.
-	var allMonitors []db.Monitor
+	// Load all episode monitors joined with their media_folder from the media table.
+	type monitorRow struct {
+		db.Monitor
+		MediaFolder string `bun:"media_folder"`
+	}
+	var allMonitors []monitorRow
 	if err := bunDB.NewSelect().
-		Model(&allMonitors).
-		Where("is_episode = true AND episode_number IS NOT NULL AND deleted_at IS NULL").
-		Scan(ctx); err != nil {
+		TableExpr("monitors mon").
+		ColumnExpr("mon.*, COALESCE(m.media_folder, '') AS media_folder").
+		Join("LEFT JOIN media m ON m.id = mon.library_id").
+		Where("mon.is_episode = true AND mon.episode_number IS NOT NULL AND mon.deleted_at IS NULL").
+		Scan(ctx, &allMonitors); err != nil {
 		slog.Error("availability: failed to fetch monitors", "error", err)
 		return
 	}
@@ -98,7 +104,7 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		if m.Status != nil {
 			status = *m.Status
 		}
-		slog.Debug("availability: monitor loaded", "monitor_id", m.ID, "title", title, "sanitized_title", sanitizeFilename(title), "season", season, "episode", ep, "status", status)
+		slog.Debug("availability: monitor loaded", "monitor_id", m.ID, "title", title, "season", season, "episode", ep, "status", status)
 	}
 
 	type seKey struct {
@@ -106,11 +112,11 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		season  int64
 		episode int64
 	}
-	// Primary index: sanitizedTitle + season + episode
-	monitorsByKey := map[seKey]*db.Monitor{}
-	// Fallback index: season + episode only (used when title doesn't match directory name)
+	// Primary index: media_folder + season + episode
+	monitorsByKey := map[seKey]*monitorRow{}
+	// Fallback index: season + episode only (used when directory name doesn't match)
 	type seKeyNoTitle struct{ season, episode int64 }
-	monitorsByEpisode := map[seKeyNoTitle][]*db.Monitor{}
+	monitorsByEpisode := map[seKeyNoTitle][]*monitorRow{}
 	for i := range allMonitors {
 		m := &allMonitors[i]
 		if m.Title == nil || m.EpisodeNumber == nil {
@@ -121,7 +127,11 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 			dbSeason = *m.Season
 		}
 		season := effectiveSeason(*m.Title, dbSeason)
-		k := seKey{sanitizeFilename(*m.Title), season, *m.EpisodeNumber}
+		folder := m.MediaFolder
+		if folder == "" {
+			folder = sanitizeFilename(*m.Title)
+		}
+		k := seKey{folder, season, *m.EpisodeNumber}
 		monitorsByKey[k] = m
 		nk := seKeyNoTitle{season, *m.EpisodeNumber}
 		monitorsByEpisode[nk] = append(monitorsByEpisode[nk], m)
@@ -181,7 +191,7 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 				candidates := monitorsByEpisode[nk]
 				slog.Info("availability: primary key miss, trying fallback", "title", dirName, "season", s, "episode", e, "fallback_candidates", len(candidates))
 				for _, c := range candidates {
-					slog.Info("availability: fallback candidate", "monitor_id", c.ID, "title_in_db", *c.Title, "sanitized", sanitizeFilename(*c.Title))
+					slog.Info("availability: fallback candidate", "monitor_id", c.ID, "title_in_db", *c.Title, "folder", c.MediaFolder)
 				}
 				if len(candidates) == 1 {
 					mon = candidates[0]
@@ -220,7 +230,11 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 			dbSeason = *mon.Season
 		}
 		season := effectiveSeason(*mon.Title, dbSeason)
-		fk := fileKey{sanitizeFilename(*mon.Title), season, *mon.EpisodeNumber}
+		folder := mon.MediaFolder
+		if folder == "" {
+			folder = sanitizeFilename(*mon.Title)
+		}
+		fk := fileKey{folder, season, *mon.EpisodeNumber}
 		if _, exists := foundOnDisk[fk]; exists {
 			continue
 		}

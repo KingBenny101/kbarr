@@ -79,6 +79,11 @@ func runMigrations(ctx context.Context) error {
 				UPDATE monitors SET status = 'pending' WHERE status = 'available';
 			END IF;
 		END $$`,
+
+		// media: add media_folder — canonical sanitized directory name used by downloader and availability check
+		`ALTER TABLE media ADD COLUMN IF NOT EXISTS media_folder TEXT NOT NULL DEFAULT ''`,
+		// Backfill existing rows: replace filesystem-invalid chars with underscore, trim whitespace
+		`UPDATE media SET media_folder = TRIM(REGEXP_REPLACE(COALESCE(title, ''), E'[/\\\\:*?"<>|]', '_', 'g')) WHERE media_folder = ''`,
 	}
 
 	for _, stmt := range stmts {

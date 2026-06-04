@@ -14,7 +14,7 @@ func InsertMedia(m models.Media) (int64, error) {
 	}
 
 	ctx := context.Background()
-	created, err := createMedia(ctx, stringPtr(m.Title), stringPtr(m.Source), stringPtr(m.SourceID), stringPtr(m.PosterURL))
+	created, err := createMedia(ctx, stringPtr(m.Title), stringPtr(m.Source), stringPtr(m.SourceID), stringPtr(m.PosterURL), m.MediaFolder)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert media: %w", err)
 	}
@@ -133,12 +133,13 @@ func getMediaByID(ctx context.Context, id int64) (*Medium, error) {
 	return item, nil
 }
 
-func createMedia(ctx context.Context, title *string, source *string, sourceID *string, posterUrl *string) (*Medium, error) {
+func createMedia(ctx context.Context, title *string, source *string, sourceID *string, posterUrl *string, mediaFolder string) (*Medium, error) {
 	item := &Medium{
-		Title:     title,
-		Source:    source,
-		SourceID:  sourceID,
-		PosterUrl: posterUrl,
+		Title:       title,
+		Source:      source,
+		SourceID:    sourceID,
+		PosterUrl:   posterUrl,
+		MediaFolder: mediaFolder,
 	}
 	if _, err := DB.NewInsert().Model(item).Returning("*").Exec(ctx); err != nil {
 		return nil, err

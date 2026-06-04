@@ -16,6 +16,7 @@ type Medium struct {
 	Source        *string    `bun:"source" json:"source"`
 	SourceID      *string    `bun:"source_id" json:"source_id"`
 	PosterUrl     *string    `bun:"poster_url" json:"poster_url"`
+	MediaFolder   string     `bun:"media_folder,notnull,default:''" json:"media_folder"`
 }
 
 type Detailed struct {

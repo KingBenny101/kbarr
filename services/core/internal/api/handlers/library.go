@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,12 @@ import (
 	"github.com/kingbenny101/kbarr/services/core/internal/db"
 	"github.com/kingbenny101/kbarr/shared/models"
 )
+
+var invalidFilenameChars = regexp.MustCompile(`[/\\:*?"<>|]`)
+
+func sanitizeFilename(name string) string {
+	return strings.TrimSpace(invalidFilenameChars.ReplaceAllString(name, "_"))
+}
 
 func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient *clients.MetadataClient) {
 	var media models.Media
@@ -61,6 +68,7 @@ func HandleAddMedia(w http.ResponseWriter, r *http.Request, metadataClient *clie
 		media.PosterURL = prepared.PosterURL
 	}
 
+	media.MediaFolder = sanitizeFilename(media.Title)
 	id, err := db.InsertMedia(media)
 	if err != nil {
 		slog.Error("Failed to insert media", "error", err)

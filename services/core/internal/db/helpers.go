@@ -53,13 +53,14 @@ func derefBool(value *bool) bool {
 
 func mediumFromModel(m models.Media) Medium {
 	return Medium{
-		ID:        int64(m.ID),
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
-		Title:     stringPtr(m.Title),
-		Source:    stringPtr(m.Source),
-		SourceID:  stringPtr(m.SourceID),
-		PosterUrl: stringPtr(m.PosterURL),
+		ID:          int64(m.ID),
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
+		Title:       stringPtr(m.Title),
+		Source:      stringPtr(m.Source),
+		SourceID:    stringPtr(m.SourceID),
+		PosterUrl:   stringPtr(m.PosterURL),
+		MediaFolder: m.MediaFolder,
 	}
 }
 
@@ -71,10 +72,11 @@ func mediumToModel(m Medium) models.Media {
 			UpdatedAt: m.UpdatedAt,
 			DeletedAt: m.DeletedAt,
 		},
-		Title:     derefString(m.Title),
-		Source:    derefString(m.Source),
-		SourceID:  derefString(m.SourceID),
-		PosterURL: derefString(m.PosterUrl),
+		Title:       derefString(m.Title),
+		Source:      derefString(m.Source),
+		SourceID:    derefString(m.SourceID),
+		PosterURL:   derefString(m.PosterUrl),
+		MediaFolder: m.MediaFolder,
 	}
 }
 
