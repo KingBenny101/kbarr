@@ -7,12 +7,15 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kingbenny101/kbarr/services/indexer/internal/models"
 	"github.com/kingbenny101/kbarr/shared/config"
+	"github.com/kingbenny101/kbarr/shared/parser"
 	"github.com/uptrace/bun"
 )
 
@@ -24,9 +27,16 @@ func cacheDir() string {
 	return filepath.Join(indexerDir(), "prowlarr-cache")
 }
 
+var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
+
 func cacheKey(query string) string {
+	slug := nonAlnum.ReplaceAllString(strings.ToLower(query), "_")
+	slug = strings.Trim(slug, "_")
+	if len(slug) > 60 {
+		slug = slug[:60]
+	}
 	h := sha256.Sum256([]byte(query))
-	return fmt.Sprintf("%x.json", h)
+	return fmt.Sprintf("%s_%x.json", slug, h[:4])
 }
 
 func cacheTTL(db *bun.DB) time.Duration {
@@ -91,23 +101,20 @@ func cacheLoad(db *bun.DB, query string) ([]models.SearchResult, bool) {
 	return results, true
 }
 
-// saveGuessitDebugForQuery runs guessit on every result filename and writes
-// a single debug file keyed by query — same filename as the prowlarr-cache entry.
-func saveGuessitDebugForQuery(query string, results []models.SearchResult, limit int) {
+// saveParserDebugForQuery parses every result filename and writes a debug file
+// keyed by query — same filename as the prowlarr-cache entry.
+func saveParserDebugForQuery(query string, results []models.SearchResult, limit int) {
 	if len(results) == 0 {
 		return
 	}
-	dir := filepath.Join(indexerDir(), "guessit-debug")
+	dir := filepath.Join(indexerDir(), "parser-debug")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return
 	}
 	path := filepath.Join(dir, cacheKey(query))
-	if _, err := os.Stat(path); err == nil {
-		return // already written for this query
-	}
 	type entry struct {
-		Filename string          `json:"filename"`
-		Result   json.RawMessage `json:"result"`
+		Filename string             `json:"filename"`
+		Result   parser.ParseResult `json:"result"`
 	}
 	var entries []entry
 	for _, r := range results {
@@ -115,11 +122,7 @@ func saveGuessitDebugForQuery(query string, results []models.SearchResult, limit
 		if filename == "" {
 			filename = r.Title
 		}
-		raw := runGuessitRaw(filename)
-		if len(raw) == 0 {
-			continue
-		}
-		entries = append(entries, entry{Filename: filename, Result: json.RawMessage(raw)})
+		entries = append(entries, entry{Filename: filename, Result: parser.Parse(filename)})
 	}
 	if len(entries) == 0 {
 		return
