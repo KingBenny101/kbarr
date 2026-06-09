@@ -1,11 +1,13 @@
 ---
-date: 2026-06-04
 title: New search engine
+date: 2026-06-04
+authors: [kingbenny101]
+tags: []
 ---
 
 Vibe coded a new search engine for anime torrents. 
 
-<!-- more -->
+<!-- truncate -->
 
 It uses nyaa.si as the source and is pretty fast.
 

@@ -1,11 +1,13 @@
 ---
-date: 2026-06-02
 title: Insane progress
+date: 2026-06-02
+authors: [kingbenny101]
+tags: []
 ---
 
 Claude in planning mode is wild. 
 
-<!-- more -->
+<!-- truncate -->
 
 Significant amount of progess today. 
 

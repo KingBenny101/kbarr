@@ -1,0 +1,48 @@
+.hero {
+  padding: 4rem 0;
+  text-align: center;
+}
+
+.heroTagline {
+  font-size: 1.1rem;
+  margin: 0.5rem 0 0;
+  opacity: 0.85;
+}
+
+.heroActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.features {
+  padding: 3rem 0;
+  background: var(--ifm-background-surface-color);
+}
+
+.featureCard {
+  padding: 1.5rem;
+}
+
+.content {
+  padding: 3rem 0;
+}
+
+.content section {
+  margin-bottom: 3rem;
+}
+
+.content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.content th,
+.content td {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--ifm-table-border-color);
+  text-align: left;
+}

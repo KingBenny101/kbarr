@@ -1,3 +1,8 @@
+---
+sidebar_label: Installation
+sidebar_position: 1
+---
+
 # Installation
 
 Requirements: Docker and Docker Compose.

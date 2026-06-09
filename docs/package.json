@@ -1,12 +1,37 @@
 {
-  "name": "kbarr-docs",
+  "name": "docs",
+  "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "vitepress dev .",
-    "build": "vitepress build .",
-    "preview": "vitepress preview ."
+    "docusaurus": "docusaurus",
+    "start": "docusaurus start",
+    "build": "docusaurus gen-api-docs kbarr && docusaurus build",
+    "clear": "docusaurus clear",
+    "serve": "docusaurus serve",
+    "gen-api-docs": "docusaurus gen-api-docs kbarr",
+    "clean-api-docs": "docusaurus clean-api-docs kbarr"
+  },
+  "dependencies": {
+    "@docusaurus/core": "3.10.1",
+    "@docusaurus/preset-classic": "3.10.1",
+    "clsx": "^2.0.0",
+    "docusaurus-plugin-openapi-docs": "5.0.2",
+    "docusaurus-theme-openapi-docs": "5.0.2",
+    "prism-react-renderer": "^2.3.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "vitepress": "^1.6.3"
+    "@docusaurus/module-type-aliases": "3.10.1",
+    "@docusaurus/tsconfig": "3.10.1",
+    "@docusaurus/types": "3.10.1",
+    "typescript": "~5.6.0"
+  },
+  "browserslist": {
+    "production": [">0.5%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+  },
+  "engines": {
+    "node": ">=18.0"
   }
 }

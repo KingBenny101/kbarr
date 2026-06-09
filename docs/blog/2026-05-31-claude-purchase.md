@@ -1,11 +1,13 @@
 ---
-date: 2026-05-31
 title: Claude purchase
+date: 2026-05-31
+authors: [kingbenny101]
+tags: []
 ---
 
 Bought claude.
 
-<!-- more -->
+<!-- truncate -->
 
 Insane progress. Cleaned UI. Moved back to REST from gRPC.
 

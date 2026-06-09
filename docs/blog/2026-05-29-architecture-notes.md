@@ -1,11 +1,13 @@
 ---
-date: 2026-05-29
 title: Architecture notes
+date: 2026-05-29
+authors: [kingbenny101]
+tags: []
 ---
 
 This post covers the current architecture of kbarr.
 
-<!-- more -->
+<!-- truncate -->
 
 ## Current structure
 
