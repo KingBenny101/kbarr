@@ -5,6 +5,8 @@ title: Insane progress
 
 Claude in planning mode is wild. 
 
+<!-- more -->
+
 Significant amount of progess today. 
 
 Now can add anime, monitor episodes and seasons, and trigger downloads.

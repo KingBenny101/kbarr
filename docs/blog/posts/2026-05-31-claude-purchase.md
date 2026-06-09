@@ -5,6 +5,9 @@ title: Claude purchase
 
 Bought claude.
 
+<!-- more -->
+
 Insane progress. Cleaned UI. Moved back to REST from gRPC.
 
 RCB won IPL 2026, not a good day.
+
