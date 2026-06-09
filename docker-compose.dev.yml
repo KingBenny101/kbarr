@@ -14,8 +14,3 @@ services:
       postgres:
         condition: service_healthy
     restart: on-failure
-
-networks:
-  default:
-    driver_opts:
-      com.docker.network.driver.mtu: "1380"
