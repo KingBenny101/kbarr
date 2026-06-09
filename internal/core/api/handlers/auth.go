@@ -1,80 +1,55 @@
 package handlers
 
 import (
-	"encoding/json"
-	"net/http"
+	"context"
+	"strings"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/core/auth"
 	"github.com/kingbenny101/kbarr/internal/core/db"
-	"github.com/kingbenny101/kbarr/internal/config"
 )
 
-func HandleLogin(store *auth.Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Username string `json:"username"`
-			Password string `json:"password"`
+func Login(store *auth.Store) func(context.Context, *LoginInput) (*TokenOutput, error) {
+	return func(ctx context.Context, input *LoginInput) (*TokenOutput, error) {
+		if !auth.ValidateCredentials(db.DB, input.Body.Username, input.Body.Password) {
+			return nil, huma.Error401Unauthorized("invalid credentials")
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-
-		if !auth.ValidateCredentials(db.DB, req.Username, req.Password) {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-			return
-		}
-
-		token, err := store.Issue(req.Username)
+		token, err := store.Issue(input.Body.Username)
 		if err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
+			return nil, huma.Error500InternalServerError("failed to issue token", err)
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"token": token})
+		return &TokenOutput{Body: TokenResponse{Token: token}}, nil
 	}
 }
 
-func HandleLogout(store *auth.Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		store.Revoke(r.Header.Get("Authorization"))
-		w.WriteHeader(http.StatusOK)
+func Logout(store *auth.Store) func(context.Context, *LogoutInput) (*struct{}, error) {
+	return func(ctx context.Context, input *LogoutInput) (*struct{}, error) {
+		store.Revoke(input.Authorization)
+		return nil, nil
 	}
 }
 
-func HandleMe(store *auth.Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		username := store.UsernameFromRequest(r)
+func Me(store *auth.Store) func(context.Context, *MeInput) (*UsernameOutput, error) {
+	return func(ctx context.Context, input *MeInput) (*UsernameOutput, error) {
+		token := strings.TrimPrefix(input.Authorization, "Bearer ")
+		username, _ := store.Validate(token)
 		if username == "" {
 			username = config.Get(db.DB, "authUsername", "admin")
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"username": username})
+		return &UsernameOutput{Body: UsernameResponse{Username: username}}, nil
 	}
 }
 
-func HandleChangeCredentials() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			CurrentPassword string `json:"currentPassword"`
-			NewUsername     string `json:"newUsername"`
-			NewPassword     string `json:"newPassword"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-
-		if err := auth.UpdateCredentials(db.DB, req.CurrentPassword, req.NewUsername, req.NewPassword); err != nil {
+func ChangeCredentials() func(context.Context, *ChangeCredentialsInput) (*struct{}, error) {
+	return func(ctx context.Context, input *ChangeCredentialsInput) (*struct{}, error) {
+		err := auth.UpdateCredentials(db.DB, input.Body.CurrentPassword, input.Body.NewUsername, input.Body.NewPassword)
+		if err != nil {
 			if _, ok := err.(*auth.ErrUnauthorized); ok {
-				http.Error(w, "Invalid current password", http.StatusUnauthorized)
-				return
+				return nil, huma.Error401Unauthorized("invalid current password")
 			}
-			http.Error(w, "Failed to update credentials", http.StatusInternalServerError)
-			return
+			return nil, huma.Error500InternalServerError("failed to update credentials", err)
 		}
-
-		w.WriteHeader(http.StatusOK)
+		return nil, nil
 	}
 }

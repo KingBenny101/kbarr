@@ -1,13 +1,21 @@
 package handlers
 
 import (
-	"net/http"
+	"context"
 
-	coreservice "github.com/kingbenny101/kbarr/internal/core/service"
 	"github.com/kingbenny101/kbarr/internal/core/db"
+	coreservice "github.com/kingbenny101/kbarr/internal/core/service"
 )
 
-func HandleCheckAvailability(w http.ResponseWriter, r *http.Request) {
-	coreservice.CheckAvailability(r.Context(), db.DB)
-	w.WriteHeader(http.StatusNoContent)
+func Health() func(context.Context, *struct{}) (*HealthOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*HealthOutput, error) {
+		return &HealthOutput{Body: MessageResponse{Message: "KBArr is running"}}, nil
+	}
+}
+
+func CheckAvailability() func(context.Context, *struct{}) (*struct{}, error) {
+	return func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+		coreservice.CheckAvailability(ctx, db.DB)
+		return nil, nil
+	}
 }

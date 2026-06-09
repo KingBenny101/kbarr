@@ -1,15 +1,9 @@
 package handlers
 
-import (
-	"encoding/json"
-	"net/http"
-)
+import "context"
 
-func HandleGetVersion(version string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"version": version,
-		})
+func GetVersion(version string) func(context.Context, *struct{}) (*VersionOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*VersionOutput, error) {
+		return &VersionOutput{Body: VersionResponse{Version: version}}, nil
 	}
 }

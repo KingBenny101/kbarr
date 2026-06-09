@@ -1,114 +1,94 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 
-	"github.com/kingbenny101/kbarr/internal/core/db"
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/core/db"
 )
 
-func HandleTestKbdex(indexerAddr string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+func TestKbdex(indexerAddr string) func(context.Context, *struct{}) (*TestResultOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*TestResultOutput, error) {
 		resp, err := http.Post(indexerAddr+"/test/kbdex", "application/json", nil)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
-			return
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
 		}
 		defer resp.Body.Close()
-		io.Copy(w, resp.Body)
+		var result TestResult
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			result = TestResult{Ok: "false", Message: "upstream returned non-JSON"}
+		}
+		return &TestResultOutput{Body: result}, nil
 	}
 }
 
-func HandleTestIndexer(indexerAddr string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+func TestIndexer(indexerAddr string) func(context.Context, *struct{}) (*TestResultOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*TestResultOutput, error) {
 		resp, err := http.Post(indexerAddr+"/test", "application/json", nil)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
-			return
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
 		}
 		defer resp.Body.Close()
-		io.Copy(w, resp.Body)
+		var result TestResult
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			result = TestResult{Ok: "false", Message: "upstream returned non-JSON"}
+		}
+		return &TestResultOutput{Body: result}, nil
 	}
 }
 
-func HandleTestDownloader(downloaderAddr string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+func TestDownloader(downloaderAddr string) func(context.Context, *struct{}) (*TestResultOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*TestResultOutput, error) {
 		resp, err := http.Post(downloaderAddr+"/test", "application/json", nil)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
-			return
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
 		}
 		defer resp.Body.Close()
-		io.Copy(w, resp.Body)
+		var result TestResult
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			result = TestResult{Ok: "false", Message: "upstream returned non-JSON"}
+		}
+		return &TestResultOutput{Body: result}, nil
 	}
 }
 
-func HandleTriggerDownloader(downloaderAddr string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+func TriggerDownloader(downloaderAddr string) func(context.Context, *struct{}) (*TestResultOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*TestResultOutput, error) {
 		resp, err := http.Post(downloaderAddr+"/trigger", "application/json", nil)
 		if err != nil {
-			json.NewEncoder(w).Encode(map[string]string{"ok": "false", "message": err.Error()})
-			return
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
 		}
 		defer resp.Body.Close()
-		io.Copy(w, resp.Body)
-	}
-}
-
-func HandleGetSettings(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	settings, err := config.GetSettingsMap(db.DB)
-	if err != nil {
-		http.Error(w, "Failed to retrieve settings", http.StatusInternalServerError)
-		return
-	}
-	delete(settings, "authPasswordHash")
-	delete(settings, "authUsername")
-
-	settingsJSON, err := json.Marshal(settings)
-	if err != nil {
-		http.Error(w, "Failed to encode settings", http.StatusInternalServerError)
-		return
-	}
-
-	w.Write(settingsJSON)
-}
-
-func HandleUpdateSettings(w http.ResponseWriter, r *http.Request) {
-	var updatedSettings map[string]string
-	err := json.NewDecoder(r.Body).Decode(&updatedSettings)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	for key, value := range updatedSettings {
-		err := config.SetSetting(db.DB, key, value)
-		if err != nil {
-			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-			return
+		var result TestResult
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			result = TestResult{Ok: "false", Message: "upstream returned non-JSON"}
 		}
+		return &TestResultOutput{Body: result}, nil
 	}
+}
 
-	w.WriteHeader(http.StatusOK)
-
-	res := make(map[string]string)
-	res["success"] = "true"
-	res["message"] = "Settings updated successfully"
-
-	resJSON, err := json.Marshal(res)
-	if err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
+func GetSettings() func(context.Context, *struct{}) (*SettingsOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*SettingsOutput, error) {
+		settings, err := config.GetSettingsMap(db.DB)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to retrieve settings", err)
+		}
+		delete(settings, "authPasswordHash")
+		delete(settings, "authUsername")
+		return &SettingsOutput{Body: settings}, nil
 	}
+}
 
-	w.Write(resJSON)
+func UpdateSettings() func(context.Context, *UpdateSettingsInput) (*struct{}, error) {
+	return func(ctx context.Context, input *UpdateSettingsInput) (*struct{}, error) {
+		for key, value := range input.Body {
+			if err := config.SetSetting(db.DB, key, value); err != nil {
+				return nil, huma.Error500InternalServerError("failed to update settings", err)
+			}
+		}
+		return nil, nil
+	}
 }

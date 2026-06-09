@@ -98,6 +98,14 @@ func Init() {
 	slog.SetDefault(slog.New(&bufHandler{inner: inner, buf: global}))
 }
 
+func GetAll() []LogEntry {
+	entries := global.all()
+	if entries == nil {
+		return []LogEntry{}
+	}
+	return entries
+}
+
 func HandleLogs(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	entries := global.all()

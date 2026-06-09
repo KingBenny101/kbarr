@@ -1,22 +1,16 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/logger"
 )
-
-type ServiceHealth struct {
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-	Running     bool   `json:"running"`
-	Error       string `json:"error,omitempty"`
-}
 
 var httpProbe = &http.Client{Timeout: 2 * time.Second}
 
@@ -47,8 +41,15 @@ func SvcAddr(envKey, fallback string) string {
 	return fallback
 }
 
-func HandleGetWorkers() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+type ServiceHealth struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Running     bool   `json:"running"`
+	Error       string `json:"error,omitempty"`
+}
+
+func GetWorkers() func(context.Context, *struct{}) (*WorkersOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*WorkersOutput, error) {
 		out := []ServiceHealth{
 			{Name: "core", DisplayName: "Core", Running: true},
 		}
@@ -62,36 +63,35 @@ func HandleGetWorkers() http.HandlerFunc {
 				Error:       errMsg,
 			})
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(out)
+		return &WorkersOutput{Body: out}, nil
 	}
 }
 
-func HandleGetServiceLogs() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		name := chi.URLParam(r, "name")
-
-		if name == "core" {
-			w.Header().Set("Content-Type", "application/json")
-			logger.HandleLogs(w, r)
-			return
+func GetServiceLogs() func(context.Context, *ServiceNameInput) (*ServiceLogsOutput, error) {
+	return func(ctx context.Context, input *ServiceNameInput) (*ServiceLogsOutput, error) {
+		if input.Name == "core" {
+			data, err := json.Marshal(logger.GetAll())
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to encode logs", err)
+			}
+			return &ServiceLogsOutput{Body: json.RawMessage(data)}, nil
 		}
 
 		for _, svc := range sidecarServices {
-			if svc.name == name {
-				addr := SvcAddr(svc.envKey, svc.fallback)
-				resp, err := httpProbe.Get(addr + "/logs")
+			if svc.name == input.Name {
+				resp, err := httpProbe.Get(SvcAddr(svc.envKey, svc.fallback) + "/logs")
 				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadGateway)
-					return
+					return nil, huma.Error502BadGateway("sidecar unreachable", err)
 				}
 				defer resp.Body.Close()
-				w.Header().Set("Content-Type", "application/json")
-				io.Copy(w, resp.Body)
-				return
+				data, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return nil, huma.Error502BadGateway("failed to read sidecar response", err)
+				}
+				return &ServiceLogsOutput{Body: json.RawMessage(data)}, nil
 			}
 		}
 
-		http.NotFound(w, r)
+		return nil, huma.Error404NotFound("unknown service", nil)
 	}
 }

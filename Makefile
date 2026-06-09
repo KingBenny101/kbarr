@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: db db-down dev dev-down run up down build-web release
+.PHONY: db db-down dev dev-down run up down build-web gen-spec release
 
 # Start Postgres + pgadmin (for local dev, port 5432 exposed)
 db:
@@ -26,6 +26,10 @@ up:
 
 down:
 	docker compose down -v
+
+# Generate OpenAPI spec into VitePress public dir
+gen-spec:
+	go run ./cmd/genspec > docs/openapi.json
 
 # Build and release
 build-web:
