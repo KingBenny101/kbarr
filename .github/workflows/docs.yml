@@ -6,7 +6,8 @@ on:
       - main
     paths:
       - 'docs/**'
-      - 'docs/package.json'
+      - 'internal/core/api/**'
+      - 'cmd/genspec/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -26,6 +27,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Generate OpenAPI spec
+        run: go run ./cmd/genspec > docs/openapi.json
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -44,7 +53,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: docs/build
 
   deploy:
     environment:
