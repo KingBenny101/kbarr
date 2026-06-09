@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Table, Text, TextInput, Title } from "@mantine/core"
+import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
 import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, resolvePosterUrl, showToast } from "@/utils"
@@ -311,12 +311,27 @@ export function MediaDetailPage() {
             const response = await apiFetch(`${API_URL}/api/library/${id}`, { method: "DELETE" })
             if (response.ok) {
                 showToast("Media deleted", "success")
-                sessionStorage.removeItem("last-media-path")
                 navigate("/")
             }
         } catch (error) {
             console.error(error)
             showToast("Failed to delete media", "error")
+        }
+    }
+
+    const handleNSFWToggle = async (nsfw: boolean) => {
+        if (!media || !id) return
+        setMedia({ ...media, is_nsfw: nsfw })
+        try {
+            await apiFetch(`${API_URL}/api/library/${id}/nsfw`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nsfw }),
+            })
+        } catch (error) {
+            console.error(error)
+            setMedia({ ...media, is_nsfw: !nsfw })
+            showToast("Failed to update NSFW status", "error")
         }
     }
 
@@ -498,6 +513,14 @@ export function MediaDetailPage() {
                                 <SimpleKeyValue label="Updated" value={media.UpdatedAt ? new Date(media.UpdatedAt).toLocaleString() : "Unknown"} />
                                 <SimpleKeyValue label="Genres" value={media.genres || "Unknown"} />
                                 <SimpleKeyValue label="Release" value={media.release_date || "Unknown"} />
+                                <Group justify="space-between" align="center" mt={4}>
+                                    <Text c="dimmed" size="sm">NSFW</Text>
+                                    <Switch
+                                        checked={media.is_nsfw}
+                                        onChange={(e) => handleNSFWToggle(e.currentTarget.checked)}
+                                        color="red"
+                                    />
+                                </Group>
                             </Stack>
                         </Card>
                     </Stack>
