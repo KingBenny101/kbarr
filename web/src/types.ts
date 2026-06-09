@@ -4,6 +4,8 @@ export interface Media {
     source_id: string
     title: string
     poster_url: string
+    CreatedAt: string
+    is_nsfw: boolean
     added?: boolean
 }
 
@@ -32,4 +34,5 @@ export interface MediaDetails {
     total_episodes: number
     total_seasons: number
     episodes: Episode[]
+    is_nsfw: boolean
 }
