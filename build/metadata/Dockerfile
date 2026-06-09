@@ -6,9 +6,8 @@ RUN apk add --no-cache ca-certificates
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY shared ./shared
+COPY internal ./internal
 COPY cmd/metadata ./cmd/metadata
-COPY internal/metadata ./internal/metadata
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/kbarr-metadata ./cmd/metadata
 

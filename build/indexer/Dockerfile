@@ -6,9 +6,8 @@ RUN apk add --no-cache ca-certificates
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY shared ./shared
+COPY internal ./internal
 COPY cmd/indexer ./cmd/indexer
-COPY internal/indexer ./internal/indexer
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/kbarr-indexer ./cmd/indexer
 

@@ -7,10 +7,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY VERSION ./VERSION
-COPY shared ./shared
+COPY internal ./internal
 COPY web ./web
 COPY cmd/core ./cmd/core
-COPY internal/core ./internal/core
 
 WORKDIR /workspace/web
 RUN npm ci
