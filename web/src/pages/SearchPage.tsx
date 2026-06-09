@@ -85,7 +85,7 @@ export function SearchPage() {
             const response = await apiFetch(`${API_URL}/api/library`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(result),
+                body: JSON.stringify({ title: result.title, source: result.source, source_id: result.source_id }),
             })
             if (response.ok) {
                 const data = await response.json()
@@ -120,7 +120,7 @@ export function SearchPage() {
                     style={{ flex: 1 }}
                     size="md"
                 />
-                <Button color="gray" onClick={handleSearch} loading={searching}>
+                <Button color="gray" onClick={handleSearch} loading={searching} size="md">
                     Search
                 </Button>
             </Group>
