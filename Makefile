@@ -1,4 +1,6 @@
-.PHONY: db db-down dev dev-down run-metadata run-indexer run-downloader run-core run-frontend up down build-frontend generate release
+SHELL := /bin/bash
+
+.PHONY: db db-down dev dev-down run up down build-web release
 
 # Start Postgres + pgadmin (for local dev, port 5432 exposed)
 db:
@@ -7,28 +9,16 @@ db:
 db-down:
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml down postgres pgadmin
 
-# Run individual services locally with air
-run-metadata:
-	cd services/metadata && set -a && source ../../dev.env && set +a && air
-
-run-indexer:
-	cd services/indexer && set -a && source ../../dev.env && set +a && air
-
-run-downloader:
-	cd services/downloader && set -a && source ../../dev.env && set +a && air
-
-run-core:
-	cd services/core && set -a && source ../../dev.env && set +a && air
-
-run-frontend:
-	cd frontend && npm run dev
-
-# Run all services with tmux (for local dev)
+# Run all services (requires overmind)
 dev:
-	./scripts/dev.sh
+	set -a && source dev.env && set +a && overmind start
 
 dev-down:
-	tmux kill-session -t kbarr
+	overmind quit
+
+# Run a single service: make run s=core
+run:
+	set -a && source dev.env && set +a && overmind start -l $(s)
 
 # Production stack (uses pre-built images from ghcr.io)
 up:
@@ -38,9 +28,9 @@ down:
 	docker compose down -v
 
 # Build and release
-build-frontend:
-	cd frontend && npm ci && npm run build
-	cp -r frontend/dist/. services/core/internal/api/frontend/
+build-web:
+	cd web && npm ci && npm run build
+	cp -r web/dist/. internal/core/api/frontend/
 
 release:
 	./scripts/release.sh

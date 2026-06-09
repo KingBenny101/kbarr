@@ -7,14 +7,17 @@
 *.test
 *.out
 go.work
-kbarr
+/core
+/metadata
+/indexer
+/downloader
 
 # Frontend dependencies and build outputs
-frontend/node_modules/
-frontend/dist/
-frontend/.env*
-frontend/.cache
-frontend/.parcel-cache
+web/node_modules/
+web/dist/
+web/.env*
+web/.cache
+web/.parcel-cache
 .env
 .env.local
 
@@ -22,8 +25,8 @@ frontend/.parcel-cache
 data/
 data/*.db
 
-# Embedded frontend assets (built files)
-internal/api/frontend/
+# Embedded frontend assets (built files, .gitkeep preserved by internal/core/api/.gitignore)
+internal/core/api/frontend/
 
 # Logs
 *.log
@@ -53,10 +56,7 @@ Thumbs.db
 *.tmp
 *.temp
 tmp/
-services/core/tmp/
-services/anidb/tmp/
-services/prowlarr/tmp/
-services/downloader/tmp/
+.overmind.sock
 
 # Archived frontend
-frontend-old/
+web-old/
