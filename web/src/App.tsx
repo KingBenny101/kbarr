@@ -48,10 +48,12 @@ function PageShell({ children }: { children: React.ReactNode }) {
         if (pathname.startsWith("/media/")) {
             sessionStorage.setItem("last-media-path", pathname)
             setLastMediaPath(pathname)
-        } else if (!sessionStorage.getItem("last-media-path")) {
+        } else if (pathname === "/") {
+            sessionStorage.removeItem("last-media-path")
             setLastMediaPath("/")
         }
     }, [pathname])
+
     const { toggleColorScheme } = useMantineColorScheme()
     const computedColorScheme = useComputedColorScheme("light")
 
