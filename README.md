@@ -1,7 +1,5 @@
 # kbarr
 
-[About](https://kingbenny101.github.io/kbarr/) 
+A self-hosted application for managing and automatically downloading anime. Built in Go, runs entirely via Docker Compose.
 
-[Quick Start](https://kingbenny101.github.io/kbarr/installation/)
-
-[Documentation](https://kingbenny101.github.io/kbarr/api/system/)
+[About](https://kingbenny101.github.io/kbarr/) · [Quick Start](https://kingbenny101.github.io/kbarr/docs/installation) · [API Reference](https://kingbenny101.github.io/kbarr/docs/api/kbarr-api)
