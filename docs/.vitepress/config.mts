@@ -4,6 +4,7 @@ export default defineConfig({
   title: 'kbarr',
   description: 'Take lite',
   base: '/kbarr/',
+  ignoreDeadLinks: [/^http:\/\/localhost/],
 
   themeConfig: {
     nav: [
