@@ -54,7 +54,7 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
     return sortDir === "asc" ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />
 }
 
-export function DownloadQueuePage() {
+export function DownloadsPage() {
     const [queue, setQueue] = useState<DownloadItem[]>([])
     const [loading, setLoading] = useState(true)
     const [triggering, setTriggering] = useState(false)
@@ -273,7 +273,7 @@ export function DownloadQueuePage() {
                 </Stack>
             </Modal>
 
-            <Title order={1}>Download queue</Title>
+            <Title order={1}>Downloads</Title>
 
             <Card withBorder radius="xl">
                 <Stack gap="md">

@@ -166,7 +166,7 @@ function ServiceListItem({ service, selected, onClick }: { service: ServiceHealt
     )
 }
 
-export function WorkersPage() {
+export function LogsPage() {
     const [services, setServices] = useState<ServiceHealth[]>([])
     const [selected, setSelected] = useState<string>(() => sessionStorage.getItem("workers-selected") ?? "core")
 
@@ -177,7 +177,7 @@ export function WorkersPage() {
     const [loading, setLoading] = useState(true)
     const isMobile = useMediaQuery("(max-width: 768px)")
 
-    const fetchWorkers = async () => {
+    const fetchLogs = async () => {
         try {
             const res = await apiFetch(`${API_URL}/api/workers`)
             if (!res.ok) throw new Error()
@@ -191,8 +191,8 @@ export function WorkersPage() {
     }
 
     useEffect(() => {
-        fetchWorkers()
-        const interval = setInterval(fetchWorkers, 10000)
+        fetchLogs()
+        const interval = setInterval(fetchLogs, 10000)
         return () => clearInterval(interval)
     }, [])
 
@@ -202,7 +202,7 @@ export function WorkersPage() {
         return (
             <Stack gap="md" h="calc(100vh - 56px - 32px)">
                 <div>
-                    <Title order={1}>Workers</Title>
+                    <Title order={1}>Logs</Title>
                     <Text c="dimmed">Status and logs of background services</Text>
                 </div>
 
@@ -239,7 +239,7 @@ export function WorkersPage() {
     return (
         <Stack gap="lg" h="calc(100vh - 56px - 32px)">
             <div>
-                <Title order={1}>Workers</Title>
+                <Title order={1}>Logs</Title>
                 <Text c="dimmed">Status and logs of background services</Text>
             </div>
 

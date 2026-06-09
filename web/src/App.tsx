@@ -9,9 +9,9 @@ import { LoginPage } from "@/pages/LoginPage"
 import { MediaDetailPage } from "@/pages/MediaDetailPage"
 import { MonitorPage } from "@/pages/MonitorPage"
 import { SearchPage } from "@/pages/SearchPage"
-import { DownloadQueuePage } from "@/pages/DownloadQueuePage"
+import { DownloadsPage } from "@/pages/DownloadsPage"
 import { SettingsPage } from "@/pages/SettingsPage"
-import { WorkersPage } from "@/pages/WorkersPage"
+import { LogsPage } from "@/pages/LogsPage"
 
 const navigation = [
     {
@@ -23,8 +23,8 @@ const navigation = [
     },
     {
         group: "System", items: [
-{ label: "Download Queue", to: "/downloads", icon: <IconCloudDownload size={18} /> },
-            { label: "Workers", to: "/workers", icon: <IconActivity size={18} /> },
+{ label: "Downloads", to: "/downloads", icon: <IconCloudDownload size={18} /> },
+            { label: "Logs", to: "/logs", icon: <IconActivity size={18} /> },
         ]
     },
     {
@@ -152,8 +152,8 @@ export default function App() {
                             <Route path="/settings/*" element={<SettingsPage />} />
                             <Route path="/media/:id" element={<MediaDetailPage />} />
                             <Route path="/monitored" element={<MonitorPage />} />
-                            <Route path="/workers" element={<WorkersPage />} />
-<Route path="/downloads" element={<DownloadQueuePage />} />
+                            <Route path="/logs" element={<LogsPage />} />
+                            <Route path="/downloads" element={<DownloadsPage />} />
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                     </PageShell>
