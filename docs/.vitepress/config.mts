@@ -20,7 +20,7 @@ socialLinks: [
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2025-present KingBenny101',
+      copyright: 'Copyright © 2026 KingBenny101',
     },
   },
 })
