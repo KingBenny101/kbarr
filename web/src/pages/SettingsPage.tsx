@@ -80,7 +80,7 @@ export function SettingsPage() {
                 anidbClient: data.anidbClient || "",
                 anidbVersion: data.anidbVersion || "",
                 anidbSyncInterval: data.anidbSyncInterval || "1440",
-                indexerProvider: data.indexerProvider || "prowlarr",
+                indexerProvider: data.indexerProvider || "kbdex",
                 kbdexUrl: data.kbdexUrl || "http://localhost:8000",
                 prowlarrUrl: data.prowlarrUrl || "http://host.docker.internal:9696",
                 prowlarrApiKey: data.prowlarrApiKey || "",
@@ -376,8 +376,8 @@ export function SettingsPage() {
                                 value={settings.indexerProvider}
                                 onChange={(v) => update("indexerProvider", v)}
                                 data={[
-                                    { label: "Prowlarr", value: "prowlarr" },
                                     { label: "kbdex", value: "kbdex" },
+                                    { label: "Prowlarr", value: "prowlarr" },
                                 ]}
                             />
                         </div>
@@ -409,6 +409,25 @@ export function SettingsPage() {
                 <Card withBorder radius="xl" p="lg">
                     <Stack gap="md">
                         <div>
+                            <Title order={3}>kbdex</Title>
+                            <Text size="sm" c="dimmed">AniDB-aware torrent search. Uses the AniDB series ID to resolve titles and filter results natively.</Text>
+                        </div>
+                        <TextInput
+                            label="URL"
+                            value={settings.kbdexUrl}
+                            onChange={(e) => update("kbdexUrl", e.currentTarget.value)}
+                            placeholder="http://localhost:8000"
+                        />
+                        <Group justify="flex-end">
+                            <Button variant="light" color="gray" loading={testingKbdex} onClick={handleTestKbdex}>
+                                Test connection
+                            </Button>
+                        </Group>
+                    </Stack>
+                </Card>
+                <Card withBorder radius="xl" p="lg">
+                    <Stack gap="md">
+                        <div>
                             <Title order={3}>Prowlarr</Title>
                             <Text size="sm" c="dimmed">Configure the Prowlarr indexer used for monitoring and searches.</Text>
                         </div>
@@ -430,25 +449,6 @@ export function SettingsPage() {
                         />
                         <Group justify="flex-end">
                             <Button variant="light" color="gray" loading={testingIndexer} onClick={handleTestIndexer}>
-                                Test connection
-                            </Button>
-                        </Group>
-                    </Stack>
-                </Card>
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>kbdex</Title>
-                            <Text size="sm" c="dimmed">AniDB-aware torrent search. Uses the AniDB series ID to resolve titles and filter results natively.</Text>
-                        </div>
-                        <TextInput
-                            label="URL"
-                            value={settings.kbdexUrl}
-                            onChange={(e) => update("kbdexUrl", e.currentTarget.value)}
-                            placeholder="http://localhost:8000"
-                        />
-                        <Group justify="flex-end">
-                            <Button variant="light" color="gray" loading={testingKbdex} onClick={handleTestKbdex}>
                                 Test connection
                             </Button>
                         </Group>

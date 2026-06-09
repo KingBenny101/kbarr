@@ -35,7 +35,7 @@ var DefaultSettings = map[string]string{
 	"devMode":              "false",
 	"authUsername":         "",
 	"authPasswordHash":     "",
-	"indexerProvider":      "prowlarr",
+	"indexerProvider":      "kbdex",
 	"kbdexUrl":             "http://localhost:8000",
 }
 
