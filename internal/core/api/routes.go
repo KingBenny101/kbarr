@@ -36,6 +36,7 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 	huma.Register(api, huma.Operation{OperationID: "get-library-monitors", Method: "GET", Path: "/api/library/{id}/monitored", Security: secured, Tags: []string{"library"}, Summary: "Get monitors for library item"}, handlers.GetMonitorsByLibraryID())
 	huma.Register(api, huma.Operation{OperationID: "delete-media", Method: "DELETE", Path: "/api/library/{id}", Security: secured, Tags: []string{"library"}, Summary: "Delete media", DefaultStatus: 204}, handlers.DeleteMedia())
 	huma.Register(api, huma.Operation{OperationID: "update-monitor-status", Method: "PUT", Path: "/api/library/{id}/monitor", Security: secured, Tags: []string{"library"}, Summary: "Update monitor status", DefaultStatus: 204}, handlers.UpdateMonitorStatus())
+	huma.Register(api, huma.Operation{OperationID: "update-nsfw", Method: "PATCH", Path: "/api/library/{id}/nsfw", Security: secured, Tags: []string{"library"}, Summary: "Update NSFW status", DefaultStatus: 204}, handlers.UpdateNSFW())
 
 	// Monitor
 	huma.Register(api, huma.Operation{OperationID: "list-monitored", Method: "GET", Path: "/api/monitor", Security: secured, Tags: []string{"monitor"}, Summary: "List monitored items"}, handlers.GetMonitoredList())

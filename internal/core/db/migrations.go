@@ -84,6 +84,9 @@ func runMigrations(ctx context.Context) error {
 		`ALTER TABLE media ADD COLUMN IF NOT EXISTS media_folder TEXT NOT NULL DEFAULT ''`,
 		// Backfill existing rows: replace filesystem-invalid chars with underscore, trim whitespace
 		`UPDATE media SET media_folder = TRIM(REGEXP_REPLACE(COALESCE(title, ''), E'[/\\\\:*?"<>|]', '_', 'g')) WHERE media_folder = ''`,
+
+		// media: nsfw flag for user-controlled content hiding in library
+		`ALTER TABLE media ADD COLUMN IF NOT EXISTS is_nsfw BOOLEAN NOT NULL DEFAULT FALSE`,
 	}
 
 	for _, stmt := range stmts {

@@ -101,13 +101,28 @@ type DeleteDownloadInput struct {
 	Body *db.DeleteOptions
 }
 
+type AddMediaRequest struct {
+	Title    string `json:"title"`
+	Source   string `json:"source"`
+	SourceID string `json:"source_id"`
+}
+
 type AddMediaInput struct {
-	Body models.Media
+	Body AddMediaRequest
 }
 
 type UpdateMonitorStatusInput struct {
 	ID   uint `path:"id" doc:"Library ID"`
 	Body MonitorStatusRequest
+}
+
+type NSFWRequest struct {
+	NSFW bool `json:"nsfw"`
+}
+
+type UpdateNSFWInput struct {
+	ID   uint `path:"id" doc:"Library ID"`
+	Body NSFWRequest
 }
 
 type AddMonitorInput struct {

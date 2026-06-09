@@ -61,6 +61,7 @@ func mediumFromModel(m models.Media) Medium {
 		SourceID:    stringPtr(m.SourceID),
 		PosterUrl:   stringPtr(m.PosterURL),
 		MediaFolder: m.MediaFolder,
+		IsNSFW:      m.IsNSFW,
 	}
 }
 
@@ -77,6 +78,7 @@ func mediumToModel(m Medium) models.Media {
 		SourceID:    derefString(m.SourceID),
 		PosterURL:   derefString(m.PosterUrl),
 		MediaFolder: m.MediaFolder,
+		IsNSFW:      m.IsNSFW,
 	}
 }
 

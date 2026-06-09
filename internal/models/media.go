@@ -8,4 +8,5 @@ type Media struct {
 	SourceID    string `json:"source_id"`
 	PosterURL   string `json:"poster_url"`
 	MediaFolder string `json:"media_folder"`
+	IsNSFW      bool   `json:"is_nsfw"`
 }

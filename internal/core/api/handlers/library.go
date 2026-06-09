@@ -22,7 +22,11 @@ func sanitizeFilename(name string) string {
 
 func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) (*AddMediaOutput, error) {
 	return func(ctx context.Context, input *AddMediaInput) (*AddMediaOutput, error) {
-		media := input.Body
+		media := models.Media{
+			Title:    input.Body.Title,
+			Source:   input.Body.Source,
+			SourceID: input.Body.SourceID,
+		}
 		slog.Info("AddMedia called", "title", media.Title, "source", media.Source, "source_id", media.SourceID)
 
 		exists, err := db.CheckMediaExists(media.Source, media.SourceID)
@@ -140,7 +144,23 @@ func GetDetailedByMediaID() func(context.Context, *LibraryIDInput) (*DetailedOut
 			slog.Error("Failed to fetch detailed info", "id", input.ID, "error", err)
 			return nil, huma.Error404NotFound("media not found", err)
 		}
+		media, err := db.GetMediaByID(strconv.FormatUint(uint64(input.ID), 10))
+		if err == nil {
+			detailed.IsNSFW = media.IsNSFW
+		}
 		return &DetailedOutput{Body: detailed}, nil
+	}
+}
+
+func UpdateNSFW() func(context.Context, *UpdateNSFWInput) (*struct{}, error) {
+	return func(ctx context.Context, input *UpdateNSFWInput) (*struct{}, error) {
+		id := strconv.FormatUint(uint64(input.ID), 10)
+		slog.Info("Update NSFW status", "id", id, "nsfw", input.Body.NSFW)
+		if err := db.UpdateMediaNSFW(id, input.Body.NSFW); err != nil {
+			slog.Error("Failed to update NSFW status", "error", err)
+			return nil, huma.Error500InternalServerError("failed to update NSFW status", err)
+		}
+		return nil, nil
 	}
 }
 

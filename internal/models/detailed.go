@@ -27,4 +27,5 @@ type Detailed struct {
 	TotalEpisodes   int       `json:"total_episodes"`
 	TotalSeasons    int       `json:"total_seasons"`
 	Episodes        []Episode `json:"episodes"`
+	IsNSFW          bool      `json:"is_nsfw"`
 }

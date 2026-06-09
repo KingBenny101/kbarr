@@ -168,6 +168,21 @@ func touchMediaMonitorStatus(ctx context.Context, id int64) error {
 	return err
 }
 
+func UpdateMediaNSFW(id string, nsfw bool) error {
+	if err := ensureDB(); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	numID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid media id %q: %w", id, err)
+	}
+
+	_, err = DB.NewUpdate().Model((*Medium)(nil)).Set("is_nsfw = ?", nsfw).Where("id = ?", numID).Exec(ctx)
+	return err
+}
+
 func UpdateMediaPosterURL(id int64, posterURL string) error {
 	if err := ensureDB(); err != nil {
 		return err
