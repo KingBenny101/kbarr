@@ -1,4 +1,4 @@
-# Go binaries and build artifacts
+# Go build outputs
 *.exe
 *.exe~
 *.dll
@@ -7,41 +7,27 @@
 *.test
 *.out
 go.work
+go.work.sum
+
+# Service binaries (go build ./cmd/...)
 /core
 /metadata
 /indexer
 /downloader
+/genspec
 
-# Frontend dependencies and build outputs
-web/node_modules/
-web/dist/
-web/.env*
-web/.cache
-web/.parcel-cache
+# Environment
 .env
 .env.local
 
-# Docs
-docs/node_modules/
-docs/.vitepress/dist
-docs/.vitepress/cache
-
-# Database
+# Runtime data
 data/
-data/*.db
-
-# Embedded frontend assets (built files, .gitkeep preserved by internal/core/api/.gitignore)
-internal/core/api/frontend/
 
 # Logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-# OS generated files
+# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -57,11 +43,8 @@ Thumbs.db
 *.swo
 *~
 
-# Temporary files
+# Temporary
 *.tmp
 *.temp
 tmp/
 .overmind.sock
-
-# Archived frontend
-web-old/
