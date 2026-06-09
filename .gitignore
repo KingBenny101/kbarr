@@ -21,6 +21,11 @@ web/.parcel-cache
 .env
 .env.local
 
+# Docs
+docs/node_modules/
+docs/.vitepress/dist
+docs/.vitepress/cache
+
 # Database
 data/
 data/*.db
