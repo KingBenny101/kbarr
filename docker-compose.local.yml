@@ -1,0 +1,24 @@
+services:
+  core:
+    image: kbarr-core:local
+    build:
+      context: .
+      dockerfile: build/core/Dockerfile
+
+  metadata:
+    image: kbarr-metadata:local
+    build:
+      context: .
+      dockerfile: build/metadata/Dockerfile
+
+  indexer:
+    image: kbarr-indexer:local
+    build:
+      context: .
+      dockerfile: build/indexer/Dockerfile
+
+  downloader:
+    image: kbarr-downloader:local
+    build:
+      context: .
+      dockerfile: build/downloader/Dockerfile
