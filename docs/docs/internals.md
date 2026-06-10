@@ -1,9 +1,9 @@
 ---
-sidebar_label: Internal Services
-sidebar_position: 2
+sidebar_label: Service endpoints
+sidebar_position: 5
 ---
 
-# Internal Services
+# Service endpoints
 
 These services run inside the Docker network and are not directly accessible to users. They are called by the core service.
 
@@ -39,7 +39,7 @@ Manages torrent downloads via qBittorrent.
 | `GET` | `/health` | Liveness check |
 | `GET` | `/logs` | Service logs |
 | `POST` | `/torrent/delete` | Delete a torrent from qBittorrent by hash |
-| `POST` | `/symlinks/create` | Create symlinks for a completed download entry |
-| `POST` | `/files/delete` | Remove symlink directory for a media entry |
+| `POST` | `/hardlinks/create` | Create hardlinks for a completed download entry |
+| `POST` | `/files/delete` | Remove hardlink directory for a media entry |
 | `POST` | `/trigger` | Manually trigger the download processing loop |
 | `POST` | `/test` | Test qBittorrent connection |

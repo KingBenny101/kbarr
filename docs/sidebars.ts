@@ -12,7 +12,17 @@ try {
 const sidebars: SidebarsConfig = {
   docs: [
     'installation',
-    'internals',
+    {
+      type: 'category',
+      label: 'Architecture',
+      items: [
+        'pipeline-core',
+        'pipeline-metadata',
+        'pipeline-indexer',
+        'pipeline-downloader',
+        'internals',
+      ],
+    },
   ],
   api: [
     {
