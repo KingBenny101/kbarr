@@ -285,6 +285,9 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	if entry.SavePath != nil && *entry.SavePath != "" {
 		walked, hasVideo = s.createHardlinks(ctx, *entry.SavePath, entry.Title, mediaFolder, episodeHint)
 	}
+	if walked && hasVideo && mon != nil {
+		s.writeTVShowNFO(ctx, mon.LibraryID, mediaFolder)
+	}
 
 	// If we successfully walked the directory but found no supported video files,
 	// blacklist this torrent and re-queue the monitor so a different release is tried.
@@ -379,15 +382,23 @@ func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int6
 	}
 
 	var mediaFolder string
+	var libraryID uint
 	episodeHint := 0
 	if entry.MonitorID != nil {
 		mon := s.resolveMonitor(ctx, *entry.MonitorID)
 		mediaFolder = s.resolveMediaFolder(ctx, mon)
-		if mon != nil && mon.IsEpisode && mon.EpisodeNumber > 0 {
-			episodeHint = mon.EpisodeNumber
+		if mon != nil {
+			libraryID = mon.LibraryID
+			if mon.IsEpisode && mon.EpisodeNumber > 0 {
+				episodeHint = mon.EpisodeNumber
+			}
 		}
 	}
-	return s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
+	walked, hasVideo = s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
+	if walked && hasVideo {
+		s.writeTVShowNFO(ctx, libraryID, mediaFolder)
+	}
+	return
 }
 
 // CreateHardlinks is the public entry point used by both onComplete and the manual /hardlinks/create endpoint.
@@ -543,6 +554,45 @@ func (s *DownloaderService) resolveMonitor(ctx context.Context, monitorID int64)
 		return nil
 	}
 	return &mon
+}
+
+// writeTVShowNFO writes a Jellyfin-compatible tvshow.nfo into the show's media
+// folder so Jellyfin can match the series to the correct AniDB entry without
+// relying on title fuzzy matching.
+func (s *DownloaderService) writeTVShowNFO(ctx context.Context, libraryID uint, mediaFolder string) {
+	if libraryID == 0 || mediaFolder == "" {
+		return
+	}
+	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
+	if mediaPath == "" {
+		return
+	}
+
+	var d models.Detailed
+	if err := s.db.NewSelect().Model(&d).
+		Where("library_id = ?", libraryID).
+		Scan(ctx); err != nil {
+		slog.Warn("writeTVShowNFO: failed to load detailed", "library_id", libraryID, "error", err)
+		return
+	}
+
+	nfoPath := filepath.Join(mediaPath, mediaFolder, "tvshow.nfo")
+	if _, err := os.Stat(nfoPath); err == nil {
+		return // already exists
+	}
+
+	content := fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
+<tvshow>
+  <title>%s</title>
+  <uniqueid type="anidb" default="true">%s</uniqueid>
+</tvshow>
+`, d.Title, d.SourceID)
+
+	if err := os.WriteFile(nfoPath, []byte(content), 0644); err != nil {
+		slog.Warn("writeTVShowNFO: failed to write", "path", nfoPath, "error", err)
+		return
+	}
+	slog.Info("writeTVShowNFO: written", "path", nfoPath)
 }
 
 func (s *DownloaderService) resolveMediaFolder(ctx context.Context, mon *models.Monitor) string {
