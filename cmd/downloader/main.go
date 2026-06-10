@@ -14,9 +14,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kingbenny101/kbarr/internal/downloader/db"
-	"github.com/kingbenny101/kbarr/internal/downloader/service"
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/downloader/db"
+	_ "github.com/kingbenny101/kbarr/internal/downloader/provider/qbittorrent"
+	"github.com/kingbenny101/kbarr/internal/downloader/service"
 	"github.com/kingbenny101/kbarr/internal/logger"
 )
 
@@ -49,10 +50,7 @@ func main() {
 			http.Error(w, "hash is required", http.StatusBadRequest)
 			return
 		}
-		qbtURL := strings.TrimRight(config.Get(db.DB, "qbittorrentUrl", "http://localhost:8080"), "/")
-		username := config.Get(db.DB, "qbittorrentUsername", "")
-		password := config.Get(db.DB, "qbittorrentPassword", "")
-		if err := svc.LoginAndDelete(r.Context(), qbtURL, username, password, body.Hash, body.DeleteFiles); err != nil {
+		if err := svc.LoginAndDelete(r.Context(), body.Hash, body.DeleteFiles); err != nil {
 			slog.Error("Failed to delete torrent from qBittorrent", "hash", body.Hash, "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
