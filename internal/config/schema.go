@@ -62,6 +62,8 @@ var Schema = []SettingDef{
 	{Key: "qbittorrentUrl", Type: TypeString, Default: "http://host.docker.internal:8080", Label: "URL", Group: "downloader", Section: "qBittorrent"},
 	{Key: "qbittorrentUsername", Type: TypeString, Default: "", Label: "Username", Group: "downloader", Section: "qBittorrent"},
 	{Key: "qbittorrentPassword", Type: TypePassword, Default: "", Label: "Password", Group: "downloader", Section: "qBittorrent"},
+	{Key: "jellyfinUrl", Type: TypeString, Default: "", Label: "URL", Description: "Jellyfin server URL. Leave blank to disable library scan after hardlink creation.", Group: "downloader", Section: "Jellyfin"},
+	{Key: "jellyfinApiKey", Type: TypePassword, Default: "", Label: "API key", Group: "downloader", Section: "Jellyfin"},
 
 	// ── Hidden (defaults only; not rendered in the settings UI) ──────────
 

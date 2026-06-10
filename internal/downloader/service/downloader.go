@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -287,6 +288,7 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	}
 	if walked && hasVideo && mon != nil {
 		s.writeTVShowNFO(ctx, mon.LibraryID, mediaFolder)
+		s.triggerJellyfinScan(ctx)
 	}
 
 	// If we successfully walked the directory but found no supported video files,
@@ -397,6 +399,7 @@ func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int6
 	walked, hasVideo = s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
 	if walked && hasVideo {
 		s.writeTVShowNFO(ctx, libraryID, mediaFolder)
+		s.triggerJellyfinScan(ctx)
 	}
 	return
 }
@@ -593,6 +596,29 @@ func (s *DownloaderService) writeTVShowNFO(ctx context.Context, libraryID uint, 
 		return
 	}
 	slog.Info("writeTVShowNFO: written", "path", nfoPath)
+}
+
+func (s *DownloaderService) triggerJellyfinScan(ctx context.Context) {
+	jellyfinURL := strings.TrimRight(config.Get(s.db, "jellyfinUrl", ""), "/")
+	if jellyfinURL == "" {
+		return
+	}
+	apiKey := config.Get(s.db, "jellyfinApiKey", "")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, jellyfinURL+"/Library/Refresh", nil)
+	if err != nil {
+		slog.Warn("triggerJellyfinScan: failed to build request", "error", err)
+		return
+	}
+	req.Header.Set("X-Emby-Token", apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Warn("triggerJellyfinScan: request failed", "error", err)
+		return
+	}
+	resp.Body.Close()
+	slog.Info("triggerJellyfinScan: library refresh triggered", "status", resp.StatusCode)
 }
 
 func (s *DownloaderService) resolveMediaFolder(ctx context.Context, mon *models.Monitor) string {

@@ -198,6 +198,7 @@ export function SettingsPage() {
     const [testingIndexer, setTestingIndexer] = useState(false)
     const [testingKbdex, setTestingKbdex] = useState(false)
     const [testingDownloader, setTestingDownloader] = useState(false)
+    const [testingJellyfin, setTestingJellyfin] = useState(false)
     const [clearBlacklistModal, setClearBlacklistModal] = useState(false)
     const [clearingBlacklist, setClearingBlacklist] = useState(false)
 
@@ -310,6 +311,16 @@ export function SettingsPage() {
             showToast(data.message, data.ok === "true" ? "success" : "error")
         } catch { showToast("Test failed", "error") }
         finally { setTestingDownloader(false) }
+    }
+
+    const handleTestJellyfin = async () => {
+        setTestingJellyfin(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/settings/test/jellyfin`, { method: "POST" })
+            const data = await res.json()
+            showToast(data.message, data.ok === "true" ? "success" : "error")
+        } catch { showToast("Test failed", "error") }
+        finally { setTestingJellyfin(false) }
     }
 
     const handleSaveCreds = async () => {
@@ -500,6 +511,12 @@ export function SettingsPage() {
                                 section === "qBittorrent" ? (
                                     <Group justify="flex-end">
                                         <Button variant="light" color="gray" loading={testingDownloader} onClick={handleTestDownloader}>
+                                            Test connection
+                                        </Button>
+                                    </Group>
+                                ) : section === "Jellyfin" ? (
+                                    <Group justify="flex-end">
+                                        <Button variant="light" color="gray" loading={testingJellyfin} onClick={handleTestJellyfin}>
                                             Test connection
                                         </Button>
                                     </Group>

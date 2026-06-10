@@ -3,7 +3,9 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/config"
@@ -67,6 +69,36 @@ func TriggerDownloader(downloaderAddr string) func(context.Context, *struct{}) (
 			result = TestResult{Ok: "false", Message: "upstream returned non-JSON"}
 		}
 		return &TestResultOutput{Body: result}, nil
+	}
+}
+
+func TestJellyfin() func(context.Context, *struct{}) (*TestResultOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*TestResultOutput, error) {
+		jellyfinURL := strings.TrimRight(config.Get(db.DB, "jellyfinUrl", ""), "/")
+		if jellyfinURL == "" {
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: "jellyfinUrl is not configured"}}, nil
+		}
+		apiKey := config.Get(db.DB, "jellyfinApiKey", "")
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, jellyfinURL+"/System/Info", nil)
+		if err != nil {
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
+		}
+		req.Header.Set("X-Emby-Token", apiKey)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: "invalid API key"}}, nil
+		}
+		if resp.StatusCode != http.StatusOK {
+			return &TestResultOutput{Body: TestResult{Ok: "false", Message: fmt.Sprintf("unexpected status %d", resp.StatusCode)}}, nil
+		}
+		return &TestResultOutput{Body: TestResult{Ok: "true", Message: "connected"}}, nil
 	}
 }
 
