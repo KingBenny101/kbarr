@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"log/slog"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -12,13 +11,8 @@ import (
 	"github.com/kingbenny101/kbarr/internal/core/clients"
 	"github.com/kingbenny101/kbarr/internal/core/db"
 	"github.com/kingbenny101/kbarr/internal/models"
+	"github.com/kingbenny101/kbarr/internal/naming"
 )
-
-var invalidFilenameChars = regexp.MustCompile(`[/\\:*?"<>|]`)
-
-func sanitizeFilename(name string) string {
-	return strings.TrimSpace(invalidFilenameChars.ReplaceAllString(name, "_"))
-}
 
 func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) (*AddMediaOutput, error) {
 	return func(ctx context.Context, input *AddMediaInput) (*AddMediaOutput, error) {
@@ -52,7 +46,10 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 		if prepared.PosterURL != "" {
 			media.PosterURL = prepared.PosterURL
 		}
-		media.MediaFolder = sanitizeFilename(media.Title)
+		media.MediaFolder = naming.SanitizeFilename(media.Title)
+		if media.MediaFolder == "" {
+			media.MediaFolder = media.SourceID
+		}
 
 		id, err := db.InsertMedia(media)
 		if err != nil {

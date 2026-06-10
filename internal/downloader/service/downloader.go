@@ -6,13 +6,13 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
 	dlprovider "github.com/kingbenny101/kbarr/internal/downloader/provider"
 	"github.com/kingbenny101/kbarr/internal/models"
+	"github.com/kingbenny101/kbarr/internal/naming"
 	"github.com/uptrace/bun"
 )
 
@@ -283,7 +283,7 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 
 	var walked, hasVideo bool
 	if entry.SavePath != nil && *entry.SavePath != "" {
-		walked, hasVideo = s.createSymlinks(ctx, *entry.SavePath, entry.Title, mediaFolder, episodeHint)
+		walked, hasVideo = s.createHardlinks(ctx, *entry.SavePath, entry.Title, mediaFolder, episodeHint)
 	}
 
 	// If we successfully walked the directory but found no supported video files,
@@ -337,19 +337,19 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	}
 }
 
-func (s *DownloaderService) createSymlinks(_ context.Context, savePath string, entryTitle *string, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
+func (s *DownloaderService) createHardlinks(_ context.Context, savePath string, entryTitle *string, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
 	title := ""
 	if entryTitle != nil {
 		title = *entryTitle
 	}
-	return s.CreateSymlinks(savePath, title, mediaFolder, episodeHint)
+	return s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
 }
 
-// CreateSymlinksForEntry is used by the manual /symlinks/create endpoint.
-func (s *DownloaderService) CreateSymlinksForEntry(ctx context.Context, id int64) (walked, hasVideo bool) {
+// CreateHardlinksForEntry is used by the manual /hardlinks/create endpoint.
+func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int64) (walked, hasVideo bool) {
 	var entry models.DownloadQueue
 	if err := s.db.NewSelect().Model(&entry).Where("id = ?", id).Scan(ctx); err != nil {
-		slog.Error("CreateSymlinksForEntry: entry not found", "id", id, "error", err)
+		slog.Error("CreateHardlinksForEntry: entry not found", "id", id, "error", err)
 		return
 	}
 
@@ -371,7 +371,7 @@ func (s *DownloaderService) CreateSymlinksForEntry(ctx context.Context, id int64
 					downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 					if downloadPath != "" {
 						savePath = filepath.Join(downloadPath, rel)
-						slog.Info("CreateSymlinksForEntry: resolved live path from qBittorrent", "id", id, "save_path", savePath)
+						slog.Info("CreateHardlinksForEntry: resolved live path from qBittorrent", "id", id, "save_path", savePath)
 					}
 				}
 			}
@@ -387,11 +387,11 @@ func (s *DownloaderService) CreateSymlinksForEntry(ctx context.Context, id int64
 			episodeHint = mon.EpisodeNumber
 		}
 	}
-	return s.CreateSymlinks(savePath, title, mediaFolder, episodeHint)
+	return s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
 }
 
-// CreateSymlinks is the public entry point used by both onComplete and the manual /symlinks/create endpoint.
-func (s *DownloaderService) CreateSymlinks(savePath, entryTitle, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
+// CreateHardlinks is the public entry point used by both onComplete and the manual /hardlinks/create endpoint.
+func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
 	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
 	rawExts := config.Get(s.db, "allowedVideoExtensions", ".mkv,.mp4,.avi,.mov,.wmv,.m4v")
 
@@ -479,7 +479,7 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle, mediaFolder str
 			if resolvedTitle == "" {
 				resolvedTitle = g.Title
 			}
-			resolvedTitle = sanitizeFilename(resolvedTitle)
+			resolvedTitle = naming.SanitizeFilename(resolvedTitle)
 		}
 		if resolvedTitle == "" {
 			slog.Warn("createHardlinks: could not determine title, skipping", "file", path)
@@ -502,10 +502,10 @@ func (s *DownloaderService) CreateSymlinks(savePath, entryTitle, mediaFolder str
 				linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, episode, ext)
 			}
 		} else {
-			linkName = sanitizeFilename(info.Name())
+			linkName = naming.SanitizeFilename(info.Name())
 		}
 		linkPath := filepath.Join(mediaPath, resolvedTitle, linkName)
-		slog.Info("createHardlinks: planned symlink", "src", path, "dst", linkPath)
+		slog.Info("createHardlinks: planned hardlink", "src", path, "dst", linkPath)
 
 		destDir := filepath.Dir(linkPath)
 		if err := os.MkdirAll(destDir, 0755); err != nil {
@@ -578,8 +578,3 @@ func (s *DownloaderService) releaseEpisodeMonitors(ctx context.Context, monitorI
 	}
 }
 
-var invalidFilenameChars = regexp.MustCompile(`[/\\:*?"<>|]`)
-
-func sanitizeFilename(name string) string {
-	return strings.TrimSpace(invalidFilenameChars.ReplaceAllString(name, "_"))
-}

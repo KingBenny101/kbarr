@@ -12,10 +12,10 @@ import (
 
 	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/models"
+	"github.com/kingbenny101/kbarr/internal/naming"
 	"github.com/uptrace/bun"
 )
 
-var invalidFilenameChars = regexp.MustCompile(`[/\\:*?"<>|]`)
 var episodePattern = regexp.MustCompile(`(?i)[Ss](\d+)[Ee](\d+)`)
 
 var (
@@ -38,10 +38,6 @@ func effectiveSeason(title string, dbSeason int64) int64 {
 		}
 	}
 	return dbSeason
-}
-
-func sanitizeFilename(name string) string {
-	return strings.TrimSpace(invalidFilenameChars.ReplaceAllString(name, "_"))
 }
 
 func PollAvailability(ctx context.Context, bunDB *bun.DB) {
@@ -113,7 +109,7 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		season := effectiveSeason(m.Title, dbSeason)
 		folder := m.MediaFolder
 		if folder == "" {
-			folder = sanitizeFilename(m.Title)
+			folder = naming.SanitizeFilename(m.Title)
 		}
 		k := seKey{folder, season, int64(m.EpisodeNumber)}
 		monitorsByKey[k] = m
@@ -213,7 +209,7 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		season := effectiveSeason(mon.Title, dbSeason)
 		folder := mon.MediaFolder
 		if folder == "" {
-			folder = sanitizeFilename(mon.Title)
+			folder = naming.SanitizeFilename(mon.Title)
 		}
 		fk := fileKey{folder, season, int64(mon.EpisodeNumber)}
 		if _, exists := foundOnDisk[fk]; exists {
