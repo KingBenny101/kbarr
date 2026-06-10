@@ -46,18 +46,18 @@ var Schema = []SettingDef{
 
 	// ── Indexer ──────────────────────────────────────────────────────────
 	{Key: "indexerProvider", Type: TypeSelect, Default: "kbdex", Label: "Search provider", Group: "indexer", Section: "Indexer", Options: []string{"kbdex", "prowlarr"}, Widget: "segmented"},
-	{Key: "prowlarrInterval", Type: TypeInt, Default: "1", Label: "Scan interval", Description: "How often the monitor table is polled for new items to search.", Group: "indexer", Section: "Indexer", Unit: "sec"},
+	{Key: "prowlarrInterval", Type: TypeInt, Default: "10", Label: "Scan interval", Description: "How often the monitor table is polled for new items to search.", Group: "indexer", Section: "Indexer", Unit: "sec"},
 	{Key: "matchThreshold", Type: TypeInt, Default: "80", Label: "Title match threshold", Description: "Minimum similarity (0–100) between the guessit-parsed torrent title and the anime title. Lower = more permissive.", Group: "indexer", Section: "Indexer", Unit: "%"},
 	{Key: "cacheFileLimit", Type: TypeInt, Default: "10", Label: "Cache file limit", Description: "Maximum files kept in each cache/debug folder. Oldest deleted first.", Group: "indexer", Section: "Indexer"},
 	{Key: "preferredQuality", Type: TypeSelect, Default: "1080p", Label: "Preferred quality", Description: "Torrent results matching this quality score higher.", Group: "indexer", Section: "Indexer", Options: []string{"4K", "1080p", "720p", "480p", "any"}},
 	{Key: "minSeeders", Type: TypeInt, Default: "1", Label: "Minimum seeders", Description: "Torrents with fewer seeders than this are ignored.", Group: "indexer", Section: "Indexer"},
-	{Key: "kbdexUrl", Type: TypeString, Default: "http://localhost:8000", Label: "URL", Group: "indexer", Section: "kbdex"},
+	{Key: "kbdexUrl", Type: TypeString, Default: "http://host.docker.internal:8000", Label: "URL", Group: "indexer", Section: "kbdex"},
 	{Key: "prowlarrUrl", Type: TypeString, Default: "http://host.docker.internal:9696", Label: "URL", Group: "indexer", Section: "Prowlarr"},
 	{Key: "prowlarrApiKey", Type: TypePassword, Default: "error", Label: "API key", Group: "indexer", Section: "Prowlarr"},
 	{Key: "prowlarrCacheAge", Type: TypeInt, Default: "3600", Label: "Result cache age", Description: "How long Prowlarr search results are cached on disk before re-querying. Set to 0 to disable.", Group: "indexer", Section: "Prowlarr", Unit: "sec"},
 
 	// ── Downloader ───────────────────────────────────────────────────────
-	{Key: "downloaderInterval", Type: TypeInt, Default: "1", Label: "Poll interval", Description: "How often the downloader checks for pending items and updates progress.", Group: "downloader", Section: "Downloader", Unit: "sec"},
+	{Key: "downloaderInterval", Type: TypeInt, Default: "5", Label: "Poll interval", Description: "How often the downloader checks for pending items and updates progress.", Group: "downloader", Section: "Downloader", Unit: "sec"},
 	{Key: "stallTimeout", Type: TypeInt, Default: "300", Label: "Stall timeout", Description: "Remove torrents with no progress for this many seconds and re-queue. Set to 0 to disable.", Group: "downloader", Section: "Downloader", Unit: "sec"},
 	{Key: "jellyfinUrl", Type: TypeString, Default: "", Label: "URL", Description: "Jellyfin server URL. Leave blank to disable library scan after hardlink creation.", Group: "downloader", Section: "Jellyfin"},
 	{Key: "jellyfinApiKey", Type: TypePassword, Default: "", Label: "API key", Group: "downloader", Section: "Jellyfin"},
