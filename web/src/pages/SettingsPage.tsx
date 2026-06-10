@@ -1,34 +1,21 @@
 import { useEffect, useMemo, useState } from "react"
+import type { ReactNode } from "react"
 import { Navigate, useLocation } from "react-router-dom"
 import { Alert, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconAlertTriangle } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, showToast } from "@/utils"
 
-interface Settings {
-    anidbClient: string
-    anidbVersion: string
-    anidbSyncInterval: string
-    indexerProvider: string
-    kbdexUrl: string
-    prowlarrUrl: string
-    prowlarrApiKey: string
-    prowlarrInterval: string
-    prowlarrCacheAge: string
-    matchThreshold: string
-    cacheFileLimit: string
-    preferredQuality: string
-    minSeeders: string
-    autoMonitorOnAdd: string
-    monitorSyncInterval: string
-    qbittorrentUrl: string
-    qbittorrentUsername: string
-    qbittorrentPassword: string
-    downloadPath: string
-    mediaPath: string
-    allowedVideoExtensions: string
-    downloaderInterval: string
-    stallTimeout: string
-    devMode: string
+interface SettingDef {
+    key: string
+    type: "string" | "password" | "bool" | "int" | "select"
+    default: string
+    label: string
+    description?: string
+    group: string
+    section: string
+    options?: string[]
+    unit?: string
+    widget?: string
 }
 
 interface CredentialForm {
@@ -38,12 +25,174 @@ interface CredentialForm {
     confirmPassword: string
 }
 
+const SECTION_DESCRIPTIONS: Record<string, string> = {
+    "General settings": "Configure the application-wide behavior.",
+    "Developer options": "These options are intended for development and testing only.",
+    "AniDB": "Configure how the service syncs metadata from AniDB.",
+    "Indexer": "Configure the indexer service behavior.",
+    "kbdex": "AniDB-aware torrent search. Uses the AniDB series ID to resolve titles and filter results natively.",
+    "Prowlarr": "Configure the Prowlarr indexer used for monitoring and searches.",
+    "Downloader": "Configure the downloader service behavior.",
+    "qBittorrent": "Configure the qBittorrent client used for downloading torrents.",
+}
+
+function SettingField({
+    def,
+    value,
+    initialValue,
+    onChange,
+}: {
+    def: SettingDef
+    value: string
+    initialValue: string
+    onChange: (v: string) => void
+}) {
+    switch (def.type) {
+        case "bool":
+            return (
+                <Group justify="space-between" align="start">
+                    <div>
+                        <Text fw={700}>{def.label}</Text>
+                        {def.description && <Text size="sm" c="dimmed">{def.description}</Text>}
+                    </div>
+                    <Checkbox
+                        checked={value === "true"}
+                        onChange={(e) => onChange(e.currentTarget.checked ? "true" : "false")}
+                    />
+                </Group>
+            )
+        case "password":
+            return (
+                <PasswordInput
+                    label={def.label}
+                    description={def.description}
+                    value={value}
+                    onChange={(e) => onChange(e.currentTarget.value)}
+                    onFocus={() => { if (value === initialValue) onChange("") }}
+                    placeholder="••••••••"
+                />
+            )
+        case "select":
+            if (def.widget === "segmented") {
+                return (
+                    <div>
+                        <Text size="sm" fw={500} mb={4}>{def.label}</Text>
+                        <SegmentedControl
+                            value={value}
+                            onChange={onChange}
+                            data={(def.options ?? []).map((o) => ({ label: o, value: o }))}
+                        />
+                    </div>
+                )
+            }
+            return (
+                <Select
+                    label={def.label}
+                    description={def.description}
+                    value={value}
+                    onChange={(v) => onChange(v ?? def.default)}
+                    data={(def.options ?? []).map((o) => ({ value: o, label: o }))}
+                />
+            )
+        case "int":
+            return (
+                <TextInput
+                    label={def.label}
+                    description={def.description}
+                    value={value}
+                    onChange={(e) => {
+                        if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value))
+                            onChange(e.currentTarget.value)
+                    }}
+                    rightSection={def.unit ? <Text size="xs" c="dimmed">{def.unit}</Text> : undefined}
+                />
+            )
+        default:
+            return (
+                <TextInput
+                    label={def.label}
+                    description={def.description}
+                    value={value}
+                    onChange={(e) => onChange(e.currentTarget.value)}
+                />
+            )
+    }
+}
+
+function SectionCard({
+    section,
+    defs,
+    values,
+    initialValues,
+    onUpdate,
+    extra,
+}: {
+    section: string
+    defs: SettingDef[]
+    values: Record<string, string>
+    initialValues: Record<string, string>
+    onUpdate: (key: string, value: string) => void
+    extra?: ReactNode
+}) {
+    const isDeveloper = section === "Developer options"
+    const description = SECTION_DESCRIPTIONS[section]
+    return (
+        <Card
+            withBorder
+            radius="xl"
+            p="lg"
+            style={isDeveloper ? { borderColor: "var(--mantine-color-orange-5)" } : undefined}
+        >
+            <Stack gap="md">
+                <div>
+                    {isDeveloper ? (
+                        <Group gap="xs">
+                            <IconAlertTriangle size={18} color="var(--mantine-color-orange-5)" />
+                            <Title order={3} c="orange">{section}</Title>
+                        </Group>
+                    ) : (
+                        <Title order={3}>{section}</Title>
+                    )}
+                    {description && <Text size="sm" c="dimmed">{description}</Text>}
+                </div>
+                {defs.map((def) => (
+                    <SettingField
+                        key={def.key}
+                        def={def}
+                        value={values[def.key] ?? def.default}
+                        initialValue={initialValues[def.key] ?? def.default}
+                        onChange={(v) => onUpdate(def.key, v)}
+                    />
+                ))}
+                {extra}
+            </Stack>
+        </Card>
+    )
+}
+
+function sectionsForGroup(schema: SettingDef[], group: string): string[] {
+    const seen = new Set<string>()
+    const order: string[] = []
+    for (const def of schema) {
+        if (def.group === group && !seen.has(def.section)) {
+            seen.add(def.section)
+            order.push(def.section)
+        }
+    }
+    return order
+}
+
+function defsForSection(schema: SettingDef[], group: string, section: string): SettingDef[] {
+    return schema.filter((d) => d.group === group && d.section === section)
+}
+
 export function SettingsPage() {
     const location = useLocation()
     const path = location.pathname.toLowerCase()
 
-    const [settings, setSettings] = useState<Settings | null>(null)
-    const [initialSettings, setInitialSettings] = useState<Settings | null>(null)
+    const [schema, setSchema] = useState<SettingDef[]>([])
+    const [settings, setSettings] = useState<Record<string, string> | null>(null)
+    const [initialSettings, setInitialSettings] = useState<Record<string, string> | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [testingIndexer, setTestingIndexer] = useState(false)
@@ -74,36 +223,22 @@ export function SettingsPage() {
     const fetchSettings = async () => {
         setLoading(true)
         try {
-            const response = await apiFetch(`${API_URL}/api/settings`)
-            const data = await response.json()
-            const nextSettings: Settings = {
-                anidbClient: data.anidbClient || "",
-                anidbVersion: data.anidbVersion || "",
-                anidbSyncInterval: data.anidbSyncInterval || "1440",
-                indexerProvider: data.indexerProvider || "kbdex",
-                kbdexUrl: data.kbdexUrl || "http://localhost:8000",
-                prowlarrUrl: data.prowlarrUrl || "http://host.docker.internal:9696",
-                prowlarrApiKey: data.prowlarrApiKey || "",
-                prowlarrInterval: data.prowlarrInterval || "1",
-                prowlarrCacheAge: data.prowlarrCacheAge || "3600",
-                matchThreshold: data.matchThreshold || "80",
-                cacheFileLimit: data.cacheFileLimit || "10",
-                preferredQuality: data.preferredQuality || "1080p",
-                minSeeders: data.minSeeders || "1",
-                autoMonitorOnAdd: data.autoMonitorOnAdd || "false",
-                monitorSyncInterval: data.monitorSyncInterval || "1",
-                qbittorrentUrl: data.qbittorrentUrl || "http://host.docker.internal:8080",
-                qbittorrentUsername: data.qbittorrentUsername || "",
-                qbittorrentPassword: data.qbittorrentPassword || "",
-                downloadPath: data.downloadPath || "/library/downloads",
-                mediaPath: data.mediaPath || "/library/media",
-                allowedVideoExtensions: data.allowedVideoExtensions || ".mkv,.mp4,.avi,.mov,.wmv,.m4v",
-                downloaderInterval: data.downloaderInterval || "1",
-                stallTimeout: data.stallTimeout || "300",
-                devMode: data.devMode || "false",
+            const [schemaRes, valuesRes] = await Promise.all([
+                apiFetch(`${API_URL}/api/settings/schema`),
+                apiFetch(`${API_URL}/api/settings`),
+            ])
+            const schemaDefs: SettingDef[] = await schemaRes.json()
+            const data: Record<string, string> = await valuesRes.json()
+
+            // Seed all keys with schema defaults, then overwrite with actual DB values.
+            const next: Record<string, string> = {}
+            for (const def of schemaDefs) {
+                next[def.key] = data[def.key] ?? def.default
             }
-            setSettings(nextSettings)
-            setInitialSettings(nextSettings)
+
+            setSchema(schemaDefs)
+            setSettings(next)
+            setInitialSettings(next)
         } catch (error) {
             console.error("Fetch settings error:", error)
         } finally {
@@ -116,7 +251,7 @@ export function SettingsPage() {
         [initialSettings, settings],
     )
 
-    const update = (key: keyof Settings, value: string) => {
+    const update = (key: string, value: string) => {
         setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
     }
 
@@ -124,13 +259,14 @@ export function SettingsPage() {
         if (!settings) return
         setSaving(true)
         try {
+            const payload = { ...settings }
+            if (payload.prowlarrApiKey !== undefined) {
+                payload.prowlarrApiKey = payload.prowlarrApiKey.trim() || "error"
+            }
             const response = await apiFetch(`${API_URL}/api/settings`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...settings,
-                    prowlarrApiKey: settings.prowlarrApiKey.trim() || "error",
-                }),
+                body: JSON.stringify(payload),
             })
             if (response.ok) {
                 showToast("Settings saved", "success")
@@ -223,59 +359,27 @@ export function SettingsPage() {
         return <Group justify="center" py="xl"><Loader color="gray" /></Group>
     }
 
+    const showSaveBar =
+        isDownloader ||
+        path.includes("metadata") ||
+        path.includes("indexer") ||
+        (path.includes("general") && isDirty)
+
     return (
         <Stack gap="lg" pb={80}>
             <Title order={1}>
                 {path.includes("metadata") ? "Metadata" : path.includes("indexer") ? "Indexer" : isDownloader ? "Downloader" : "General"}
             </Title>
 
-            {path.includes("general") ? (
+            {path.includes("general") && (
                 <>
-                    <Card withBorder radius="xl" p="lg">
-                        <Stack gap="md">
-                            <div>
-                                <Title order={3}>General settings</Title>
-                                <Text size="sm" c="dimmed">Configure the application-wide behavior.</Text>
-                            </div>
-                            <Group justify="space-between" align="start">
-                                <div>
-                                    <Text fw={700}>Auto-monitor on media add</Text>
-                                    <Text size="sm" c="dimmed">Automatically mark newly added media as monitored and trigger search.</Text>
-                                </div>
-                                <Checkbox
-                                    checked={settings.autoMonitorOnAdd === "true"}
-                                    onChange={(e) => update("autoMonitorOnAdd", e.currentTarget.checked ? "true" : "false")}
-                                />
-                            </Group>
-                            <TextInput
-                                label="Monitor sync interval"
-                                description="Interval in minutes for adding monitored items to the search queue. Minimum 1 minute."
-                                value={settings.monitorSyncInterval}
-                                onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("monitorSyncInterval", e.currentTarget.value) }}
-                                rightSection={<Text size="xs" c="dimmed">min</Text>}
-                            />
-                            <Select
-                                label="Preferred quality"
-                                description="Torrent results matching this quality score higher."
-                                value={settings.preferredQuality}
-                                onChange={(v) => update("preferredQuality", v ?? "1080p")}
-                                data={[
-                                    { value: "4K", label: "4K" },
-                                    { value: "1080p", label: "1080p" },
-                                    { value: "720p", label: "720p" },
-                                    { value: "480p", label: "480p" },
-                                    { value: "any", label: "Any" },
-                                ]}
-                            />
-                            <TextInput
-                                label="Minimum seeders"
-                                description="Torrents with fewer seeders than this are ignored."
-                                value={settings.minSeeders}
-                                onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("minSeeders", e.currentTarget.value) }}
-                                placeholder="1"
-                            />
-                        </Stack>
-                    </Card>
+                    <SectionCard
+                        section="General settings"
+                        defs={defsForSection(schema, "general", "General settings")}
+                        values={settings}
+                        initialValues={initialSettings ?? {}}
+                        onUpdate={update}
+                    />
 
                     <Card withBorder radius="xl" p="lg">
                         <Stack gap="md">
@@ -321,276 +425,132 @@ export function SettingsPage() {
                             </Group>
                         </Stack>
                     </Card>
-                    <Card withBorder radius="xl" p="lg" style={{ borderColor: "var(--mantine-color-orange-5)" }}>
+
+                    {sectionsForGroup(schema, "general")
+                        .filter((s) => s !== "General settings")
+                        .map((section) => (
+                            <SectionCard
+                                key={section}
+                                section={section}
+                                defs={defsForSection(schema, "general", section)}
+                                values={settings}
+                                initialValues={initialSettings ?? {}}
+                                onUpdate={update}
+                            />
+                        ))}
+                </>
+            )}
+
+            {path.includes("metadata") && (
+                <>
+                    {sectionsForGroup(schema, "metadata").map((section) => (
+                        <SectionCard
+                            key={section}
+                            section={section}
+                            defs={defsForSection(schema, "metadata", section)}
+                            values={settings}
+                            initialValues={initialSettings ?? {}}
+                            onUpdate={update}
+                        />
+                    ))}
+                </>
+            )}
+
+            {path.includes("indexer") && (
+                <>
+                    {sectionsForGroup(schema, "indexer").map((section) => (
+                        <SectionCard
+                            key={section}
+                            section={section}
+                            defs={defsForSection(schema, "indexer", section)}
+                            values={settings}
+                            initialValues={initialSettings ?? {}}
+                            onUpdate={update}
+                            extra={
+                                section === "kbdex" ? (
+                                    <Group justify="flex-end">
+                                        <Button variant="light" color="gray" loading={testingKbdex} onClick={handleTestKbdex}>
+                                            Test connection
+                                        </Button>
+                                    </Group>
+                                ) : section === "Prowlarr" ? (
+                                    <Group justify="flex-end">
+                                        <Button variant="light" color="gray" loading={testingIndexer} onClick={handleTestIndexer}>
+                                            Test connection
+                                        </Button>
+                                    </Group>
+                                ) : undefined
+                            }
+                        />
+                    ))}
+                </>
+            )}
+
+            {isDownloader && (
+                <>
+                    {sectionsForGroup(schema, "downloader").map((section) => (
+                        <SectionCard
+                            key={section}
+                            section={section}
+                            defs={defsForSection(schema, "downloader", section)}
+                            values={settings}
+                            initialValues={initialSettings ?? {}}
+                            onUpdate={update}
+                            extra={
+                                section === "qBittorrent" ? (
+                                    <Group justify="flex-end">
+                                        <Button variant="light" color="gray" loading={testingDownloader} onClick={handleTestDownloader}>
+                                            Test connection
+                                        </Button>
+                                    </Group>
+                                ) : undefined
+                            }
+                        />
+                    ))}
+
+                    <Modal opened={clearBlacklistModal} onClose={() => setClearBlacklistModal(false)} title="Clear blacklist" centered size="sm">
                         <Stack gap="md">
                             <Group gap="xs">
                                 <IconAlertTriangle size={18} color="var(--mantine-color-orange-5)" />
-                                <Title order={3} c="orange">Developer options</Title>
+                                <Text fw={600}>This will remove all blacklisted torrents.</Text>
                             </Group>
-                            <Text size="sm" c="dimmed">These options are intended for development and testing only.</Text>
-                            <Group justify="space-between" align="start">
-                                <div>
-                                    <Text fw={700}>Dev mode</Text>
-                                    <Text size="sm" c="dimmed">Enables test torrent insertion on the Download Queue page.</Text>
-                                </div>
-                                <Checkbox
-                                    checked={settings.devMode === "true"}
-                                    onChange={(e) => update("devMode", e.currentTarget.checked ? "true" : "false")}
-                                />
+                            <Text size="sm" c="dimmed">The indexer will be able to queue these torrents again on the next search cycle.</Text>
+                            <Group justify="flex-end" gap="xs">
+                                <Button variant="subtle" color="gray" onClick={() => setClearBlacklistModal(false)}>Cancel</Button>
+                                <Button color="red" loading={clearingBlacklist} onClick={handleClearBlacklist}>Clear blacklist</Button>
+                            </Group>
+                        </Stack>
+                    </Modal>
+
+                    <Card withBorder radius="xl" p="lg">
+                        <Stack gap="md">
+                            <div>
+                                <Title order={3}>Blacklist</Title>
+                                <Text size="sm" c="dimmed">Torrents are blacklisted automatically when stalled or manually when removed from the queue.</Text>
+                            </div>
+                            <Group justify="space-between" align="center">
+                                <Text size="sm">Clear all blacklisted torrents to allow them to be queued again.</Text>
+                                <Button variant="light" color="red" onClick={() => setClearBlacklistModal(true)}>
+                                    Clear blacklist
+                                </Button>
                             </Group>
                         </Stack>
                     </Card>
                 </>
-            ) : null}
+            )}
 
-            {path.includes("metadata") ? (
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>AniDB</Title>
-                            <Text size="sm" c="dimmed">Configure how the service syncs metadata from AniDB.</Text>
-                        </div>
-                        <TextInput label="Client name" value={settings.anidbClient} onChange={(e) => update("anidbClient", e.currentTarget.value)} placeholder="kbarr" />
-                        <TextInput label="Client version" value={settings.anidbVersion} onChange={(e) => update("anidbVersion", e.currentTarget.value)} placeholder="1" />
-                        <TextInput
-                            label="Sync interval (m)"
-                            value={settings.anidbSyncInterval}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("anidbSyncInterval", e.currentTarget.value) }}
-                            placeholder="1440"
-                        />
-                    </Stack>
-                </Card>
-            ) : null}
-
-            {path.includes("indexer") ? (
-                <>
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>Indexer</Title>
-                            <Text size="sm" c="dimmed">Configure the indexer service behavior.</Text>
-                        </div>
-                        <div>
-                            <Text size="sm" fw={500} mb={4}>Search provider</Text>
-                            <SegmentedControl
-                                value={settings.indexerProvider}
-                                onChange={(v) => update("indexerProvider", v)}
-                                data={[
-                                    { label: "kbdex", value: "kbdex" },
-                                    { label: "Prowlarr", value: "prowlarr" },
-                                ]}
-                            />
-                        </div>
-                        <TextInput
-                            label="Scan interval (sec)"
-                            description="How often the monitor table is polled for new items to search."
-                            value={settings.prowlarrInterval}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrInterval", e.currentTarget.value) }}
-                            placeholder="1"
-                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
-                        />
-                        <TextInput
-                            label="Title match threshold"
-                            description="Minimum similarity (0–100) between the guessit-parsed torrent title and the anime title. Lower = more permissive."
-                            value={settings.matchThreshold}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("matchThreshold", e.currentTarget.value) }}
-                            placeholder="80"
-                            rightSection={<Text size="xs" c="dimmed">%</Text>}
-                        />
-                        <TextInput
-                            label="Cache file limit"
-                            description="Maximum files kept in each cache/debug folder (prowlarr-cache, guessit-debug, matching-debug). Oldest deleted first."
-                            value={settings.cacheFileLimit}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("cacheFileLimit", e.currentTarget.value) }}
-                            placeholder="10"
-                        />
-                    </Stack>
-                </Card>
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>kbdex</Title>
-                            <Text size="sm" c="dimmed">AniDB-aware torrent search. Uses the AniDB series ID to resolve titles and filter results natively.</Text>
-                        </div>
-                        <TextInput
-                            label="URL"
-                            value={settings.kbdexUrl}
-                            onChange={(e) => update("kbdexUrl", e.currentTarget.value)}
-                            placeholder="http://localhost:8000"
-                        />
-                        <Group justify="flex-end">
-                            <Button variant="light" color="gray" loading={testingKbdex} onClick={handleTestKbdex}>
-                                Test connection
-                            </Button>
-                        </Group>
-                    </Stack>
-                </Card>
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>Prowlarr</Title>
-                            <Text size="sm" c="dimmed">Configure the Prowlarr indexer used for monitoring and searches.</Text>
-                        </div>
-                        <TextInput label="URL" value={settings.prowlarrUrl} onChange={(e) => update("prowlarrUrl", e.currentTarget.value)} placeholder="http://host.docker.internal:9696" />
-                        <PasswordInput
-                            label="API key"
-                            value={settings.prowlarrApiKey}
-                            onChange={(e) => update("prowlarrApiKey", e.currentTarget.value)}
-                            onFocus={() => { if (settings.prowlarrApiKey === initialSettings?.prowlarrApiKey) update("prowlarrApiKey", "") }}
-                            placeholder="api_key_..."
-                        />
-                        <TextInput
-                            label="Result cache age (sec)"
-                            description="How long Prowlarr search results are cached on disk before re-querying. Set to 0 to disable."
-                            value={settings.prowlarrCacheAge}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("prowlarrCacheAge", e.currentTarget.value) }}
-                            placeholder="3600"
-                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
-                        />
-                        <Group justify="flex-end">
-                            <Button variant="light" color="gray" loading={testingIndexer} onClick={handleTestIndexer}>
-                                Test connection
-                            </Button>
-                        </Group>
-                    </Stack>
-                </Card>
-                </>
-            ) : null}
-
-            {isDownloader ? (
-                <>
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>Downloader</Title>
-                            <Text size="sm" c="dimmed">Configure the downloader service behavior.</Text>
-                        </div>
-                        <TextInput
-                            label="Poll interval (sec)"
-                            description="How often the downloader checks for pending items and updates progress."
-                            value={settings.downloaderInterval}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("downloaderInterval", e.currentTarget.value) }}
-                            placeholder="1"
-                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
-                        />
-                        <TextInput
-                            label="Download path"
-                            description="Absolute path inside the container where qBittorrent saves files (e.g. /library/downloads). Must be under the LIBRARY_DIR_HOST mount."
-                            value={settings.downloadPath}
-                            onChange={(e) => update("downloadPath", e.currentTarget.value)}
-                            placeholder="/library/downloads"
-                        />
-                        <TextInput
-                            label="Media path"
-                            description="Absolute path inside the container where organised hardlinks are created (e.g. /library/media). Must be under the same LIBRARY_DIR_HOST mount as Download path."
-                            value={settings.mediaPath}
-                            onChange={(e) => update("mediaPath", e.currentTarget.value)}
-                            placeholder="/library/media"
-                        />
-                        <TextInput
-                            label="Allowed video extensions"
-                            description="Comma-separated list of file extensions to hardlink on completion."
-                            value={settings.allowedVideoExtensions}
-                            onChange={(e) => update("allowedVideoExtensions", e.currentTarget.value)}
-                            placeholder=".mkv,.mp4,.avi,.mov,.wmv,.m4v"
-                        />
-                        <TextInput
-                            label="Stall timeout (sec)"
-                            description="Remove torrents with no progress for this many seconds and re-queue. Set to 0 to disable."
-                            value={settings.stallTimeout}
-                            onChange={(e) => { if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value)) update("stallTimeout", e.currentTarget.value) }}
-                            placeholder="300"
-                            rightSection={<Text size="xs" c="dimmed">sec</Text>}
-                        />
-                    </Stack>
-                </Card>
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>qBittorrent</Title>
-                            <Text size="sm" c="dimmed">Configure the qBittorrent client used for downloading torrents.</Text>
-                        </div>
-                        <TextInput
-                            label="URL"
-                            value={settings.qbittorrentUrl}
-                            onChange={(e) => update("qbittorrentUrl", e.currentTarget.value)}
-                            placeholder="http://host.docker.internal:8080"
-                        />
-                        <TextInput
-                            label="Username"
-                            value={settings.qbittorrentUsername}
-                            onChange={(e) => update("qbittorrentUsername", e.currentTarget.value)}
-                            placeholder="admin"
-                        />
-                        <PasswordInput
-                            label="Password"
-                            value={settings.qbittorrentPassword}
-                            onChange={(e) => update("qbittorrentPassword", e.currentTarget.value)}
-                            onFocus={() => { if (settings.qbittorrentPassword === initialSettings?.qbittorrentPassword) update("qbittorrentPassword", "") }}
-                            placeholder="••••••••"
-                        />
-                        <Group justify="flex-end">
-                            <Button variant="light" color="gray" loading={testingDownloader} onClick={handleTestDownloader}>
-                                Test connection
-                            </Button>
-                        </Group>
-                    </Stack>
-                </Card>
-
-                <Modal opened={clearBlacklistModal} onClose={() => setClearBlacklistModal(false)} title="Clear blacklist" centered size="sm">
-                    <Stack gap="md">
-                        <Group gap="xs">
-                            <IconAlertTriangle size={18} color="var(--mantine-color-orange-5)" />
-                            <Text fw={600}>This will remove all blacklisted torrents.</Text>
-                        </Group>
-                        <Text size="sm" c="dimmed">The indexer will be able to queue these torrents again on the next search cycle.</Text>
-                        <Group justify="flex-end" gap="xs">
-                            <Button variant="subtle" color="gray" onClick={() => setClearBlacklistModal(false)}>Cancel</Button>
-                            <Button color="red" loading={clearingBlacklist} onClick={handleClearBlacklist}>Clear blacklist</Button>
-                        </Group>
-                    </Stack>
-                </Modal>
-
-                <Card withBorder radius="xl" p="lg">
-                    <Stack gap="md">
-                        <div>
-                            <Title order={3}>Blacklist</Title>
-                            <Text size="sm" c="dimmed">Torrents are blacklisted automatically when stalled or manually when removed from the queue.</Text>
-                        </div>
-                        <Group justify="space-between" align="center">
-                            <Text size="sm">Clear all blacklisted torrents to allow them to be queued again.</Text>
-                            <Button variant="light" color="red" onClick={() => setClearBlacklistModal(true)}>
-                                Clear blacklist
-                            </Button>
-                        </Group>
-                    </Stack>
-                </Card>
-                </>
-            ) : null}
-
-            {!isDownloader && !path.includes("metadata") && !path.includes("indexer") ? null : (
+            {showSaveBar && (
                 <Group justify="flex-end" style={{ position: "sticky", bottom: 16 }}>
-                    {isDirty ? (
+                    {isDirty && (
                         <Alert color="gray" variant="light" style={{ flex: 1, maxWidth: 480 }}>
                             You have unsaved changes.
                         </Alert>
-                    ) : null}
+                    )}
                     <Button color="gray" onClick={handleSave} disabled={!isDirty || saving} loading={saving}>
                         Save changes
                     </Button>
                 </Group>
             )}
-
-            {path.includes("general") && isDirty ? (
-                <Group justify="flex-end" style={{ position: "sticky", bottom: 16 }}>
-                    <Alert color="gray" variant="light" style={{ flex: 1, maxWidth: 480 }}>
-                        You have unsaved changes.
-                    </Alert>
-                    <Button color="gray" onClick={handleSave} disabled={saving} loading={saving}>
-                        Save changes
-                    </Button>
-                </Group>
-            ) : null}
         </Stack>
     )
 }

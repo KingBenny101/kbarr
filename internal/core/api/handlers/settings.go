@@ -70,6 +70,18 @@ func TriggerDownloader(downloaderAddr string) func(context.Context, *struct{}) (
 	}
 }
 
+func GetSettingsSchema() func(context.Context, *struct{}) (*SettingsSchemaOutput, error) {
+	return func(ctx context.Context, _ *struct{}) (*SettingsSchemaOutput, error) {
+		visible := make([]config.SettingDef, 0, len(config.Schema))
+		for _, def := range config.Schema {
+			if !def.Hidden {
+				visible = append(visible, def)
+			}
+		}
+		return &SettingsSchemaOutput{Body: visible}, nil
+	}
+}
+
 func GetSettings() func(context.Context, *struct{}) (*SettingsOutput, error) {
 	return func(ctx context.Context, _ *struct{}) (*SettingsOutput, error) {
 		settings, err := config.GetSettingsMap(db.DB)

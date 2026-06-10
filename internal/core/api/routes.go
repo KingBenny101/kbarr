@@ -55,6 +55,7 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 	huma.Register(api, huma.Operation{OperationID: "clear-blacklist", Method: "DELETE", Path: "/api/downloads/blacklist", Security: secured, Tags: []string{"downloads"}, Summary: "Clear blacklist", DefaultStatus: 204}, handlers.ClearBlacklist())
 
 	// Settings
+	huma.Register(api, huma.Operation{OperationID: "get-settings-schema", Method: "GET", Path: "/api/settings/schema", Security: secured, Tags: []string{"settings"}, Summary: "Get settings schema"}, handlers.GetSettingsSchema())
 	huma.Register(api, huma.Operation{OperationID: "get-settings", Method: "GET", Path: "/api/settings", Security: secured, Tags: []string{"settings"}, Summary: "Get settings"}, handlers.GetSettings())
 	huma.Register(api, huma.Operation{OperationID: "update-settings", Method: "POST", Path: "/api/settings", Security: secured, Tags: []string{"settings"}, Summary: "Update settings", DefaultStatus: 204}, handlers.UpdateSettings())
 	huma.Register(api, huma.Operation{OperationID: "test-indexer", Method: "POST", Path: "/api/settings/test/indexer", Security: secured, Tags: []string{"settings"}, Summary: "Test Prowlarr connection"}, handlers.TestIndexer(handlers.SvcAddr("INDEXER_HEALTH_ADDR", "http://localhost:8082")))

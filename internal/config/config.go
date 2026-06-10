@@ -6,44 +6,18 @@ import (
 	"strconv"
 	"time"
 
+	imodels "github.com/kingbenny101/kbarr/internal/models"
 	"github.com/uptrace/bun"
 )
 
-var DefaultSettings = map[string]string{
-	"anidbClient":          "error",
-	"anidbVersion":         "error",
-	"anidbSyncInterval":    "1440",
-	"monitorSyncInterval":  "1",
-	"prowlarrUrl":          "http://host.docker.internal:9696",
-	"prowlarrApiKey":       "error",
-	"prowlarrInterval":     "1",
-	"downloaderInterval":   "1",
-	"matchThreshold":       "80",
-	"cacheFileLimit":       "10",
-	"prowlarrCacheAge":    "3600",
-	"autoMonitorOnAdd":     "false",
-	"preferredQuality":     "1080p",
-	"minSeeders":           "1",
-	"qbittorrentUrl":       "http://host.docker.internal:8080",
-	"qbittorrentUsername":  "",
-	"qbittorrentPassword":  "",
-	"downloadPath":              "/app/downloads",
-	"mediaPath":                 "/app/media",
-	"allowedVideoExtensions":    ".mkv,.mp4,.avi,.mov,.wmv,.m4v",
-	"stallTimeout":                  "300",
-	"availabilityCheckInterval":     "10",
-	"devMode":              "false",
-	"authUsername":         "",
-	"authPasswordHash":     "",
-	"indexerProvider":      "kbdex",
-	"kbdexUrl":             "http://localhost:8000",
-}
-
-type Setting struct {
-	bun.BaseModel `bun:"table:settings,alias:s"`
-	Key           string  `bun:"key,notnull,unique"`
-	Value         *string `bun:"value"`
-}
+// DefaultSettings is derived from Schema so there is one source of truth.
+var DefaultSettings = func() map[string]string {
+	m := make(map[string]string, len(Schema))
+	for _, def := range Schema {
+		m[def.Key] = def.Default
+	}
+	return m
+}()
 
 func EnsureDefaults(db *bun.DB) error {
 	if db == nil {
@@ -52,7 +26,7 @@ func EnsureDefaults(db *bun.DB) error {
 	ctx := context.Background()
 	for key, value := range DefaultSettings {
 		v := value
-		_, err := db.NewInsert().Model(&Setting{Key: key, Value: &v}).On("CONFLICT (key) DO NOTHING").Exec(ctx)
+		_, err := db.NewInsert().Model(&imodels.Setting{Key: key, Value: &v}).On("CONFLICT (key) DO NOTHING").Exec(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to initialize default setting %s: %w", key, err)
 		}
@@ -65,8 +39,8 @@ func Get(db *bun.DB, key, fallback string) string {
 	if db == nil {
 		return fallback
 	}
-	var s Setting
-	err := db.NewSelect().Model(&s).Where("key = ? AND deleted_at IS NULL", key).Scan(context.Background())
+	var s imodels.Setting
+	err := db.NewSelect().Model(&s).Where("key = ?", key).Scan(context.Background())
 	if err != nil || s.Value == nil {
 		return fallback
 	}
@@ -87,7 +61,6 @@ func GetSeconds(db *bun.DB, key string, fallback, min time.Duration) time.Durati
 }
 
 // GetMinutes parses a setting stored as a minute count into a time.Duration.
-// If the value is missing or below min, fallback is returned.
 func GetMinutes(db *bun.DB, key string, fallback, min time.Duration) time.Duration {
 	raw := Get(db, key, "")
 	if raw == "" {
@@ -104,7 +77,7 @@ func SetSetting(db *bun.DB, key, value string) error {
 	if db == nil {
 		return fmt.Errorf("database is not initialized")
 	}
-	s := Setting{Key: key, Value: &value}
+	s := imodels.Setting{Key: key, Value: &value}
 	_, err := db.NewInsert().Model(&s).On("CONFLICT (key) DO UPDATE").Set("value = EXCLUDED.value").Set("deleted_at = NULL").Exec(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to upsert setting %s: %w", key, err)
@@ -116,8 +89,8 @@ func GetSettingsMap(db *bun.DB) (map[string]string, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database is not initialized")
 	}
-	var settings []Setting
-	if err := db.NewSelect().Model(&settings).Where("deleted_at IS NULL").Scan(context.Background()); err != nil {
+	var settings []imodels.Setting
+	if err := db.NewSelect().Model(&settings).Scan(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to list settings: %w", err)
 	}
 	values := make(map[string]string, len(settings))
