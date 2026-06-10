@@ -54,22 +54,28 @@ func (k *Kbdex) Search(ctx context.Context, db *bun.DB, req iprovider.SearchRequ
 		return nil, fmt.Errorf("kbdex: could not resolve anidb ID: %w", err)
 	}
 
-	cacheQuery := fmt.Sprintf("kbdex:%d", anidbID)
+	cacheQuery := fmt.Sprintf("kbdex:%d:s%d:e%d", anidbID, req.Season, req.EpisodeNumber)
 	dir := cacheDir()
 	limit := cacheFileLimit(db)
 
 	if cached, ok := iprovider.CacheLoad(db, dir, cacheQuery); ok {
-		slog.Info("kbdex search (cache hit)", "anidb_id", anidbID)
+		slog.Info("kbdex search (cache hit)", "anidb_id", anidbID, "season", req.Season, "episode", req.EpisodeNumber)
 		return cached, nil
 	}
 
-	kbdexURL := strings.TrimRight(config.Get(db, "kbdexUrl", "http://localhost:8000"), "/")
+	kbdexURL := strings.TrimRight(config.Get(db, "kbdexUrl", "http://host.docker.internal:8000"), "/")
 	if kbdexURL == "" {
 		return nil, fmt.Errorf("kbdexUrl is not configured")
 	}
 
 	reqURL := fmt.Sprintf("%s/search?anidb_id=%d", kbdexURL, anidbID)
-	slog.Info("kbdex search", "url", reqURL)
+	if req.Season > 0 {
+		reqURL += fmt.Sprintf("&season=%d", req.Season)
+	}
+	if req.EpisodeNumber > 0 && req.Season > 0 {
+		reqURL += fmt.Sprintf("&episode=%d", req.EpisodeNumber)
+	}
+	slog.Info("kbdex search", "url", reqURL, "season", req.Season, "episode", req.EpisodeNumber)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
