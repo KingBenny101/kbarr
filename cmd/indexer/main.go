@@ -12,9 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kingbenny101/kbarr/internal/indexer/db"
-	"github.com/kingbenny101/kbarr/internal/indexer/service"
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/indexer/db"
+	_ "github.com/kingbenny101/kbarr/internal/indexer/provider/kbdex"
+	_ "github.com/kingbenny101/kbarr/internal/indexer/provider/prowlarr"
+	"github.com/kingbenny101/kbarr/internal/indexer/service"
 	"github.com/kingbenny101/kbarr/internal/logger"
 )
 
