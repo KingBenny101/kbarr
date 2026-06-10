@@ -58,12 +58,13 @@ var Schema = []SettingDef{
 	{Key: "mediaPath", Type: TypeString, Default: "/app/media", Label: "Media path", Description: "Absolute path inside the container where organised hardlinks are created.", Group: "downloader", Section: "Downloader"},
 	{Key: "allowedVideoExtensions", Type: TypeString, Default: ".mkv,.mp4,.avi,.mov,.wmv,.m4v", Label: "Allowed video extensions", Description: "Comma-separated list of file extensions to hardlink on completion.", Group: "downloader", Section: "Downloader"},
 	{Key: "stallTimeout", Type: TypeInt, Default: "300", Label: "Stall timeout", Description: "Remove torrents with no progress for this many seconds and re-queue. Set to 0 to disable.", Group: "downloader", Section: "Downloader", Unit: "sec"},
+	{Key: "availabilityCheckInterval", Type: TypeInt, Default: "10", Label: "Availability check interval", Description: "How often the media folder is scanned to update episode availability.", Group: "downloader", Section: "Downloader", Unit: "sec"},
 	{Key: "qbittorrentUrl", Type: TypeString, Default: "http://host.docker.internal:8080", Label: "URL", Group: "downloader", Section: "qBittorrent"},
 	{Key: "qbittorrentUsername", Type: TypeString, Default: "", Label: "Username", Group: "downloader", Section: "qBittorrent"},
 	{Key: "qbittorrentPassword", Type: TypePassword, Default: "", Label: "Password", Group: "downloader", Section: "qBittorrent"},
 
 	// ── Hidden (defaults only; not rendered in the settings UI) ──────────
-	{Key: "availabilityCheckInterval", Type: TypeInt, Default: "10", Hidden: true},
+
 	{Key: "authUsername", Type: TypeString, Default: "", Hidden: true},
 	{Key: "authPasswordHash", Type: TypePassword, Default: "", Hidden: true},
 }
