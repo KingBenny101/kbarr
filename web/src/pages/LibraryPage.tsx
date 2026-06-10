@@ -63,7 +63,7 @@ export function LibraryPage() {
     const [medias, setMedias] = useState<Media[]>([])
     const [filter, setFilter] = useState("")
     const [sort, setSort] = useState<SortKey>("name-asc")
-    const [nsfwOpen, setNsfwOpen] = useState(false)
+    const [nsfwOpen, setNsfwOpen] = useState(() => sessionStorage.getItem("library.nsfwOpen") === "true")
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -125,7 +125,7 @@ export function LibraryPage() {
                     {nsfwItems.length > 0 && (
                         <Stack gap="sm">
                             <Divider />
-                            <UnstyledButton onClick={() => setNsfwOpen((o) => !o)}>
+                            <UnstyledButton onClick={() => setNsfwOpen((o) => { const next = !o; sessionStorage.setItem("library.nsfwOpen", String(next)); return next })}>
                                 <Group gap="xs">
                                     {nsfwOpen ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
                                     <Text size="sm" c="dimmed">

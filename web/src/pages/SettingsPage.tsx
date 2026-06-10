@@ -100,6 +100,7 @@ function SettingField({
                     label={def.label}
                     description={def.description}
                     value={value}
+                    placeholder={def.default}
                     onChange={(e) => {
                         if (e.currentTarget.value === "" || /^[0-9]+$/.test(e.currentTarget.value))
                             onChange(e.currentTarget.value)
@@ -113,6 +114,7 @@ function SettingField({
                     label={def.label}
                     description={def.description}
                     value={value}
+                    placeholder={def.default || undefined}
                     onChange={(e) => onChange(e.currentTarget.value)}
                 />
             )
