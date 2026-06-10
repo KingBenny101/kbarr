@@ -69,7 +69,7 @@ export function MediaDetailPage() {
             .then((response) => response.json())
             .then((data: MonitoredItem[]) => {
                 setMonitoredItems(data || [])
-                setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1) ?? false)
+                setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1 && item.monitored) ?? false)
             })
             .catch((error) => console.error("Failed to fetch monitored items", error))
     }
@@ -160,7 +160,7 @@ export function MediaDetailPage() {
                     setRangeInput("")
                     fetchMonitored()
                 }
-            } else if (monitoredItems.some((item) => item.is_season && item.season === 1)) {
+            } else if (monitoredItems.some((item) => item.is_season && item.season === 1 && item.monitored)) {
                 const response = await apiFetch(`${API_URL}/api/unmonitor/season`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -208,10 +208,10 @@ export function MediaDetailPage() {
         const allEpsRes = await apiFetch(`${API_URL}/api/library/${id}/episodes?limit=10000`)
         const allEpsData = await allEpsRes.json() as EpisodesResponse
         const allEpisodes = allEpsData.episodes ?? []
-        const monitoredIds = new Set(updatedMonitored.filter((i) => i.is_episode).map((i) => i.external_id))
+        const monitoredIds = new Set(updatedMonitored.filter((i) => i.is_episode && i.monitored).map((i) => i.external_id))
         const allMonitored = allEpisodes.length > 0 && allEpisodes.every((ep) => monitoredIds.has(ep.external_id))
 
-        if (allMonitored && !monitoredItems.some((i) => i.is_season)) {
+        if (allMonitored && !monitoredItems.some((i) => i.is_season && i.monitored)) {
             await apiFetch(`${API_URL}/api/monitor`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
