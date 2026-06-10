@@ -50,9 +50,9 @@ func saveParserDebugForQuery(query string, results []models.TorrentResult, limit
 
 type MatchEntry struct {
 	TorrentTitle  string  `json:"torrent_title"`
-	GuessitTitle  string  `json:"guessit_title"`
-	GuessitSeason int     `json:"guessit_season"`
-	GuessitEp     int     `json:"guessit_episode,omitempty"`
+	ParsedTitle   string  `json:"parsed_title"`
+	ParsedSeason  int     `json:"parsed_season"`
+	ParsedEp      int     `json:"parsed_episode,omitempty"`
 	Similarity    float64 `json:"similarity"`
 	Seeds         int     `json:"seeds"`
 	Passed        bool    `json:"passed"`

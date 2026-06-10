@@ -29,7 +29,7 @@ func New(db *bun.DB) *IndexerService {
 
 // ── parser ────────────────────────────────────────────────────────────────────
 
-func runGuessit(filename string) parser.ParseResult {
+func parseFilename(filename string) parser.ParseResult {
 	return parser.Parse(filename)
 }
 
@@ -225,7 +225,7 @@ func (s *IndexerService) isBlacklisted(ctx context.Context, name string) bool {
 	return exists
 }
 
-// qualityRank maps a guessit screen_size string to a numeric rank (higher = better).
+// qualityRank maps a parsed screen_size string to a numeric rank (higher = better).
 func qualityRank(screenSize string) int {
 	switch strings.ToLower(screenSize) {
 	case "4k", "2160p", "uhd":
@@ -265,7 +265,7 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 		if filename == "" {
 			filename = results[i].Title
 		}
-		g := runGuessit(filename)
+		g := parseFilename(filename)
 		rank := qualityRank(g.ScreenSize)
 		if rank > cap {
 			continue
@@ -286,8 +286,8 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 		if fj == "" {
 			fj = candidates[j].Title
 		}
-		ri := qualityRank(runGuessit(fi).ScreenSize)
-		rj := qualityRank(runGuessit(fj).ScreenSize)
+		ri := qualityRank(parseFilename(fi).ScreenSize)
+		rj := qualityRank(parseFilename(fj).ScreenSize)
 		if ri != rj {
 			return ri > rj
 		}
@@ -516,7 +516,7 @@ func effectiveSeason(mon models.Monitor, title string) int64 {
 	return season
 }
 
-// buildMatchLog evaluates every result with guessit+similarity, marks passing ones.
+// buildMatchLog evaluates every result with anitogo+similarity, marks passing ones.
 func buildMatchLog(results []models.TorrentResult, titles []string, threshold float64, season, episode, episodeCount int) []MatchEntry {
 	expandedTitles := expandWithStrippedSeasons(titles)
 	entries := make([]MatchEntry, 0, len(results))
@@ -525,13 +525,13 @@ func buildMatchLog(results []models.TorrentResult, titles []string, threshold fl
 		if filename == "" {
 			filename = r.Title
 		}
-		g := runGuessit(filename)
+		g := parseFilename(filename)
 		sim := bestTitleSimilarity(g.Title, expandedTitles)
 		e := MatchEntry{
 			TorrentTitle:  r.Title,
-			GuessitTitle:  g.Title,
-			GuessitSeason: g.Season,
-			GuessitEp:     g.Episode,
+			ParsedTitle:  g.Title,
+			ParsedSeason: g.Season,
+			ParsedEp:     g.Episode,
 			Similarity:    sim,
 			Seeds:         r.Seeds,
 		}
