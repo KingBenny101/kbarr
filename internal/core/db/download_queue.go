@@ -10,21 +10,22 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/kingbenny101/kbarr/internal/models"
 )
 
-func GetAllDownloadQueue() ([]DownloadQueue, error) {
+func GetAllDownloadQueue() ([]models.DownloadQueue, error) {
 	if err := ensureDB(); err != nil {
 		return nil, err
 	}
-
-	var entries []DownloadQueue
+	var entries []models.DownloadQueue
 	if err := DB.NewSelect().Model(&entries).Where("deleted_at IS NULL").OrderExpr("created_at DESC").Scan(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to query download queue: %w", err)
 	}
 	return entries, nil
 }
 
-func GetDownloadQueueEntry(ctx context.Context, id string, entry *DownloadQueue) error {
+func GetDownloadQueueEntry(ctx context.Context, id string, entry *models.DownloadQueue) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func InsertTestDownloadQueueEntry(ctx context.Context, torrentURL, title string)
 	if title == "" {
 		title = torrentURL
 	}
-	entry := DownloadQueue{
+	entry := models.DownloadQueue{
 		TorrentURL:  &torrentURL,
 		TorrentName: &torrentURL,
 		Title:       &title,
@@ -63,14 +64,12 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 	if err := ensureDB(); err != nil {
 		return err
 	}
-
 	numID, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid id %q: %w", id, err)
 	}
 
-	// Fetch row before soft-deleting so we can remove from qBittorrent, blacklist, reset monitor, and delete files
-	var entry DownloadQueue
+	var entry models.DownloadQueue
 	if err := DB.NewSelect().Model(&entry).Where("id = ? AND deleted_at IS NULL", numID).Scan(ctx); err == nil {
 		status := ""
 		if entry.Status != nil {
@@ -78,7 +77,6 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 		}
 		if entry.TorrentHash != nil && *entry.TorrentHash != "" {
 			if status == "completed" {
-				// Remove torrent and let qBittorrent delete the files when requested
 				removeFromQBittorrent(ctx, *entry.TorrentHash, opts.DeleteFiles)
 			} else {
 				removeFromQBittorrent(ctx, *entry.TorrentHash, false)
@@ -111,7 +109,7 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 		}
 	}
 
-	_, err = DB.NewUpdate().Model((*DownloadQueue)(nil)).
+	_, err = DB.NewUpdate().Model((*models.DownloadQueue)(nil)).
 		Set("deleted_at = now(), updated_at = now()").
 		Where("id = ?", numID).
 		Exec(ctx)
@@ -119,34 +117,33 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 }
 
 func resetMonitorOnQueueDelete(ctx context.Context, monitorID int64, unmonitor bool) {
-	var mon Monitor
+	var mon models.Monitor
 	if err := DB.NewSelect().Model(&mon).Where("id = ? AND deleted_at IS NULL", monitorID).Scan(ctx); err != nil {
 		return
 	}
 
 	if unmonitor {
-		DB.NewUpdate().Model((*Monitor)(nil)).
+		DB.NewUpdate().Model((*models.Monitor)(nil)).
 			Set("monitored = false, updated_at = now()").
 			Where("id = ?", monitorID).
 			Exec(ctx)
 	} else {
-		DB.NewUpdate().Model((*Monitor)(nil)).
+		DB.NewUpdate().Model((*models.Monitor)(nil)).
 			Set("monitored = true, status = 'pending', updated_at = now()").
 			Where("id = ?", monitorID).
 			Exec(ctx)
 	}
 
-	// For season monitors, also reset all episode monitors in the same library
-	if mon.IsSeason != nil && *mon.IsSeason && mon.LibraryID != nil {
+	if mon.IsSeason && mon.LibraryID != 0 {
 		if unmonitor {
-			DB.NewUpdate().Model((*Monitor)(nil)).
+			DB.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("monitored = false, updated_at = now()").
-				Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
+				Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", mon.LibraryID).
 				Exec(ctx)
 		} else {
-			DB.NewUpdate().Model((*Monitor)(nil)).
+			DB.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("monitored = true, status = 'pending', updated_at = now()").
-				Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", *mon.LibraryID).
+				Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", mon.LibraryID).
 				Exec(ctx)
 		}
 	}

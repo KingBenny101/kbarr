@@ -8,38 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/kingbenny101/kbarr/internal/models"
 )
-
-type SearchResult struct {
-	Source   string `json:"source"`
-	SourceID string `json:"source_id"`
-	Title    string `json:"title"`
-	Added    bool   `json:"added"`
-}
-
-type EpisodeMetadata struct {
-	ExternalID string `json:"external_id"`
-	Source     string `json:"source"`
-	Type       int    `json:"type"`
-	Number     string `json:"number"`
-	Title      string `json:"title"`
-	AirDate    string `json:"air_date"`
-}
-
-type AnimeMetadata struct {
-	Source          string            `json:"source"`
-	SourceID        string            `json:"source_id"`
-	LibraryID       uint              `json:"library_id"`
-	Title           string            `json:"title"`
-	AlternateTitles string            `json:"alternate_titles"`
-	Description     string            `json:"description"`
-	ReleaseDate     string            `json:"release_date"`
-	Genres          string            `json:"genres"`
-	PosterURL       string            `json:"poster_url"`
-	TotalEpisodes   int               `json:"total_episodes"`
-	TotalSeasons    int               `json:"total_seasons"`
-	Episodes        []EpisodeMetadata `json:"episodes"`
-}
 
 type MetadataClient struct {
 	baseURL    string
@@ -53,7 +24,7 @@ func NewMetadataClient(baseURL string) *MetadataClient {
 	}
 }
 
-func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]SearchResult, error) {
+func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]models.SearchResult, error) {
 	endpoint := c.baseURL + "/search?q=" + url.QueryEscape(query)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -70,7 +41,7 @@ func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]Sear
 		return nil, fmt.Errorf("metadata service returned status %d", resp.StatusCode)
 	}
 
-	var results []SearchResult
+	var results []models.SearchResult
 	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -78,7 +49,7 @@ func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]Sear
 	return results, nil
 }
 
-func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title string, libraryID uint) (*AnimeMetadata, error) {
+func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title string, libraryID uint) (*models.AnimeMetadata, error) {
 	body := map[string]any{
 		"source":     source,
 		"source_id":  sourceID,
@@ -111,7 +82,7 @@ func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title st
 		return nil, fmt.Errorf("metadata service returned status %d", resp.StatusCode)
 	}
 
-	var metadata AnimeMetadata
+	var metadata models.AnimeMetadata
 	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

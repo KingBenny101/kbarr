@@ -14,8 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kingbenny101/kbarr/internal/metadata/models"
 	"github.com/kingbenny101/kbarr/internal/config"
+	imodels "github.com/kingbenny101/kbarr/internal/models"
+	mdmodels "github.com/kingbenny101/kbarr/internal/metadata/models"
 	"github.com/uptrace/bun"
 )
 
@@ -30,7 +31,7 @@ type AniDBService struct {
 	httpClient *http.Client
 
 	mu         sync.RWMutex
-	titlesDump *models.AnimeTitlesDump
+	titlesDump *mdmodels.AnimeTitlesDump
 }
 
 func New(db *bun.DB) *AniDBService {
@@ -58,7 +59,7 @@ func (s *AniDBService) LoadTitlesDump() error {
 	return s.parseTitlesDump(titlesFile)
 }
 
-func (s *AniDBService) SearchTitles(query string) ([]models.SearchResult, error) {
+func (s *AniDBService) SearchTitles(query string) ([]imodels.SearchResult, error) {
 	s.mu.RLock()
 	dumpReady := s.titlesDump != nil
 	s.mu.RUnlock()
@@ -75,14 +76,14 @@ func (s *AniDBService) SearchTitles(query string) ([]models.SearchResult, error)
 
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
-		return []models.SearchResult{}, nil
+		return []imodels.SearchResult{}, nil
 	}
 
-	results := make([]models.SearchResult, 0)
+	results := make([]imodels.SearchResult, 0)
 	for _, anime := range dump.Anime {
 		for _, t := range anime.Titles {
 			if strings.Contains(strings.ToLower(t.Title), query) {
-				results = append(results, models.SearchResult{
+				results = append(results, imodels.SearchResult{
 					Source:   "anidb",
 					SourceID: strconv.FormatUint(uint64(anime.AID), 10),
 					Title:    t.Title,
@@ -95,7 +96,7 @@ func (s *AniDBService) SearchTitles(query string) ([]models.SearchResult, error)
 	return results, nil
 }
 
-func (s *AniDBService) GetAnimeDetails(aid uint) (*models.AnimeDetails, error) {
+func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error) {
 	client := config.Get(s.db, "anidbClient", "error")
 	version := config.Get(s.db, "anidbVersion", "error")
 	if err := validateAniDBSettings(client, version); err != nil {
@@ -120,8 +121,8 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*models.AnimeDetails, error) {
 	return details, nil
 }
 
-func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (models.AnimeMetadata, error) {
-	metadata := models.AnimeMetadata{
+func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (imodels.AnimeMetadata, error) {
+	metadata := imodels.AnimeMetadata{
 		Source:    "anidb",
 		SourceID:  strconv.FormatUint(uint64(aid), 10),
 		Title:     title,
@@ -130,7 +131,7 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 
 	details, err := s.GetAnimeDetails(aid)
 	if err != nil {
-		return models.AnimeMetadata{}, fmt.Errorf("failed to get anime details: %w", err)
+		return imodels.AnimeMetadata{}, fmt.Errorf("failed to get anime details: %w", err)
 	}
 
 	metadata.Description = details.Description
@@ -157,7 +158,7 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 			title = ep.Titles[0].Value
 		}
 		epType, _ := strconv.Atoi(ep.EpNo.Type)
-		metadata.Episodes = append(metadata.Episodes, models.EpisodeMetadata{
+		metadata.Episodes = append(metadata.Episodes, imodels.EpisodeMetadata{
 			ExternalID: ep.ID,
 			Source:     "anidb",
 			Type:       epType,
@@ -236,7 +237,7 @@ func (s *AniDBService) parseTitlesDump(titlesFile string) error {
 		return fmt.Errorf("failed to read cached titles dump: %w", err)
 	}
 
-	var dump models.AnimeTitlesDump
+	var dump mdmodels.AnimeTitlesDump
 	if err := xml.Unmarshal(data, &dump); err != nil {
 		return fmt.Errorf("failed to parse titles dump: %w", err)
 	}
@@ -249,7 +250,7 @@ func (s *AniDBService) parseTitlesDump(titlesFile string) error {
 	return nil
 }
 
-func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duration) (*models.AnimeDetails, bool) {
+func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duration) (*mdmodels.AnimeDetails, bool) {
 	if ttl <= 0 {
 		ttl = 24 * time.Hour
 	}
@@ -267,7 +268,7 @@ func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duratio
 		return nil, false
 	}
 
-	var details models.AnimeDetails
+	var details mdmodels.AnimeDetails
 	if err := xml.Unmarshal(data, &details); err != nil {
 		return nil, false
 	}
@@ -276,7 +277,7 @@ func (s *AniDBService) loadCachedAnimeDetails(cacheFile string, ttl time.Duratio
 	return &details, true
 }
 
-func (s *AniDBService) fetchAnimeDetails(aid uint, client, version string) (*models.AnimeDetails, []byte, error) {
+func (s *AniDBService) fetchAnimeDetails(aid uint, client, version string) (*mdmodels.AnimeDetails, []byte, error) {
 	apiURL := fmt.Sprintf("%s?request=anime&client=%s&clientver=%s&protover=1&aid=%d", anidbHTTPAPI, client, version, aid)
 
 	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
@@ -311,7 +312,7 @@ func (s *AniDBService) fetchAnimeDetails(aid uint, client, version string) (*mod
 		return nil, nil, fmt.Errorf("failed to read anidb response: %w", err)
 	}
 
-	var details models.AnimeDetails
+	var details mdmodels.AnimeDetails
 	if err := xml.Unmarshal(raw, &details); err != nil {
 		return nil, nil, fmt.Errorf("failed to decode anidb response: %w", err)
 	}

@@ -1,18 +1,21 @@
 package models
 
-// Monitor represents a tracked episode or season
+import "github.com/uptrace/bun"
+
+// Monitor represents a tracked episode or season.
 type Monitor struct {
+	bun.BaseModel `bun:"table:monitors,alias:mon"`
 	Model
-	LibraryID     uint   `json:"library_id"` // Link to Media.ID
-	Title         string `json:"title"`
-	EpisodeTitle  string `json:"episode_title"`
-	Season        int    `json:"season"`
-	EpisodeNumber int    `json:"episode_number"`
-	IsEpisode     bool   `json:"is_episode"`
-	IsSeason      bool   `json:"is_season"`
-	Source        string `json:"source"`
-	ExternalID    string `json:"external_id"`
-	Status        string `json:"status"` // pending, searching, queued, downloading, downloaded, missing
-	Available     bool   `json:"available"`
-	Monitored     bool   `json:"monitored"`
+	LibraryID     uint   `bun:"library_id" json:"library_id"`
+	Title         string `bun:"title" json:"title"`
+	EpisodeTitle  string `bun:"episode_title" json:"episode_title"`
+	Season        int    `bun:"season" json:"season"`
+	EpisodeNumber int    `bun:"episode_number" json:"episode_number"`
+	IsEpisode     bool   `bun:"is_episode" json:"is_episode"`
+	IsSeason      bool   `bun:"is_season" json:"is_season"`
+	Source        string `bun:"source" json:"source"`
+	ExternalID    string `bun:"external_id" json:"external_id"`
+	Status        string `bun:"status" json:"status"`
+	Available     bool   `bun:"available,notnull,default:false" json:"available"`
+	Monitored     bool   `bun:"monitored,notnull,default:false" json:"monitored"`
 }

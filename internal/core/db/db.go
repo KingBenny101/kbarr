@@ -9,11 +9,19 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
+	imodels "github.com/kingbenny101/kbarr/internal/models"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/extra/bundebug"
 )
+
+func ensureDB() error {
+	if DB == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	return nil
+}
 
 var DB *bun.DB
 
@@ -50,16 +58,16 @@ func Init() error {
 
 	slog.Info("Connected to PostgreSQL")
 
-	DB.RegisterModel((*Medium)(nil), (*Detailed)(nil), (*Episode)(nil), (*Monitor)(nil), (*DownloadQueue)(nil), (*Setting)(nil), (*TorrentBlacklist)(nil))
+	DB.RegisterModel((*imodels.Media)(nil), (*imodels.Detailed)(nil), (*imodels.Episode)(nil), (*imodels.Monitor)(nil), (*imodels.DownloadQueue)(nil), (*imodels.Setting)(nil), (*imodels.TorrentBlacklist)(nil))
 
 	models := []any{
-		(*Medium)(nil),
-		(*Detailed)(nil),
-		(*Episode)(nil),
-		(*Monitor)(nil),
-		(*DownloadQueue)(nil),
-		(*Setting)(nil),
-		(*TorrentBlacklist)(nil),
+		(*imodels.Media)(nil),
+		(*imodels.Detailed)(nil),
+		(*imodels.Episode)(nil),
+		(*imodels.Monitor)(nil),
+		(*imodels.DownloadQueue)(nil),
+		(*imodels.Setting)(nil),
+		(*imodels.TorrentBlacklist)(nil),
 	}
 	for _, model := range models {
 		if _, err := DB.NewCreateTable().Model(model).IfNotExists().Exec(ctx); err != nil {

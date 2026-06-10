@@ -1,5 +1,25 @@
 package models
 
+// XML types for the AniDB titles dump (anime-titles.xml.gz)
+
+type TitleEntry struct {
+	AID   uint   `xml:"aid,attr"`
+	Type  string `xml:"type,attr"`
+	Lang  string `xml:"lang,attr"`
+	Title string `xml:",chardata"`
+}
+
+type AnimeTitlesEntry struct {
+	AID    uint         `xml:"aid,attr"`
+	Titles []TitleEntry `xml:"title"`
+}
+
+type AnimeTitlesDump struct {
+	Anime []AnimeTitlesEntry `xml:"anime"`
+}
+
+// XML types for the AniDB anime detail API response
+
 type AnimeTitle struct {
 	Lang  string `xml:"lang,attr"`
 	Type  string `xml:"type,attr"`

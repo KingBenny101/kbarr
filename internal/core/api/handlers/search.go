@@ -7,6 +7,7 @@ import (
 
 	"github.com/kingbenny101/kbarr/internal/core/clients"
 	"github.com/kingbenny101/kbarr/internal/core/db"
+	"github.com/kingbenny101/kbarr/internal/models"
 )
 
 func Search(mc *clients.MetadataClient) func(context.Context, *SearchInput) (*SearchOutput, error) {
@@ -19,11 +20,11 @@ func Search(mc *clients.MetadataClient) func(context.Context, *SearchInput) (*Se
 		results, err := mc.SearchTitles(ctx, input.Q)
 		if err != nil {
 			slog.Warn("Failed to search titles via metadata service", "error", err)
-			return &SearchOutput{Body: []clients.SearchResult{}}, nil
+			return &SearchOutput{Body: []models.SearchResult{}}, nil
 		}
 
 		if len(results) == 0 {
-			return &SearchOutput{Body: []clients.SearchResult{}}, nil
+			return &SearchOutput{Body: []models.SearchResult{}}, nil
 		}
 
 		mediaList, err := db.GetAllMedia()

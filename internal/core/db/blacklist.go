@@ -1,12 +1,16 @@
 package db
 
-import "context"
+import (
+	"context"
+
+	"github.com/kingbenny101/kbarr/internal/models"
+)
 
 func IsBlacklisted(ctx context.Context, torrentHash, torrentName string) bool {
 	if err := ensureDB(); err != nil {
 		return false
 	}
-	q := DB.NewSelect().Model((*TorrentBlacklist)(nil))
+	q := DB.NewSelect().Model((*models.TorrentBlacklist)(nil))
 	if torrentHash != "" {
 		q = q.WhereOr("torrent_hash = ?", torrentHash)
 	}
@@ -21,7 +25,7 @@ func AddToBlacklist(ctx context.Context, hash, name, title string) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
-	entry := TorrentBlacklist{
+	entry := models.TorrentBlacklist{
 		TorrentHash: ptrStr(hash),
 		TorrentName: ptrStr(name),
 		Title:       ptrStr(title),
@@ -34,7 +38,7 @@ func ClearBlacklist(ctx context.Context) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
-	_, err := DB.NewDelete().Model((*TorrentBlacklist)(nil)).Where("1=1").Exec(ctx)
+	_, err := DB.NewDelete().Model((*models.TorrentBlacklist)(nil)).Where("1=1").Exec(ctx)
 	return err
 }
 

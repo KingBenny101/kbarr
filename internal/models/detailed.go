@@ -1,31 +1,35 @@
 package models
 
+import "github.com/uptrace/bun"
+
 // Episode represents a single episode from any metadata source.
 type Episode struct {
+	bun.BaseModel `bun:"table:episodes,alias:e"`
 	Model
-	DetailedID uint   `json:"detailed_id"`
-	Source     string `json:"source"`
-	ExternalID string `json:"external_id"`
-	Type       int    `json:"type"`
-	EpNo       string `json:"ep_no"`
-	Title      string `json:"title"`
-	AirDate    string `json:"air_date"`
+	DetailedID uint   `bun:"detailed_id" json:"detailed_id"`
+	Source     string `bun:"source" json:"source"`
+	ExternalID string `bun:"external_id" json:"external_id"`
+	Type       int    `bun:"type" json:"type"`
+	EpNo       string `bun:"ep_no" json:"ep_no"`
+	Title      string `bun:"title" json:"title"`
+	AirDate    string `bun:"air_date" json:"air_date"`
 }
 
 // Detailed represents extended metadata for an anime from any metadata source.
 type Detailed struct {
+	bun.BaseModel   `bun:"table:detaileds,alias:d"`
 	Model
-	Title           string    `json:"title"`
-	Source          string    `json:"source"`
-	SourceID        string    `json:"source_id"`
-	LibraryID       uint      `json:"library_id"`
-	AlternateTitles string    `json:"alternate_titles"`
-	Description     string    `json:"description"`
-	ReleaseDate     string    `json:"release_date"`
-	Genres          string    `json:"genres"`
-	PosterURL       string    `json:"poster_url"`
-	TotalEpisodes   int       `json:"total_episodes"`
-	TotalSeasons    int       `json:"total_seasons"`
-	Episodes        []Episode `json:"episodes"`
-	IsNSFW          bool      `json:"is_nsfw"`
+	Title           string    `bun:"title" json:"title"`
+	Source          string    `bun:"source" json:"source"`
+	SourceID        string    `bun:"source_id" json:"source_id"`
+	LibraryID       uint      `bun:"library_id" json:"library_id"`
+	AlternateTitles string    `bun:"alternate_titles" json:"alternate_titles"`
+	Description     string    `bun:"description" json:"description"`
+	ReleaseDate     string    `bun:"release_date" json:"release_date"`
+	Genres          string    `bun:"genres" json:"genres"`
+	PosterURL       string    `bun:"poster_url" json:"poster_url"`
+	TotalEpisodes   int       `bun:"total_episodes" json:"total_episodes"`
+	TotalSeasons    int       `bun:"total_seasons" json:"total_seasons"`
+	Episodes        []Episode `bun:"rel:has-many,join:id=detailed_id" json:"episodes"`
+	IsNSFW          bool      `json:"-" bun:"-"` // set from media, not stored in detaileds table
 }

@@ -1,22 +1,6 @@
 package models
 
-type TitleEntry struct {
-	AID   uint   `xml:"aid,attr"`
-	Type  string `xml:"type,attr"`
-	Lang  string `xml:"lang,attr"`
-	Title string `xml:",chardata"`
-}
-
-type AnimeTitlesEntry struct {
-	AID    uint         `xml:"aid,attr"`
-	Titles []TitleEntry `xml:"title"`
-}
-
-type AnimeTitlesDump struct {
-	Anime []AnimeTitlesEntry `xml:"anime"`
-}
-
-// SearchResult is a generic search hit returned by any metadata source.
+// SearchResult is a generic anime search hit returned by any metadata source.
 type SearchResult struct {
 	Source   string `json:"source"`
 	SourceID string `json:"source_id"`
@@ -48,4 +32,15 @@ type AnimeMetadata struct {
 	TotalEpisodes   int               `json:"total_episodes"`
 	TotalSeasons    int               `json:"total_seasons"`
 	Episodes        []EpisodeMetadata `json:"episodes"`
+}
+
+// TorrentResult is a torrent search hit returned by any indexer provider.
+type TorrentResult struct {
+	Title       string `json:"title"`
+	FileName    string `json:"file_name"`
+	DownloadURL string `json:"download_url"`
+	Size        int64  `json:"size"`
+	Indexer     string `json:"indexer"`
+	Seeds       int    `json:"seeds"`
+	Peers       int    `json:"peers"`
 }

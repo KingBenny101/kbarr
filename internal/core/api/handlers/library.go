@@ -190,7 +190,7 @@ func GetEpisodes() func(context.Context, *GetEpisodesInput) (*EpisodesOutput, er
 	}
 }
 
-func toDetailedModel(d *clients.AnimeMetadata, libraryID uint) models.Detailed {
+func toDetailedModel(d *models.AnimeMetadata, libraryID uint) models.Detailed {
 	if d == nil {
 		return models.Detailed{}
 	}
