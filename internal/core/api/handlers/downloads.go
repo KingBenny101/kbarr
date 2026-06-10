@@ -46,17 +46,17 @@ func ClearBlacklist() func(context.Context, *struct{}) (*struct{}, error) {
 	}
 }
 
-func CreateSymlinks(downloaderAddr string) func(context.Context, *SymlinkInput) (*struct{}, error) {
-	return func(ctx context.Context, input *SymlinkInput) (*struct{}, error) {
+func CreateHardlinks(downloaderAddr string) func(context.Context, *HardlinkInput) (*struct{}, error) {
+	return func(ctx context.Context, input *HardlinkInput) (*struct{}, error) {
 		body, _ := json.Marshal(map[string]int64{"id": input.ID})
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, downloaderAddr+"/symlinks/create", bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, downloaderAddr+"/hardlinks/create", bytes.NewReader(body))
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to build request", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			slog.Error("Failed to reach downloader for symlink creation", "error", err)
+			slog.Error("Failed to reach downloader for hardlink creation", "error", err)
 			return nil, huma.Error502BadGateway("downloader unreachable", err)
 		}
 		resp.Body.Close()

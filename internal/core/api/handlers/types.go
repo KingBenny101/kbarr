@@ -75,7 +75,7 @@ type DownloadIDInput struct {
 	ID int64 `path:"id" doc:"Download queue entry ID"`
 }
 
-type SymlinkInput struct {
+type HardlinkInput struct {
 	ID int64 `path:"id" doc:"Download queue entry ID"`
 }
 

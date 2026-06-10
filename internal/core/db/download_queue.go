@@ -154,7 +154,7 @@ func deleteDownloadedFiles(ctx context.Context, savePath, title string) {
 	if downloaderAddr == "" {
 		downloaderAddr = "http://localhost:8083"
 	}
-	body, _ := json.Marshal(map[string]string{"save_path": savePath, "symlink_dir": title})
+	body, _ := json.Marshal(map[string]string{"save_path": savePath, "hardlink_dir": title})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, downloaderAddr+"/files/delete", bytes.NewReader(body))
 	if err != nil {
 		slog.Warn("Failed to build files/delete request", "save_path", savePath, "error", err)

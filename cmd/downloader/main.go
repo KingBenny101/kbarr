@@ -58,7 +58,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
 	})
-	mux.HandleFunc("POST /symlinks/create", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /hardlinks/create", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			ID int64 `json:"id"`
 		}
@@ -66,26 +66,26 @@ func main() {
 			http.Error(w, "id is required", http.StatusBadRequest)
 			return
 		}
-		svc.CreateSymlinksForEntry(r.Context(), body.ID)
+		svc.CreateHardlinksForEntry(r.Context(), body.ID)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
 	})
 	mux.HandleFunc("POST /files/delete", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			SavePath   string `json:"save_path"`
-			SymlinkDir string `json:"symlink_dir"`
+			SavePath    string `json:"save_path"`
+			HardlinkDir string `json:"hardlink_dir"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 		mediaPath := strings.TrimRight(config.Get(db.DB, "mediaPath", ""), "/")
-		if body.SymlinkDir != "" {
-			cleaned := filepath.Join(mediaPath, filepath.Base(body.SymlinkDir))
+		if body.HardlinkDir != "" {
+			cleaned := filepath.Join(mediaPath, filepath.Base(body.HardlinkDir))
 			if err := os.RemoveAll(cleaned); err != nil {
-				slog.Warn("files/delete: failed to remove symlink dir", "path", cleaned, "error", err)
+				slog.Warn("files/delete: failed to remove hardlink dir", "path", cleaned, "error", err)
 			} else {
-				slog.Info("files/delete: removed symlink dir", "path", cleaned)
+				slog.Info("files/delete: removed hardlink dir", "path", cleaned)
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")

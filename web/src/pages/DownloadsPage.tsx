@@ -139,7 +139,7 @@ export function DownloadsPage() {
 
     const handleRetryHardlinks = async (item: DownloadItem) => {
         try {
-            const res = await apiFetch(`${API_URL}/api/downloads/${item.id}/symlink`, { method: "POST" })
+            const res = await apiFetch(`${API_URL}/api/downloads/${item.id}/hardlink`, { method: "POST" })
             if (!res.ok) throw new Error()
             showToast("Hardlink creation triggered — check logs", "success")
         } catch {
