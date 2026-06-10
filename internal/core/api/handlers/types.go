@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 
-	"github.com/kingbenny101/kbarr/internal/core/clients"
+	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/core/db"
 	"github.com/kingbenny101/kbarr/internal/models"
 )
@@ -125,12 +125,45 @@ type UpdateNSFWInput struct {
 	Body NSFWRequest
 }
 
+// MonitorRequest is the client-supplied payload for creating monitors. It is
+// kept separate from models.Monitor so that server-managed fields (ID,
+// timestamps, status, available) are not part of the request contract.
+type MonitorRequest struct {
+	LibraryID     uint   `json:"library_id"`
+	Title         string `json:"title"`
+	EpisodeTitle  string `json:"episode_title"`
+	Season        int    `json:"season"`
+	EpisodeNumber int    `json:"episode_number"`
+	IsEpisode     bool   `json:"is_episode"`
+	IsSeason      bool   `json:"is_season"`
+	Source        string `json:"source"`
+	ExternalID    string `json:"external_id"`
+	Monitored     bool   `json:"monitored,omitempty"`
+}
+
+// ToModel maps the request DTO onto the persistence model. Status and the
+// availability/timestamp fields are left for the DB layer to populate.
+func (r MonitorRequest) ToModel() models.Monitor {
+	return models.Monitor{
+		LibraryID:     r.LibraryID,
+		Title:         r.Title,
+		EpisodeTitle:  r.EpisodeTitle,
+		Season:        r.Season,
+		EpisodeNumber: r.EpisodeNumber,
+		IsEpisode:     r.IsEpisode,
+		IsSeason:      r.IsSeason,
+		Source:        r.Source,
+		ExternalID:    r.ExternalID,
+		Monitored:     r.Monitored,
+	}
+}
+
 type AddMonitorInput struct {
-	Body models.Monitor
+	Body MonitorRequest
 }
 
 type BulkAddMonitorInput struct {
-	Body []models.Monitor
+	Body []MonitorRequest
 }
 
 type UnmonitorInput struct {
@@ -191,6 +224,10 @@ type SettingsOutput struct {
 	Body map[string]string `doc:"Key-value settings map"`
 }
 
+type SettingsSchemaOutput struct {
+	Body []config.SettingDef `doc:"Array of setting definitions"`
+}
+
 type WorkersOutput struct {
 	Body []ServiceHealth
 }
@@ -220,9 +257,9 @@ type MonitorListOutput struct {
 }
 
 type DownloadListOutput struct {
-	Body []db.DownloadQueue
+	Body []models.DownloadQueue
 }
 
 type SearchOutput struct {
-	Body []clients.SearchResult
+	Body []models.SearchResult
 }

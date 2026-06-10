@@ -6,6 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/core/db"
+	"github.com/kingbenny101/kbarr/internal/models"
 )
 
 func GetMonitoredList() func(context.Context, *struct{}) (*MonitorListOutput, error) {
@@ -22,7 +23,7 @@ func GetMonitoredList() func(context.Context, *struct{}) (*MonitorListOutput, er
 func AddMonitor() func(context.Context, *AddMonitorInput) (*struct{}, error) {
 	return func(ctx context.Context, input *AddMonitorInput) (*struct{}, error) {
 		slog.Info("AddMonitor called", "title", input.Body.Title)
-		db.InsertMonitor(input.Body)
+		db.InsertMonitor(input.Body.ToModel())
 		return nil, nil
 	}
 }
@@ -61,7 +62,11 @@ func Unmonitor() func(context.Context, *UnmonitorInput) (*struct{}, error) {
 func BulkAddMonitor() func(context.Context, *BulkAddMonitorInput) (*struct{}, error) {
 	return func(ctx context.Context, input *BulkAddMonitorInput) (*struct{}, error) {
 		slog.Info("BulkAddMonitor called", "items", len(input.Body))
-		db.InsertMonitorsBulk(input.Body)
+		monitors := make([]models.Monitor, len(input.Body))
+		for i, m := range input.Body {
+			monitors[i] = m.ToModel()
+		}
+		db.InsertMonitorsBulk(monitors)
 		return nil, nil
 	}
 }
