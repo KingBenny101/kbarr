@@ -36,6 +36,11 @@ services:
         condition: service_healthy
     volumes:
       - ${DATA_DIR_HOST:-./data}:/app/data
+      # Shared media library. Holds both downloads (/library/downloads) and the
+      # organised, hardlinked media (/library/media). They must share one mount
+      # (one filesystem) so hardlinks work. qBittorrent must be configured to save
+      # into the host folder that maps to /library/downloads — i.e.
+      # ${LIBRARY_DIR_HOST:-./data/library}/downloads on the host.
       - ${LIBRARY_DIR_HOST:-./data/library}:/library
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:${PORT:-8282}/api/health || exit 1"]
@@ -103,6 +108,10 @@ services:
       core:
         condition: service_healthy
     volumes:
+      # Same shared library mount as core. The downloader hardlinks completed
+      # torrents from /library/downloads into /library/media; both live here so
+      # they are on one filesystem. qBittorrent's save path must resolve to
+      # ${LIBRARY_DIR_HOST:-./data/library}/downloads on the host.
       - ${LIBRARY_DIR_HOST:-./data/library}:/library
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]

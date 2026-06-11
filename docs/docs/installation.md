@@ -20,10 +20,25 @@ Edit `.env` with your values:
 | Variable | Description |
 |---|---|
 | `DATA_DIR_HOST` | Host path where images and AniDB cache are stored |
+| `LIBRARY_DIR_HOST` | Host path for the shared media library, mounted at `/library`. Holds `downloads/` (where qBittorrent saves) and `media/` (where kbarr writes hardlinks) |
 | `POSTGRES_USER` | Postgres username |
 | `POSTGRES_PASSWORD` | Postgres password |
 | `POSTGRES_DB` | Postgres database name |
 | `PORT` | Host port kbarr is exposed on (default: `8282`) |
+
+### Connect qBittorrent
+
+kbarr does not run qBittorrent — point it at your existing instance under
+**Settings → Downloader**, and make sure its **save path** lands inside the shared
+library so kbarr can hardlink finished torrents:
+
+- qBittorrent must save downloads to the host folder `LIBRARY_DIR_HOST/downloads`
+  (this maps to `/library/downloads`, kbarr's default **Download path**).
+- kbarr writes organised hardlinks to `/library/media` (default **Media path**).
+- Both live under the single `/library` mount **on purpose**: hardlinks only work
+  when source and destination are on the same filesystem. If you change these
+  paths, keep them under one shared mount or kbarr will fail to link completed
+  downloads.
 
 Then start:
 
