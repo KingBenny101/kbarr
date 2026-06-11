@@ -3,6 +3,8 @@ package qbittorrent
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +19,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/config"
 	dlprovider "github.com/kingbenny101/kbarr/internal/downloader/provider"
 	"github.com/uptrace/bun"
+	"github.com/zeebo/bencode"
 )
 
 func init() {
@@ -81,6 +84,11 @@ func (c *QBittorrentClient) AddTorrent(ctx context.Context, torrentURL string) (
 		writer = multipart.NewWriter(&buf)
 	)
 
+	// uploadedHash holds the infohash computed locally from an uploaded .torrent
+	// file. qBittorrent's /torrents/add returns only "Ok." with no id, so without
+	// this the caller cannot identify which torrent was just added.
+	var uploadedHash string
+
 	effectiveURL := torrentURL
 	if !strings.HasPrefix(torrentURL, "magnet:") {
 		magnetURL, torrentBytes, err := c.resolveURL(ctx, torrentURL)
@@ -98,6 +106,11 @@ func (c *QBittorrentClient) AddTorrent(ctx context.Context, torrentURL string) (
 				return "", err
 			}
 			effectiveURL = ""
+			if h, err := infohashFromTorrent(torrentBytes); err != nil {
+				slog.Warn("could not compute infohash from .torrent file", "error", err)
+			} else {
+				uploadedHash = h
+			}
 		}
 	}
 
@@ -147,7 +160,32 @@ func (c *QBittorrentClient) AddTorrent(ctx context.Context, torrentURL string) (
 		return jsonResp.AddedIDs[0], nil
 	}
 
+	// Resolution order for the just-added torrent's infohash:
+	//   1. an uploaded .torrent file we hashed locally,
+	//   2. the btih hash embedded in a magnet link.
+	// Both are exact; neither relies on guessing from the client's torrent list.
+	if uploadedHash != "" {
+		return uploadedHash, nil
+	}
 	return extractMagnetHash(torrentURL), nil
+}
+
+// infohashFromTorrent computes the v1 BitTorrent infohash (hex) of a .torrent
+// file: the SHA-1 of the bencoded "info" dictionary. It hashes the dictionary's
+// original raw bytes (via bencode.RawMessage) rather than a re-encode, because
+// re-encoding can reorder keys and produce a different — and wrong — hash.
+func infohashFromTorrent(torrentBytes []byte) (string, error) {
+	var meta struct {
+		Info bencode.RawMessage `bencode:"info"`
+	}
+	if err := bencode.DecodeBytes(torrentBytes, &meta); err != nil {
+		return "", err
+	}
+	if len(meta.Info) == 0 {
+		return "", fmt.Errorf("torrent file has no info dictionary")
+	}
+	sum := sha1.Sum(meta.Info)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func (c *QBittorrentClient) FetchTorrents(ctx context.Context, hash, category string) ([]dlprovider.TorrentInfo, error) {

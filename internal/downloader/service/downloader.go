@@ -163,21 +163,22 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 			continue
 		}
 
-		// Wait briefly then query qBittorrent to resolve the hash (for .torrent uploads)
-		// and the actual torrent name (which determines the subdirectory).
+		// Wait briefly then query qBittorrent to resolve the actual torrent name
+		// (which determines the subdirectory).
 		downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 		var savePath string
 		time.Sleep(2 * time.Second)
-		if items, err := s.client.FetchTorrents(ctx, hash, ""); err == nil && len(items) > 0 {
-			t := items[0]
-			if hash == "" {
-				hash = t.Hash
+		if hash != "" {
+			// We have an exact infohash (magnet btih or one computed from the
+			// uploaded .torrent). Query by it so we only ever read our torrent —
+			// never a stranger's that happens to be first in the list.
+			if items, err := s.client.FetchTorrents(ctx, hash, ""); err == nil && len(items) > 0 && downloadPath != "" {
+				savePath = filepath.Join(downloadPath, items[0].ContentName())
 			}
-			if downloadPath != "" {
-				savePath = filepath.Join(downloadPath, t.ContentName())
-			}
-		} else if hash == "" && entry.TorrentName != nil && *entry.TorrentName != "" {
-			// Fallback: search by name if hash still unknown
+		} else if entry.TorrentName != nil && *entry.TorrentName != "" {
+			// No infohash available: match strictly by name. Never adopt items[0]
+			// from an unfiltered list — that would attach an unrelated torrent and
+			// risk deleting its files later.
 			if items, err := s.client.FetchTorrents(ctx, "", ""); err == nil {
 				for _, t := range items {
 					if t.Name == *entry.TorrentName {
@@ -189,6 +190,14 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 					}
 				}
 			}
+		}
+
+		// Never record an empty/unknown hash: UpdateDownloading would then query
+		// FetchTorrents("") and track an arbitrary items[0]. Leave the entry pending
+		// to retry next poll (qBittorrent dedups the re-add by infohash).
+		if hash == "" {
+			slog.Error("Could not resolve torrent infohash after add — leaving pending to retry", "id", entry.ID, "torrent_name", entry.TorrentName)
+			continue
 		}
 
 		_, err = s.db.NewUpdate().
