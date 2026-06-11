@@ -24,6 +24,14 @@ const (
 	anidbHTTPAPI  = "http://api.anidb.net:9001/httpapi"
 	anidbCDN      = "https://cdn.anidb.net/images/main/"
 	titlesDumpURL = "https://anidb.net/api/anime-titles.xml.gz"
+
+	// minAniDBInterval is the minimum spacing between requests to AniDB. AniDB's
+	// flood protection bans clients that exceed roughly one request per 2s; this
+	// is a fixed floor (not a setting) so it can't be lowered into a ban.
+	minAniDBInterval = 2 * time.Second
+	// aniDBBanCooldown is how long we stop calling AniDB after it reports a ban,
+	// so a ban halts the hammering instead of amplifying it.
+	aniDBBanCooldown = 30 * time.Minute
 )
 
 type AniDBService struct {
@@ -36,6 +44,55 @@ type AniDBService struct {
 
 	alMu       sync.RWMutex
 	animeLists map[uint]ExternalIDs
+
+	// apiMu serializes AniDB requests so the min-interval pacing holds across
+	// concurrent callers; it guards lastCall and bannedUntil.
+	apiMu       sync.Mutex
+	lastCall    time.Time
+	bannedUntil time.Time
+}
+
+// throttle blocks until at least minAniDBInterval has elapsed since the previous
+// AniDB request, serializing all callers. Stamps the call time at request start.
+func (s *AniDBService) throttle() {
+	s.apiMu.Lock()
+	defer s.apiMu.Unlock()
+	if wait := minAniDBInterval - time.Since(s.lastCall); wait > 0 {
+		time.Sleep(wait)
+	}
+	s.lastCall = time.Now()
+}
+
+// banCooldownRemaining returns how long the AniDB ban cooldown still has to run,
+// or 0 if not currently backing off.
+func (s *AniDBService) banCooldownRemaining() time.Duration {
+	s.apiMu.Lock()
+	defer s.apiMu.Unlock()
+	if d := time.Until(s.bannedUntil); d > 0 {
+		return d
+	}
+	return 0
+}
+
+// markBanned starts the ban cooldown.
+func (s *AniDBService) markBanned() {
+	s.apiMu.Lock()
+	s.bannedUntil = time.Now().Add(aniDBBanCooldown)
+	s.apiMu.Unlock()
+}
+
+// anidbErrorBody reports whether an AniDB HTTP API response is an <error>…</error>
+// document (returned with HTTP 200) and, if so, its message. AniDB signals bans
+// and other failures this way rather than via the status code.
+func anidbErrorBody(raw []byte) (string, bool) {
+	var probe struct {
+		XMLName xml.Name `xml:"error"`
+		Msg     string   `xml:",chardata"`
+	}
+	if err := xml.Unmarshal(raw, &probe); err == nil && probe.XMLName.Local == "error" {
+		return strings.TrimSpace(probe.Msg), true
+	}
+	return "", false
 }
 
 func New(db *bun.DB) *AniDBService {
@@ -74,6 +131,12 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error)
 	cacheFile := filepath.Join(DataRootDir(), "metadata", "details", fmt.Sprintf("%d.xml", aid))
 	if details, ok := s.loadCachedAnimeDetails(cacheFile, ttl); ok {
 		return details, nil
+	}
+
+	// Don't touch AniDB while a ban cooldown is active — serving from cache above
+	// is still fine, but a live fetch would only deepen the ban.
+	if d := s.banCooldownRemaining(); d > 0 {
+		return nil, fmt.Errorf("AniDB temporarily unavailable: rate-limit cooldown, ~%s remaining", d.Round(time.Second))
 	}
 
 	details, raw, err := s.fetchAnimeDetails(aid, client, version)
@@ -176,6 +239,7 @@ func (s *AniDBService) downloadTitlesDump(titlesFile, client, version string) er
 	}
 	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", client, version))
 
+	s.throttle()
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download titles dump: %w", err)
@@ -263,6 +327,7 @@ func (s *AniDBService) fetchAnimeDetails(aid uint, client, version string) (*mdm
 	}
 	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", client, version))
 
+	s.throttle()
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to call anidb api: %w", err)
@@ -287,6 +352,16 @@ func (s *AniDBService) fetchAnimeDetails(aid uint, client, version string) (*mdm
 	raw, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read anidb response: %w", err)
+	}
+
+	// AniDB returns errors (including bans) as an <error> document with HTTP 200.
+	// Detect those before attempting to decode them as anime details.
+	if msg, isErr := anidbErrorBody(raw); isErr {
+		if strings.Contains(strings.ToLower(msg), "ban") {
+			s.markBanned()
+			return nil, nil, fmt.Errorf("AniDB has rate-limited or banned this client: %q — backing off for %s", msg, aniDBBanCooldown)
+		}
+		return nil, nil, fmt.Errorf("AniDB API error: %s", msg)
 	}
 
 	var details mdmodels.AnimeDetails
