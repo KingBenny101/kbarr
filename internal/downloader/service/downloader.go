@@ -5,13 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
@@ -40,6 +43,52 @@ func pathBase(p string) string {
 		return p[i+1:]
 	}
 	return p
+}
+
+// linkOrCopy hardlinks src to dst, falling back to a copy only when the two
+// paths live on different filesystems (EXDEV). Hardlinks are impossible across
+// devices — the common Docker case where downloads and media are separate
+// mounts — so a copy is the only way to honour the user's layout. Any other
+// error (permissions, dest exists, disk full) is returned unchanged rather than
+// silently masked by a copy. Returns copied=true when the fallback ran.
+func linkOrCopy(src, dst string) (copied bool, err error) {
+	if err := os.Link(src, dst); err == nil {
+		return false, nil
+	} else if !errors.Is(err, syscall.EXDEV) {
+		return false, err
+	}
+	return true, copyFile(src, dst)
+}
+
+// copyFile copies src to dst by writing a temp file alongside dst and renaming
+// it into place, so a crash mid-copy cannot leave a half-written file that looks
+// like a valid media file to Jellyfin.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	tmp := dst + ".kbarr.tmp"
+	out, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 func (s *DownloaderService) pollInterval() time.Duration {
@@ -385,11 +434,21 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 		episodeHint = mon.EpisodeNumber
 	}
 
-	var walked, hasVideo bool
+	var walked, hasVideo, placed bool
 	if entry.SavePath != nil && *entry.SavePath != "" {
-		walked, hasVideo = s.createHardlinks(ctx, *entry.SavePath, entry.Title, mediaFolder, episodeHint)
+		walked, hasVideo, placed = s.createHardlinks(ctx, *entry.SavePath, entry.Title, mediaFolder, episodeHint)
 	}
-	if walked && hasVideo && mon != nil {
+
+	// Video files were found but none could be placed into the media library
+	// (e.g. media path unwritable, disk full). This is a local/filesystem problem,
+	// not a bad release — do NOT blacklist or mark completed. Leave the entry as
+	// 'downloading' so the next poll retries onComplete once the issue is resolved.
+	if walked && hasVideo && !placed {
+		slog.Error("onComplete: found video files but placed none into media library — check media path permissions and free space; will retry next poll", "id", entry.ID, "save_path", *entry.SavePath)
+		return
+	}
+
+	if walked && hasVideo && placed && mon != nil {
 		s.writeTVShowNFO(ctx, mon.LibraryID, mediaFolder)
 		s.triggerJellyfinScan(ctx, mon.LibraryID)
 	}
@@ -445,7 +504,7 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	}
 }
 
-func (s *DownloaderService) createHardlinks(_ context.Context, savePath string, entryTitle *string, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
+func (s *DownloaderService) createHardlinks(_ context.Context, savePath string, entryTitle *string, mediaFolder string, episodeHint int) (walked, hasVideo, placed bool) {
 	title := ""
 	if entryTitle != nil {
 		title = *entryTitle
@@ -454,7 +513,7 @@ func (s *DownloaderService) createHardlinks(_ context.Context, savePath string, 
 }
 
 // CreateHardlinksForEntry is used by the manual /hardlinks/create endpoint.
-func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int64) (walked, hasVideo bool) {
+func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int64) (walked, hasVideo, placed bool) {
 	var entry models.DownloadQueue
 	if err := s.db.NewSelect().Model(&entry).Where("id = ?", id).Scan(ctx); err != nil {
 		slog.Error("CreateHardlinksForEntry: entry not found", "id", id, "error", err)
@@ -499,8 +558,8 @@ func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int6
 			}
 		}
 	}
-	walked, hasVideo = s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
-	if walked && hasVideo {
+	walked, hasVideo, placed = s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
+	if walked && hasVideo && placed {
 		s.writeTVShowNFO(ctx, libraryID, mediaFolder)
 		s.triggerJellyfinScan(ctx, libraryID)
 	}
@@ -508,7 +567,7 @@ func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int6
 }
 
 // CreateHardlinks is the public entry point used by both onComplete and the manual /hardlinks/create endpoint.
-func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder string, episodeHint int) (walked, hasVideo bool) {
+func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder string, episodeHint int) (walked, hasVideo, placed bool) {
 	mediaPath := strings.TrimRight(config.Get(s.db, "mediaPath", ""), "/")
 	rawExts := config.Get(s.db, "allowedVideoExtensions", ".mkv,.mp4,.avi,.mov,.wmv,.m4v")
 
@@ -663,6 +722,7 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		if dstInfo, err := os.Stat(linkPath); err == nil {
 			srcInfo, _ := os.Stat(path)
 			if srcInfo != nil && os.SameFile(srcInfo, dstInfo) {
+				placed = true
 				slog.Info("createHardlinks: already linked, skipping", "dst", linkPath)
 			} else {
 				slog.Info("createHardlinks: destination exists with different content, skipping", "dst", linkPath)
@@ -670,10 +730,16 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 			return nil
 		}
 
-		if err := os.Link(path, linkPath); err != nil {
-			slog.Warn("createHardlinks: failed", "src", path, "dst", linkPath, "error", err)
+		copied, err := linkOrCopy(path, linkPath)
+		if err != nil {
+			slog.Error("createHardlinks: failed to place file", "src", path, "dst", linkPath, "error", err)
 		} else {
-			slog.Info("createHardlinks: created", "src", path, "dst", linkPath)
+			placed = true
+			if copied {
+				slog.Info("createHardlinks: copied (cross-device, downloads and media are on different filesystems — this uses extra disk space)", "src", path, "dst", linkPath)
+			} else {
+				slog.Info("createHardlinks: created", "src", path, "dst", linkPath)
+			}
 		}
 		return nil
 	})
