@@ -93,6 +93,23 @@ func runMigrations(ctx context.Context) error {
 
 		// media: nsfw flag for user-controlled content hiding in library
 		`ALTER TABLE media ADD COLUMN IF NOT EXISTS is_nsfw BOOLEAN NOT NULL DEFAULT FALSE`,
+
+		// Indexes for the hot poll queries. The three poll loops (indexer, downloader,
+		// availability) scan monitors/download_queue every cycle; without these they do
+		// sequential scans that degrade as the library grows. Every predicate carries
+		// `deleted_at IS NULL`, so these are partial indexes on that to stay small and
+		// match the queries exactly.
+		//
+		// monitors(library_id, is_episode): the many library-scoped lookups (episode
+		// lists, season rollups, the indexer's per-library claim scan).
+		`CREATE INDEX IF NOT EXISTS idx_monitors_library_episode ON monitors (library_id, is_episode) WHERE deleted_at IS NULL`,
+		// monitors(monitored, available, status): the indexer claim and availability
+		// scans that filter on these flags across all libraries.
+		`CREATE INDEX IF NOT EXISTS idx_monitors_claim ON monitors (monitored, available, status) WHERE deleted_at IS NULL`,
+		// download_queue(status): ProcessPending / UpdateDownloading / completed sweeps.
+		`CREATE INDEX IF NOT EXISTS idx_download_queue_status ON download_queue (status) WHERE deleted_at IS NULL`,
+		// download_queue(torrent_hash): per-torrent lookups during progress updates.
+		`CREATE INDEX IF NOT EXISTS idx_download_queue_hash ON download_queue (torrent_hash)`,
 	}
 
 	for _, stmt := range stmts {
