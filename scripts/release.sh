@@ -23,6 +23,9 @@ if gh release view "$VERSION" &>/dev/null; then
     gh release delete "$VERSION" --yes
 fi
 
+# Push any unpublished commits first so the tag lands on a reachable commit
+git push origin main
+
 # Push the tag
 git tag "$VERSION"
 git push origin "$VERSION"
