@@ -282,10 +282,19 @@ func (s *IndexerService) queueDownload(ctx context.Context, mon models.Monitor, 
 // ── process monitors ──────────────────────────────────────────────────────────
 
 func (s *IndexerService) processMonitors(ctx context.Context) bool {
+	// Re-search items marked 'missing' (no qualifying torrent found earlier) once
+	// the configured retry interval has elapsed, so temporarily-unavailable
+	// releases (no seeders, not yet aired) are picked up later.
+	missingRetryMin := config.GetMinutes(s.db, "missingRetryInterval", 1440*time.Minute, time.Minute).Minutes()
+
 	var monitors []models.Monitor
 	err := s.db.NewSelect().
 		Model(&monitors).
-		Where("monitored = true AND available = false AND (status = 'pending' OR (status = 'searching' AND updated_at < now() - interval '10 minutes')) AND deleted_at IS NULL").
+		Where("monitored = true AND available = false AND ("+
+			"status = 'pending' "+
+			"OR (status = 'searching' AND updated_at < now() - interval '10 minutes') "+
+			"OR (status = 'missing' AND updated_at < now() - (interval '1 minute' * ?))"+
+			") AND deleted_at IS NULL", missingRetryMin).
 		OrderExpr("is_season DESC").
 		Limit(1).
 		Scan(ctx)
@@ -307,7 +316,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	res, err := s.db.NewUpdate().
 		Model((*models.Monitor)(nil)).
 		Set("status = 'searching', updated_at = now()").
-		Where("id = ? AND (status = 'pending' OR status = 'searching')", mon.ID).
+		Where("id = ? AND status IN ('pending', 'searching', 'missing')", mon.ID).
 		Exec(ctx)
 	if err != nil {
 		slog.Error("Failed to claim monitor", "id", mon.ID, "error", err)

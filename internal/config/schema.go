@@ -51,6 +51,7 @@ var Schema = []SettingDef{
 	{Key: "cacheFileLimit", Type: TypeInt, Default: "10", Label: "Cache file limit", Description: "Maximum files kept in each cache/debug folder. Oldest deleted first.", Group: "indexer", Section: "Indexer"},
 	{Key: "preferredQuality", Type: TypeSelect, Default: "1080p", Label: "Preferred quality", Description: "Torrent results matching this quality score higher.", Group: "indexer", Section: "Indexer", Options: []string{"4K", "1080p", "720p", "480p", "any"}},
 	{Key: "minSeeders", Type: TypeInt, Default: "1", Label: "Minimum seeders", Description: "Torrents with fewer seeders than this are ignored.", Group: "indexer", Section: "Indexer"},
+	{Key: "missingRetryInterval", Type: TypeInt, Default: "1440", Label: "Missing retry interval", Description: "How long to wait before re-searching an item marked missing (no qualifying torrent found). Default 1440 = 1 day.", Group: "indexer", Section: "Indexer", Unit: "min"},
 	{Key: "kbdexUrl", Type: TypeString, Default: "http://host.docker.internal:8000", Label: "URL", Group: "indexer", Section: "kbdex"},
 	{Key: "prowlarrUrl", Type: TypeString, Default: "http://host.docker.internal:9696", Label: "URL", Group: "indexer", Section: "Prowlarr"},
 	{Key: "prowlarrApiKey", Type: TypePassword, Default: "error", Label: "API key", Group: "indexer", Section: "Prowlarr"},
