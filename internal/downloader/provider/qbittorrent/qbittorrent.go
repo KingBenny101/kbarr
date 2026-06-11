@@ -236,6 +236,54 @@ func (c *QBittorrentClient) DeleteTorrent(ctx context.Context, hash string, dele
 	return nil
 }
 
+// DefaultSavePath returns qBittorrent's configured default save directory.
+func (c *QBittorrentClient) DefaultSavePath(ctx context.Context) (string, error) {
+	qbtURL, _, _ := c.qbtConfig()
+	if qbtURL == "" {
+		return "", fmt.Errorf("qBittorrent URL is not configured")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, qbtURL+"/api/v2/app/defaultSavePath", nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := c.qbtClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("qBittorrent returned %s", resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(body)), nil
+}
+
+// SetLocation moves a torrent's files to the given save directory.
+func (c *QBittorrentClient) SetLocation(ctx context.Context, hash, location string) error {
+	qbtURL, _, _ := c.qbtConfig()
+	if qbtURL == "" {
+		return fmt.Errorf("qBittorrent URL is not configured")
+	}
+	form := url.Values{"hashes": {hash}, "location": {location}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, qbtURL+"/api/v2/torrents/setLocation", strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.qbtClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("qBittorrent returned %s", resp.Status)
+	}
+	return nil
+}
+
 // resolveURL fetches an HTTP URL. If the server redirects to a magnet link,
 // it returns (magnetURL, nil, nil). Otherwise it returns ("", bytes, nil).
 func (c *QBittorrentClient) resolveURL(ctx context.Context, torrentURL string) (magnetURL string, torrentBytes []byte, err error) {

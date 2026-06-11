@@ -91,6 +91,13 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 
 		hash, err := s.client.AddTorrent(ctx, *entry.TorrentURL)
 		if err != nil {
+			// The add may have failed because qBittorrent already has this torrent
+			// (duplicate infohash). If so, adopt the existing torrent rather than
+			// blacklisting a release that is already present.
+			if existing := s.findExistingTorrent(ctx, entry); existing != nil {
+				s.adoptExistingTorrent(ctx, entry, *existing)
+				continue
+			}
 			slog.Error("Failed to add torrent — blacklisting and re-queuing", "id", entry.ID, "error", err)
 			s.blacklistTorrent(ctx, entry)
 			s.db.NewUpdate().Model((*models.DownloadQueue)(nil)).
@@ -153,6 +160,94 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 
 		slog.Info("Torrent added", "id", entry.ID, "hash", hash, "save_path", savePath)
 	}
+}
+
+// findExistingTorrent returns the torrent already present in the download client
+// that corresponds to this queue entry, or nil. It is used to detect duplicate
+// adds (same infohash already loaded) so the release can be adopted rather than
+// blacklisted. Matching is by torrent name, and by infohash when the entry is a
+// magnet link.
+func (s *DownloaderService) findExistingTorrent(ctx context.Context, entry models.DownloadQueue) *dlprovider.TorrentInfo {
+	items, err := s.client.FetchTorrents(ctx, "", "")
+	if err != nil {
+		return nil
+	}
+	var wantHash string
+	if entry.TorrentURL != nil && strings.HasPrefix(*entry.TorrentURL, "magnet:") {
+		wantHash = strings.ToLower(magnetHash(*entry.TorrentURL))
+	}
+	wantName := ""
+	if entry.TorrentName != nil {
+		wantName = *entry.TorrentName
+	}
+	for i := range items {
+		t := items[i]
+		if wantHash != "" && strings.ToLower(t.Hash) == wantHash {
+			return &t
+		}
+		if wantName != "" && t.Name == wantName {
+			return &t
+		}
+	}
+	return nil
+}
+
+// adoptExistingTorrent wires a torrent already present in the download client
+// into this queue entry instead of blacklisting it. If the client has the
+// torrent saved outside its default directory, it is moved back to the default
+// (which the operator maps to downloadPath) so kbarr's path assumptions hold.
+func (s *DownloaderService) adoptExistingTorrent(ctx context.Context, entry models.DownloadQueue, t dlprovider.TorrentInfo) {
+	if def, err := s.client.DefaultSavePath(ctx); err == nil && def != "" && normPath(t.SavePath) != normPath(def) {
+		if err := s.client.SetLocation(ctx, t.Hash, def); err != nil {
+			slog.Warn("adopt: failed to move torrent to default save path", "id", entry.ID, "hash", t.Hash, "error", err)
+		} else {
+			slog.Info("adopt: moving torrent to default save path", "id", entry.ID, "hash", t.Hash, "location", def)
+		}
+	}
+
+	downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
+	var savePath string
+	if downloadPath != "" {
+		savePath = filepath.Join(downloadPath, t.ContentName())
+	}
+
+	if _, err := s.db.NewUpdate().
+		Model((*models.DownloadQueue)(nil)).
+		Set("status = 'downloading', torrent_hash = ?, save_path = ?, progress_updated_at = now(), updated_at = now()", t.Hash, savePath).
+		Where("id = ?", entry.ID).
+		Exec(ctx); err != nil {
+		slog.Error("adopt: failed to update download queue", "id", entry.ID, "error", err)
+		return
+	}
+
+	if entry.MonitorID != nil {
+		s.db.NewUpdate().
+			Model((*models.Monitor)(nil)).
+			Set("status = 'downloading', updated_at = now()").
+			Where("id = ?", *entry.MonitorID).
+			Exec(ctx)
+	}
+
+	slog.Info("adopted existing torrent", "id", entry.ID, "hash", t.Hash, "save_path", savePath)
+}
+
+// normPath normalises a path for comparison: forward slashes, no trailing slash.
+func normPath(p string) string {
+	return strings.TrimRight(strings.ReplaceAll(p, "\\", "/"), "/")
+}
+
+// magnetHash extracts the btih infohash from a magnet link, or "" if absent.
+func magnetHash(magnetURL string) string {
+	const marker = "xt=urn:btih:"
+	i := strings.Index(magnetURL, marker)
+	if i < 0 {
+		return ""
+	}
+	rest := magnetURL[i+len(marker):]
+	if amp := strings.IndexByte(rest, '&'); amp >= 0 {
+		rest = rest[:amp]
+	}
+	return rest
 }
 
 func (s *DownloaderService) UpdateDownloading(ctx context.Context) {

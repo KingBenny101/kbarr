@@ -57,6 +57,11 @@ type TorrentClient interface {
 	AddTorrent(ctx context.Context, torrentURL string) (hash string, err error)
 	FetchTorrents(ctx context.Context, hash, category string) ([]TorrentInfo, error)
 	DeleteTorrent(ctx context.Context, hash string, deleteFiles bool) error
+	// DefaultSavePath returns the download client's own default save directory,
+	// expressed in the client's path namespace.
+	DefaultSavePath(ctx context.Context) (string, error)
+	// SetLocation moves a torrent's files to the given location (client namespace).
+	SetLocation(ctx context.Context, hash, location string) error
 }
 
 type factory func(db *bun.DB) TorrentClient
