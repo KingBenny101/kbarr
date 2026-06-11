@@ -32,6 +32,10 @@ type Prowlarr struct {
 
 func (p *Prowlarr) Name() string { return "prowlarr" }
 
+// Prematched is false: Prowlarr does keyword search, so results must still be
+// title-matched against the monitor.
+func (p *Prowlarr) Prematched() bool { return false }
+
 func (p *Prowlarr) IsEnabled(db *bun.DB) bool {
 	return iprovider.IndexerEnabled(db, "prowlarr")
 }

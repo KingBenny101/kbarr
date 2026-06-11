@@ -30,6 +30,10 @@ type Kbdex struct {
 
 func (k *Kbdex) Name() string { return "kbdex" }
 
+// Prematched is true: kbdex resolves the anime server-side by AniDB id, so its
+// results are already the correct title and only need season/episode selection.
+func (k *Kbdex) Prematched() bool { return true }
+
 func (k *Kbdex) IsEnabled(db *bun.DB) bool {
 	return iprovider.IndexerEnabled(db, "kbdex")
 }

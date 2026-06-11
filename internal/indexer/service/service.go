@@ -195,15 +195,6 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 			slog.Debug("Skipping torrent below minimum seeders", "torrent", results[i].Title, "seeds", results[i].Seeds, "min", minSeeders)
 			continue
 		}
-		filename := results[i].FileName
-		if filename == "" {
-			filename = results[i].Title
-		}
-		g := parseFilename(filename)
-		rank := qualityRank(g.ScreenSize)
-		if rank > cap {
-			continue
-		}
 		candidates = append(candidates, results[i])
 	}
 
@@ -211,19 +202,29 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 		return nil
 	}
 
+	rankOf := func(r models.TorrentResult) int {
+		fn := r.FileName
+		if fn == "" {
+			fn = r.Title
+		}
+		return qualityRank(parseFilename(fn).ScreenSize)
+	}
+
+	// preferredQuality is a preference, not a hard ceiling. Releases at or below the
+	// cap are chosen first (best quality within budget); only when none exist do we
+	// fall back to the closest release above the cap, so a show with only
+	// higher-than-preferred releases still downloads instead of being stuck missing.
 	sort.Slice(candidates, func(i, j int) bool {
-		fi := candidates[i].FileName
-		if fi == "" {
-			fi = candidates[i].Title
+		ri, rj := rankOf(candidates[i]), rankOf(candidates[j])
+		wi, wj := ri <= cap, rj <= cap
+		if wi != wj {
+			return wi // within-cap sorts ahead of above-cap
 		}
-		fj := candidates[j].FileName
-		if fj == "" {
-			fj = candidates[j].Title
-		}
-		ri := qualityRank(parseFilename(fi).ScreenSize)
-		rj := qualityRank(parseFilename(fj).ScreenSize)
 		if ri != rj {
-			return ri > rj
+			if wi {
+				return ri > rj // within cap: higher quality is better
+			}
+			return ri < rj // above cap: closer to the cap is better
 		}
 		return candidates[i].Seeds > candidates[j].Seeds
 	})
@@ -421,7 +422,7 @@ func (s *IndexerService) runSearch(ctx context.Context, mon models.Monitor, req 
 		slog.Info("Provider search complete", "provider", p.Name(), "monitor_id", mon.ID, "results", len(results))
 		allResults = append(allResults, results...)
 
-		matchLog := buildMatchLog(results, req.AllTitles(), req.Threshold, int(req.Season), ep, req.EpisodeCount)
+		matchLog := buildMatchLog(results, req.AllTitles(), req.Threshold, int(req.Season), ep, req.EpisodeCount, p.Prematched())
 		debugKey := fmt.Sprintf("%s_%s_s%d_e%d", p.Name(), req.Title, req.Season, req.EpisodeNumber)
 		saveMatchingDebug(debugKey, matchLog, limit)
 
@@ -482,7 +483,7 @@ func effectiveSeason(mon models.Monitor, title string) int64 {
 }
 
 // buildMatchLog evaluates every result with anitogo+similarity, marks passing ones.
-func buildMatchLog(results []models.TorrentResult, titles []string, threshold float64, season, episode, episodeCount int) []MatchEntry {
+func buildMatchLog(results []models.TorrentResult, titles []string, threshold float64, season, episode, episodeCount int, prematched bool) []MatchEntry {
 	expandedTitles := expandWithStrippedSeasons(titles)
 	entries := make([]MatchEntry, 0, len(results))
 	for _, r := range results {
@@ -504,7 +505,7 @@ func buildMatchLog(results []models.TorrentResult, titles []string, threshold fl
 		if effectiveSeason == 0 {
 			effectiveSeason = 1
 		}
-		if sim < threshold {
+		if !prematched && sim < threshold {
 			e.Reason = fmt.Sprintf("similarity %.0f%% < threshold %.0f%%", sim, threshold)
 		} else if effectiveSeason != season {
 			e.Reason = fmt.Sprintf("season %d != %d", effectiveSeason, season)

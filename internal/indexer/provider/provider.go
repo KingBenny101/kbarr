@@ -41,6 +41,11 @@ type Provider interface {
 	Name() string
 	IsEnabled(db *bun.DB) bool
 	Search(ctx context.Context, db *bun.DB, req SearchRequest) ([]models.TorrentResult, error)
+	// Prematched reports whether the provider resolves matches server-side (e.g.
+	// kbdex by AniDB id) so its results are already known to be the right anime.
+	// The service skips the title-similarity gate for such providers, since their
+	// release titles often differ from the monitor title (romaji / alt names).
+	Prematched() bool
 }
 
 // IndexerEnabled reports whether the named provider should be searched. It reads
@@ -105,6 +110,12 @@ func CacheTTL(db *bun.DB) time.Duration {
 	return time.Duration(raw) * time.Second
 }
 
+// emptyCacheTTL bounds how long an empty (0-result) search is served from cache.
+// A transient empty response (indexer momentarily down, release not yet seeded)
+// must not suppress retries for the full TTL, or a release appearing minutes later
+// goes unnoticed for up to an hour.
+const emptyCacheTTL = 5 * time.Minute
+
 // EnforceFileLimit deletes the oldest files in dir until fewer than limit remain.
 func EnforceFileLimit(dir string, limit int) {
 	if limit <= 0 {
@@ -145,15 +156,21 @@ func CacheLoad(db *bun.DB, dir, query string) ([]models.TorrentResult, bool) {
 	if err != nil {
 		return nil, false
 	}
-	if time.Since(info.ModTime()) > CacheTTL(db) {
-		return nil, false
-	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, false
 	}
 	var results []models.TorrentResult
 	if err := json.Unmarshal(data, &results); err != nil {
+		return nil, false
+	}
+	// Empty result sets expire much faster than populated ones so transient
+	// emptiness doesn't suppress retries for the whole TTL.
+	ttl := CacheTTL(db)
+	if len(results) == 0 && emptyCacheTTL < ttl {
+		ttl = emptyCacheTTL
+	}
+	if time.Since(info.ModTime()) > ttl {
 		return nil, false
 	}
 	slog.Debug("Cache hit", "dir", filepath.Base(dir), "query", query)
