@@ -9,13 +9,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
-	"github.com/adrg/strutil/metrics"
 	"github.com/kingbenny101/kbarr/internal/config"
 	iprovider "github.com/kingbenny101/kbarr/internal/indexer/provider"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/parser"
+	"github.com/kingbenny101/kbarr/internal/textmatch"
 	"github.com/uptrace/bun"
 )
 
@@ -35,81 +34,11 @@ func parseFilename(filename string) parser.ParseResult {
 
 // ── title helpers ─────────────────────────────────────────────────────────────
 
-func normalizeTitle(s string) string {
-	s = strings.ToLower(s)
-	var b strings.Builder
-	prevSpace := true
-	for _, r := range s {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			b.WriteRune(r)
-			prevSpace = false
-		} else if !prevSpace {
-			b.WriteRune(' ')
-			prevSpace = true
-		}
-	}
-	return strings.TrimSpace(b.String())
-}
-
-var bigramDice = func() *metrics.SorensenDice {
-	m := metrics.NewSorensenDice()
-	m.NgramSize = 2
-	return m
-}()
-
-// titleSimilarity returns a 0–100 similarity between two titles after normalisation.
-func titleSimilarity(a, b string) float64 {
-	na, nb := normalizeTitle(a), normalizeTitle(b)
-	if na == "" || nb == "" {
-		return 0
-	}
-	if na == nb {
-		return 100
-	}
-
-	tA, tB := strings.Fields(na), strings.Fields(nb)
-	freq := map[string]int{}
-	for _, t := range tA {
-		freq[t]++
-	}
-	inter := 0
-	for _, t := range tB {
-		if freq[t] > 0 {
-			inter++
-			freq[t]--
-		}
-	}
-	minLen, maxLen := len(tA), len(tB)
-	if minLen > maxLen {
-		minLen, maxLen = maxLen, minLen
-	}
-
-	diceScore := float64(2*inter) / float64(len(tA)+len(tB)) * 100
-
-	overlapScore := diceScore
-	if float64(minLen)/float64(maxLen) >= 0.6 {
-		overlapScore = float64(inter) / float64(minLen) * 100
-	}
-
-	sa := strings.ReplaceAll(na, " ", "")
-	sb := strings.ReplaceAll(nb, " ", "")
-	charScore := bigramDice.Compare(sa, sb) * 100
-
-	best := diceScore
-	if overlapScore > best {
-		best = overlapScore
-	}
-	if charScore > best {
-		best = charScore
-	}
-	return best
-}
-
 // bestTitleSimilarity returns the highest similarity between guessedTitle and any candidate.
 func bestTitleSimilarity(guessedTitle string, candidates []string) float64 {
 	best := 0.0
 	for _, c := range candidates {
-		if s := titleSimilarity(guessedTitle, c); s > best {
+		if s := textmatch.Similarity(guessedTitle, c); s > best {
 			best = s
 		}
 	}
@@ -121,7 +50,7 @@ func bestTitleSimilarity(guessedTitle string, candidates []string) float64 {
 // getSearchTitles returns the main title followed by deduplicated alternate titles.
 func (s *IndexerService) getSearchTitles(ctx context.Context, libraryID int64, mainTitle string) []string {
 	titles := []string{mainTitle}
-	seen := map[string]bool{normalizeTitle(mainTitle): true}
+	seen := map[string]bool{textmatch.Normalize(mainTitle): true}
 
 	var det models.Detailed
 	if err := s.db.NewSelect().Model(&det).
@@ -135,7 +64,7 @@ func (s *IndexerService) getSearchTitles(ctx context.Context, libraryID int64, m
 		if t == "" {
 			continue
 		}
-		key := normalizeTitle(t)
+		key := textmatch.Normalize(t)
 		if !seen[key] {
 			seen[key] = true
 			titles = append(titles, t)
