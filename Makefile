@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: db db-down dev dev-down run up down up-local down-local build-web gen-spec release
+.PHONY: db db-down dev dev-down prod-up prod-down local local-down gen-spec release
 
 # Start Postgres + pgadmin (for local dev, port 5432 exposed)
 db:
@@ -16,32 +16,24 @@ dev:
 dev-down:
 	overmind quit
 
-# Run a single service: make run s=core
-run:
-	set -a && source dev.env && set +a && overmind start -l $(s)
-
 # Production stack (uses pre-built images from ghcr.io)
-up:
+prod-up:
 	docker compose up -d
 
-down:
-	docker compose down -v
+prod-down:
+	docker compose down
 
 # Production stack built locally (no ghcr pull required)
-up-local:
+local:
 	docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 
-down-local:
+local-down:
 	docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
 
 # Generate OpenAPI spec into VitePress public dir
 gen-spec:
 	go run ./cmd/genspec > docs/openapi.json
 
-# Build and release
-build-web:
-	cd web && npm ci && npm run build
-	cp -r web/dist/. internal/core/api/frontend/
-
+# Release
 release:
 	./scripts/release.sh
