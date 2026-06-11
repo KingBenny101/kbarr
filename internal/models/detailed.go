@@ -35,5 +35,5 @@ type Detailed struct {
 	IMDBID          string    `bun:"imdb_id" json:"imdb_id"`
 	TMDBID          string    `bun:"tmdb_id" json:"tmdb_id"`
 	Episodes        []Episode `bun:"rel:has-many,join:id=detailed_id" json:"episodes"`
-	IsNSFW          bool      `json:"-" bun:"-"` // set from media, not stored in detaileds table
+	IsNSFW          bool      `json:"is_nsfw" bun:"-"` // set from media, not stored in detaileds table
 }

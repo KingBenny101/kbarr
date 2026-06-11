@@ -140,6 +140,7 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 	metadata.AniListID = ids.AniList
 	metadata.IMDBID = ids.IMDB
 	metadata.TMDBID = ids.TMDB
+	metadata.IsNSFW = details.Restricted == "true"
 
 	if details.Picture != "" {
 		metadata.PosterURL = "/api/images/" + details.Picture

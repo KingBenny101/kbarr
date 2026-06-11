@@ -46,6 +46,7 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 		if prepared.PosterURL != "" {
 			media.PosterURL = prepared.PosterURL
 		}
+		media.IsNSFW = prepared.IsNSFW
 		media.MediaFolder = naming.SanitizeFilename(media.Title)
 		if media.MediaFolder == "" {
 			media.MediaFolder = media.SourceID
