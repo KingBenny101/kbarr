@@ -48,3 +48,6 @@ Thumbs.db
 *.temp
 tmp/
 .overmind.sock
+
+# Bug audit working notes (local only)
+bugs/
