@@ -40,8 +40,8 @@ var Schema = []SettingDef{
 	{Key: "devMode", Type: TypeBool, Default: "false", Label: "Dev mode", Description: "Enables test torrent insertion on the Download Queue page.", Group: "general", Section: "Developer options"},
 
 	// ── Metadata ─────────────────────────────────────────────────────────
-	{Key: "anidbClient", Type: TypeString, Default: "error", Label: "Client name", Group: "metadata", Section: "AniDB"},
-	{Key: "anidbVersion", Type: TypeString, Default: "error", Label: "Client version", Group: "metadata", Section: "AniDB"},
+	{Key: "anidbClient", Type: TypeString, Default: "kbarr", Label: "Client name", Group: "metadata", Section: "AniDB"},
+	{Key: "anidbVersion", Type: TypeString, Default: "1", Label: "Client version", Group: "metadata", Section: "AniDB"},
 	{Key: "anidbSyncInterval", Type: TypeInt, Default: "1440", Label: "Sync interval", Description: "Minutes between AniDB title dump refreshes.", Group: "metadata", Section: "AniDB", Unit: "min"},
 
 	// ── Indexer ──────────────────────────────────────────────────────────
