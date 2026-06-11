@@ -45,14 +45,15 @@ var Schema = []SettingDef{
 	{Key: "anidbSyncInterval", Type: TypeInt, Default: "1440", Label: "Sync interval", Description: "Minutes between AniDB title dump refreshes.", Group: "metadata", Section: "AniDB", Unit: "min"},
 
 	// ── Indexer ──────────────────────────────────────────────────────────
-	{Key: "indexerProvider", Type: TypeSelect, Default: "kbdex", Label: "Search provider", Group: "indexer", Section: "Indexer", Options: []string{"kbdex", "prowlarr"}, Widget: "segmented"},
 	{Key: "prowlarrInterval", Type: TypeInt, Default: "10", Label: "Scan interval", Description: "How often the monitor table is polled for new items to search.", Group: "indexer", Section: "Indexer", Unit: "sec"},
 	{Key: "matchThreshold", Type: TypeInt, Default: "80", Label: "Title match threshold", Description: "Minimum similarity (0–100) between the guessit-parsed torrent title and the anime title. Lower = more permissive.", Group: "indexer", Section: "Indexer", Unit: "%"},
 	{Key: "cacheFileLimit", Type: TypeInt, Default: "10", Label: "Cache file limit", Description: "Maximum files kept in each cache/debug folder. Oldest deleted first.", Group: "indexer", Section: "Indexer"},
 	{Key: "preferredQuality", Type: TypeSelect, Default: "1080p", Label: "Preferred quality", Description: "Torrent results matching this quality score higher.", Group: "indexer", Section: "Indexer", Options: []string{"4K", "1080p", "720p", "480p", "any"}},
 	{Key: "minSeeders", Type: TypeInt, Default: "1", Label: "Minimum seeders", Description: "Torrents with fewer seeders than this are ignored.", Group: "indexer", Section: "Indexer"},
 	{Key: "missingRetryInterval", Type: TypeInt, Default: "1440", Label: "Missing retry interval", Description: "How long to wait before re-searching an item marked missing (no qualifying torrent found). Default 1440 = 1 day.", Group: "indexer", Section: "Indexer", Unit: "min"},
+	{Key: "kbdexEnabled", Type: TypeBool, Default: "true", Label: "Enabled", Description: "Search this indexer when looking for releases. Multiple indexers can be enabled at once; results are merged.", Group: "indexer", Section: "kbdex"},
 	{Key: "kbdexUrl", Type: TypeString, Default: "http://host.docker.internal:8000", Label: "URL", Group: "indexer", Section: "kbdex"},
+	{Key: "prowlarrEnabled", Type: TypeBool, Default: "false", Label: "Enabled", Description: "Search this indexer when looking for releases. Multiple indexers can be enabled at once; results are merged.", Group: "indexer", Section: "Prowlarr"},
 	{Key: "prowlarrUrl", Type: TypeString, Default: "http://host.docker.internal:9696", Label: "URL", Group: "indexer", Section: "Prowlarr"},
 	{Key: "prowlarrApiKey", Type: TypePassword, Default: "error", Label: "API key", Group: "indexer", Section: "Prowlarr"},
 	{Key: "prowlarrCacheAge", Type: TypeInt, Default: "3600", Label: "Result cache age", Description: "How long Prowlarr search results are cached on disk before re-querying. Set to 0 to disable.", Group: "indexer", Section: "Prowlarr", Unit: "sec"},

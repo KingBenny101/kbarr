@@ -31,7 +31,7 @@ type Kbdex struct {
 func (k *Kbdex) Name() string { return "kbdex" }
 
 func (k *Kbdex) IsEnabled(db *bun.DB) bool {
-	return config.Get(db, "indexerProvider", "prowlarr") == "kbdex"
+	return iprovider.IndexerEnabled(db, "kbdex")
 }
 
 type kbdexTorrentResult struct {

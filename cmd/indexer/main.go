@@ -99,14 +99,7 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Connected to kbdex"})
 	}
 
-	mux.HandleFunc("POST /test", func(w http.ResponseWriter, r *http.Request) {
-		provider := config.Get(db.DB, "indexerProvider", "prowlarr")
-		if provider == "kbdex" {
-			testKbdex(w, r)
-		} else {
-			testProwlarr(w, r)
-		}
-	})
+	mux.HandleFunc("POST /test/prowlarr", testProwlarr)
 	mux.HandleFunc("POST /test/kbdex", testKbdex)
 	go func() {
 		slog.Info("Health endpoint listening", "port", "8082")

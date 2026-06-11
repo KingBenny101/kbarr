@@ -29,7 +29,7 @@ func TestKbdex(indexerAddr string) func(context.Context, *struct{}) (*TestResult
 
 func TestIndexer(indexerAddr string) func(context.Context, *struct{}) (*TestResultOutput, error) {
 	return func(ctx context.Context, _ *struct{}) (*TestResultOutput, error) {
-		resp, err := http.Post(indexerAddr+"/test", "application/json", nil)
+		resp, err := http.Post(indexerAddr+"/test/prowlarr", "application/json", nil)
 		if err != nil {
 			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
 		}

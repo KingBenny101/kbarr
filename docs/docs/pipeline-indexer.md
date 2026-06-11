@@ -36,7 +36,7 @@ Mark monitor status = 'searching'
 Build SearchRequest {title, alternate_titles, season, episode, library_id, ...}
       │
       ▼
-GetEnabled(db) → active provider(s) based on indexerProvider setting
+GetEnabled(db) → active providers (each enabled via its kbdexEnabled / prowlarrEnabled toggle; results from all are merged)
       │
       ▼
 Provider.Search(ctx, db, req)   [see provider detail below]

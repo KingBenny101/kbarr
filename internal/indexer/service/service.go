@@ -386,6 +386,17 @@ func (s *IndexerService) runSearch(ctx context.Context, mon models.Monitor, req 
 
 	limit := s.cacheFileLimit()
 
+	ep := int(req.EpisodeNumber)
+	if req.IsSeason {
+		ep = -1
+	}
+
+	// Query every enabled provider and merge their qualifying candidates so the
+	// best release across all indexers is chosen, rather than the first provider
+	// that returns anything.
+	var allResults []models.TorrentResult
+	var candidates []models.TorrentResult
+	seen := map[string]bool{}
 	for _, p := range providers {
 		results, err := p.Search(ctx, s.db, req)
 		if err != nil {
@@ -394,40 +405,42 @@ func (s *IndexerService) runSearch(ctx context.Context, mon models.Monitor, req 
 		}
 
 		slog.Info("Provider search complete", "provider", p.Name(), "monitor_id", mon.ID, "results", len(results))
-		go saveParserDebugForQuery(req.Title, results, limit)
+		allResults = append(allResults, results...)
 
-		ep := int(req.EpisodeNumber)
-		if req.IsSeason {
-			ep = -1
-		}
-		debugKey := fmt.Sprintf("%s_s%d_e%d", req.Title, req.Season, req.EpisodeNumber)
 		matchLog := buildMatchLog(results, req.AllTitles(), req.Threshold, int(req.Season), ep, req.EpisodeCount)
+		debugKey := fmt.Sprintf("%s_%s_s%d_e%d", p.Name(), req.Title, req.Season, req.EpisodeNumber)
 		saveMatchingDebug(debugKey, matchLog, limit)
 
-		var candidates []models.TorrentResult
 		for _, e := range matchLog {
 			if !e.Passed {
 				continue
 			}
 			for i := range results {
 				if results[i].Title == e.TorrentTitle {
-					candidates = append(candidates, results[i])
+					if key := results[i].DownloadURL; key == "" || !seen[key] {
+						if key != "" {
+							seen[key] = true
+						}
+						candidates = append(candidates, results[i])
+					}
 					break
 				}
 			}
 		}
+	}
 
-		if best := s.pickBest(ctx, candidates); best != nil {
-			slog.Info("Selected torrent", "provider", p.Name(), "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
-			if s.queueDownload(ctx, mon, best) && req.IsSeason {
-				s.db.NewUpdate().
-					Model((*models.Monitor)(nil)).
-					Set("status = 'queued', updated_at = now()").
-					Where("library_id = ? AND is_episode = true AND monitored = true AND status = 'pending' AND deleted_at IS NULL", mon.LibraryID).
-					Exec(ctx)
-			}
-			return
+	go saveParserDebugForQuery(req.Title, allResults, limit)
+
+	if best := s.pickBest(ctx, candidates); best != nil {
+		slog.Info("Selected torrent", "provider", best.Indexer, "monitor_id", mon.ID, "torrent", best.Title, "seeds", best.Seeds, "size_mb", best.Size/1024/1024)
+		if s.queueDownload(ctx, mon, best) && req.IsSeason {
+			s.db.NewUpdate().
+				Model((*models.Monitor)(nil)).
+				Set("status = 'queued', updated_at = now()").
+				Where("library_id = ? AND is_episode = true AND monitored = true AND status = 'pending' AND deleted_at IS NULL", mon.LibraryID).
+				Exec(ctx)
 		}
+		return
 	}
 
 	slog.Info("No qualifying torrent found, marking missing", "monitor_id", mon.ID, "title", req.Title)

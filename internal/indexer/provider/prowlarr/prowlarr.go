@@ -33,7 +33,7 @@ type Prowlarr struct {
 func (p *Prowlarr) Name() string { return "prowlarr" }
 
 func (p *Prowlarr) IsEnabled(db *bun.DB) bool {
-	return config.Get(db, "indexerProvider", "prowlarr") == "prowlarr"
+	return iprovider.IndexerEnabled(db, "prowlarr")
 }
 
 // Search builds all applicable query variants, queries Prowlarr for each,

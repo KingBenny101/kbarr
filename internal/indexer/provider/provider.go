@@ -43,6 +43,17 @@ type Provider interface {
 	Search(ctx context.Context, db *bun.DB, req SearchRequest) ([]models.TorrentResult, error)
 }
 
+// IndexerEnabled reports whether the named provider should be searched. It reads
+// the per-provider toggle (<name>Enabled). For installs created before per-provider
+// toggles existed, it falls back to the legacy single-select indexerProvider value
+// when the toggle has never been written.
+func IndexerEnabled(db *bun.DB, name string) bool {
+	if v := config.Get(db, name+"Enabled", ""); v != "" {
+		return v == "true"
+	}
+	return config.Get(db, "indexerProvider", "kbdex") == name
+}
+
 var registry []func() Provider
 
 // Register adds a provider factory to the global registry. Call from init().
