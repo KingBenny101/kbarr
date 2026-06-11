@@ -122,6 +122,12 @@ func (c *QBittorrentClient) AddTorrent(ctx context.Context, torrentURL string) (
 	if err := writer.WriteField("tags", "kbarr"); err != nil {
 		return "", err
 	}
+	// Also assign a dedicated category so kbarr's torrents are visually grouped and
+	// filterable in qBittorrent. We intentionally do not scope FetchTorrents to it:
+	// the duplicate-adopt path must still see torrents the user added manually.
+	if err := writer.WriteField("category", "kbarr"); err != nil {
+		return "", err
+	}
 	if err := writer.Close(); err != nil {
 		return "", err
 	}
@@ -272,7 +278,10 @@ func (c *QBittorrentClient) DeleteTorrent(ctx context.Context, hash string, dele
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("qBittorrent returned %s", resp.Status)
+	}
 	return nil
 }
 

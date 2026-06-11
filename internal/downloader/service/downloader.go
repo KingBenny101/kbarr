@@ -163,11 +163,13 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 			continue
 		}
 
-		// Wait briefly then query qBittorrent to resolve the actual torrent name
-		// (which determines the subdirectory).
+		// Resolve the on-disk subdirectory from qBittorrent. This is best-effort:
+		// the torrent may not be registered in the split-second after add, and the
+		// save path is authoritatively rebuilt from the content path at completion
+		// anyway. We do NOT sleep here — blocking the poll loop 2s per entry would
+		// stall progress/completion handling for every other download.
 		downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
 		var savePath string
-		time.Sleep(2 * time.Second)
 		if hash != "" {
 			// We have an exact infohash (magnet btih or one computed from the
 			// uploaded .torrent). Query by it so we only ever read our torrent —
@@ -194,9 +196,10 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 
 		// Never record an empty/unknown hash: UpdateDownloading would then query
 		// FetchTorrents("") and track an arbitrary items[0]. Leave the entry pending
-		// to retry next poll (qBittorrent dedups the re-add by infohash).
+		// so the next poll retries (qBittorrent dedups the re-add by infohash, and by
+		// then the torrent has registered so a name match can resolve it).
 		if hash == "" {
-			slog.Error("Could not resolve torrent infohash after add — leaving pending to retry", "id", entry.ID, "torrent_name", entry.TorrentName)
+			slog.Warn("Could not resolve torrent infohash yet — leaving pending to retry next poll", "id", entry.ID, "torrent_name", entry.TorrentName)
 			continue
 		}
 
@@ -393,7 +396,9 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 		if stallTimeout > 0 && t.DLSpeed == 0 && entry.ProgressUpdatedAt != nil && time.Since(*entry.ProgressUpdatedAt) > stallTimeout {
 			slog.Warn("Torrent stalled — blacklisting and removing", "id", entry.ID, "hash", *entry.TorrentHash, "stalled_for", time.Since(*entry.ProgressUpdatedAt).Round(time.Second))
 			s.blacklistTorrent(ctx, entry)
-			_ = s.client.DeleteTorrent(ctx, *entry.TorrentHash, true)
+			if err := s.client.DeleteTorrent(ctx, *entry.TorrentHash, true); err != nil {
+				slog.Warn("Failed to remove stalled torrent from qBittorrent — may be orphaned", "id", entry.ID, "hash", *entry.TorrentHash, "error", err)
+			}
 			s.db.NewUpdate().
 				Model((*models.DownloadQueue)(nil)).
 				Set("deleted_at = now(), updated_at = now()").
@@ -470,7 +475,9 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 		s.blacklistTorrent(ctx, entry)
 		if s.client != nil {
 			if err := s.client.Login(ctx); err == nil && entry.TorrentHash != nil {
-				_ = s.client.DeleteTorrent(ctx, *entry.TorrentHash, true)
+				if err := s.client.DeleteTorrent(ctx, *entry.TorrentHash, true); err != nil {
+					slog.Warn("Failed to remove torrent from qBittorrent — may be orphaned", "id", entry.ID, "hash", *entry.TorrentHash, "error", err)
+				}
 			}
 		}
 		s.db.NewUpdate().Model((*models.DownloadQueue)(nil)).
