@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ActionIcon, Button, Card, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconExternalLink, IconSearch } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
@@ -41,6 +41,9 @@ export function SearchPage() {
     const [adding, setAdding] = useState<string | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 9
+    const abortRef = useRef<AbortController | null>(null)
+    const MIN_QUERY_LENGTH = 2
+    const DEBOUNCE_MS = 250
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -60,23 +63,41 @@ export function SearchPage() {
     const totalPages = Math.ceil(medias.length / itemsPerPage)
     const paginatedResults = medias.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
-    const handleSearch = async () => {
-        const trimmedQuery = query.trim()
-        if (!trimmedQuery) return
+    const runSearch = useCallback(async (raw: string) => {
+        const trimmedQuery = raw.trim()
+        // Cancel any request still in flight before starting/clearing.
+        abortRef.current?.abort()
+
+        if (trimmedQuery.length < MIN_QUERY_LENGTH) {
+            setMedias([])
+            setHasSearched(false)
+            setSearching(false)
+            return
+        }
+
+        const controller = new AbortController()
+        abortRef.current = controller
         setCurrentPage(1)
         setSearching(true)
         try {
-            const response = await apiFetch(`${API_URL}/api/search?q=${encodeURIComponent(trimmedQuery)}`)
+            const response = await apiFetch(`${API_URL}/api/search?q=${encodeURIComponent(trimmedQuery)}`, { signal: controller.signal })
             const data = (await response.json()) as Media[]
             setHasSearched(true)
             setLastSearchQuery(trimmedQuery)
             setMedias(data || [])
         } catch (error) {
-            console.error("Search failed:", error)
+            if ((error as Error).name !== "AbortError") console.error("Search failed:", error)
         } finally {
-            setSearching(false)
+            // Only the latest request clears the spinner.
+            if (abortRef.current === controller) setSearching(false)
         }
-    }
+    }, [])
+
+    // Debounced live search as the user types.
+    useEffect(() => {
+        const handle = setTimeout(() => runSearch(query), DEBOUNCE_MS)
+        return () => clearTimeout(handle)
+    }, [query, runSearch])
 
     const handleAdd = async (result: Media) => {
         const key = `${result.source}:${result.source_id}`
@@ -110,20 +131,14 @@ export function SearchPage() {
         <Stack gap="lg">
             <Title order={1}>Search</Title>
 
-            <Group align="end" wrap="nowrap">
-                <TextInput
-                    value={query}
-                    onChange={(event) => setQuery(event.currentTarget.value)}
-                    onKeyDown={(event) => event.key === "Enter" && handleSearch()}
-                    placeholder="Search for anime..."
-                    leftSection={<IconSearch size={18} />}
-                    style={{ flex: 1 }}
-                    size="md"
-                />
-                <Button color="gray" onClick={handleSearch} loading={searching} size="md">
-                    Search
-                </Button>
-            </Group>
+            <TextInput
+                value={query}
+                onChange={(event) => setQuery(event.currentTarget.value)}
+                onKeyDown={(event) => event.key === "Enter" && runSearch(query)}
+                placeholder="Search for anime..."
+                leftSection={<IconSearch size={18} />}
+                size="md"
+            />
 
             {medias.length > 0 ? (
                 <Stack gap="lg">
