@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/uptrace/bun"
+
 	"github.com/kingbenny101/kbarr/internal/models"
 )
 
@@ -17,6 +19,59 @@ func InsertMedia(m models.Media) (int64, error) {
 		return 0, fmt.Errorf("failed to insert media: %w", err)
 	}
 	return int64(m.ID), nil
+}
+
+// AddMediaWithMonitors inserts a media row together with its detailed metadata
+// and episode monitors in a single transaction. If any step fails the whole add
+// rolls back, so the library never contains a half-added show. The new media id
+// is stamped onto detailed and every monitor. Monitors are inserted in one bulk
+// statement (a brand-new library id cannot collide, so no per-row upsert is
+// needed); each is forced to status 'pending' to match InsertMonitor.
+func AddMediaWithMonitors(media models.Media, detailed models.Detailed, monitors []models.Monitor) (int64, error) {
+	if err := ensureDB(); err != nil {
+		return 0, err
+	}
+	ctx := context.Background()
+
+	var id int64
+	err := DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewInsert().Model(&media).Returning("id").Exec(ctx); err != nil {
+			return fmt.Errorf("failed to insert media: %w", err)
+		}
+		id = int64(media.ID)
+
+		detailed.LibraryID = uint(id)
+		if _, err := tx.NewInsert().Model(&detailed).Exec(ctx); err != nil {
+			return fmt.Errorf("failed to insert detailed: %w", err)
+		}
+
+		if len(monitors) > 0 {
+			for i := range monitors {
+				monitors[i].LibraryID = uint(id)
+				monitors[i].Status = "pending"
+			}
+			if _, err := tx.NewInsert().Model(&monitors).Exec(ctx); err != nil {
+				return fmt.Errorf("failed to insert monitors: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// MediaFolderTaken reports whether any existing media row already uses folder.
+func MediaFolderTaken(folder string) (bool, error) {
+	if err := ensureDB(); err != nil {
+		return false, err
+	}
+	count, err := DB.NewSelect().Model((*models.Media)(nil)).
+		Where("media_folder = ?", folder).
+		Where("deleted_at IS NULL").
+		Count(context.Background())
+	return count > 0, err
 }
 
 func DeleteMedia(id string) error {

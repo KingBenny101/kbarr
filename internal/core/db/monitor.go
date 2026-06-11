@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/uptrace/bun"
+
 	"github.com/kingbenny101/kbarr/internal/models"
 )
 
-func InsertMonitor(m models.Monitor) error {
-	if err := ensureDB(); err != nil {
-		return err
-	}
-	ctx := context.Background()
-
-	count, err := DB.NewSelect().Model((*models.Monitor)(nil)).
+// upsertMonitor inserts m, or re-activates an existing matching monitor. It runs
+// against any bun.IDB so callers can share a transaction.
+func upsertMonitor(ctx context.Context, idb bun.IDB, m models.Monitor) error {
+	count, err := idb.NewSelect().Model((*models.Monitor)(nil)).
 		Where("library_id = ?", m.LibraryID).
 		Where("season = ?", m.Season).
 		Where("episode_number = ?", m.EpisodeNumber).
@@ -25,7 +24,7 @@ func InsertMonitor(m models.Monitor) error {
 	}
 
 	if count > 0 {
-		_, err := DB.NewUpdate().Model((*models.Monitor)(nil)).
+		_, err := idb.NewUpdate().Model((*models.Monitor)(nil)).
 			Set("monitored = ?, status = 'pending', updated_at = now()", m.Monitored).
 			Where("library_id = ?", m.LibraryID).
 			Where("season = ?", m.Season).
@@ -37,20 +36,35 @@ func InsertMonitor(m models.Monitor) error {
 	}
 
 	m.Status = "pending"
-	_, err = DB.NewInsert().Model(&m).Exec(ctx)
-	if err != nil {
+	if _, err = idb.NewInsert().Model(&m).Exec(ctx); err != nil {
 		return fmt.Errorf("failed to insert monitor entry: %w", err)
 	}
 	return nil
 }
 
-func InsertMonitorsBulk(ms []models.Monitor) error {
-	for _, m := range ms {
-		if err := InsertMonitor(m); err != nil {
-			return err
-		}
+func InsertMonitor(m models.Monitor) error {
+	if err := ensureDB(); err != nil {
+		return err
 	}
-	return nil
+	return upsertMonitor(context.Background(), DB, m)
+}
+
+// InsertMonitorsBulk upserts all monitors inside a single transaction, so a
+// failure partway through rolls the whole batch back rather than leaving a
+// partial monitor set.
+func InsertMonitorsBulk(ms []models.Monitor) error {
+	if err := ensureDB(); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	return DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		for _, m := range ms {
+			if err := upsertMonitor(ctx, tx, m); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func DeleteMonitor(id uint) error {

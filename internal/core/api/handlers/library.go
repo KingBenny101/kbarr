@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -47,25 +48,9 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 			media.PosterURL = prepared.PosterURL
 		}
 		media.IsNSFW = prepared.IsNSFW
-		media.MediaFolder = naming.SanitizeFilename(media.Title)
-		if media.MediaFolder == "" {
-			media.MediaFolder = media.SourceID
-		}
+		media.MediaFolder = resolveMediaFolder(media)
 
-		id, err := db.InsertMedia(media)
-		if err != nil {
-			slog.Error("Failed to insert media", "error", err)
-			return nil, huma.Error500InternalServerError("failed to save media", err)
-		}
-		slog.Info("Media added", "id", id, "title", media.Title)
-
-		detailed := toDetailedModel(prepared, uint(id))
-		if _, err := db.InsertDetailed(detailed); err != nil {
-			slog.Error("Failed to insert detailed info", "id", id, "error", err)
-			_ = db.DeleteMedia(strconv.FormatInt(id, 10))
-			return nil, huma.Error500InternalServerError("failed to save media details", err)
-		}
-		slog.Info("Detailed info added", "id", id)
+		detailed := toDetailedModel(prepared, 0)
 
 		var monitors []models.Monitor
 		for _, ep := range prepared.Episodes {
@@ -74,7 +59,6 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 				continue
 			}
 			monitors = append(monitors, models.Monitor{
-				LibraryID:     uint(id),
 				Title:         prepared.Title,
 				EpisodeTitle:  ep.Title,
 				Season:        1,
@@ -86,13 +70,15 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 				Status:        "unmonitored",
 			})
 		}
-		if len(monitors) > 0 {
-			if err := db.InsertMonitorsBulk(monitors); err != nil {
-				slog.Warn("Failed to create episode monitors on add", "id", id, "error", err)
-			} else {
-				slog.Info("Created episode monitors", "id", id, "count", len(monitors))
-			}
+
+		// Insert media + detailed + monitors atomically so a failure can't leave a
+		// half-added show in the library.
+		id, err := db.AddMediaWithMonitors(media, detailed, monitors)
+		if err != nil {
+			slog.Error("Failed to add media", "title", media.Title, "error", err)
+			return nil, huma.Error500InternalServerError("failed to save media", err)
 		}
+		slog.Info("Media added", "id", id, "title", media.Title, "monitors", len(monitors))
 
 		return &AddMediaOutput{Body: MessageResponse{Message: "Media added successfully!"}}, nil
 	}
@@ -186,6 +172,27 @@ func GetEpisodes() func(context.Context, *GetEpisodesInput) (*EpisodesOutput, er
 		}
 		return &EpisodesOutput{Body: result}, nil
 	}
+}
+
+// resolveMediaFolder derives a filesystem-safe folder name for a media row,
+// disambiguating when two different shows sanitize to the same name. Since hardlinks
+// for a show all land in this folder, a collision would mix two shows' episodes and
+// make the availability checker skip the ambiguous folder. The source+source_id pair
+// is unique (an identical pair is rejected earlier by CheckMediaExists), so it makes
+// a guaranteed-unique suffix.
+func resolveMediaFolder(media models.Media) string {
+	base := naming.SanitizeFilename(media.Title)
+	if base == "" {
+		base = media.SourceID
+	}
+	if taken, err := db.MediaFolderTaken(base); err != nil {
+		slog.Warn("media_folder uniqueness check failed; using base name", "folder", base, "error", err)
+	} else if taken {
+		disambiguated := fmt.Sprintf("%s (%s-%s)", base, media.Source, media.SourceID)
+		slog.Info("media_folder collision — disambiguating", "base", base, "resolved", disambiguated)
+		return disambiguated
+	}
+	return base
 }
 
 func toDetailedModel(d *models.AnimeMetadata, libraryID uint) models.Detailed {
