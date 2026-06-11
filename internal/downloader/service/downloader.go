@@ -544,6 +544,14 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 	}
 	slog.Info("createHardlinks: allowed extensions", "exts", rawExts)
 
+	// Parse the torrent/folder name once for series-level context. Scene packs
+	// often carry the series title and season only on the folder (e.g.
+	// "Grand Blue Dreaming S01 1080p BDRip ...") while the files inside are
+	// title-less ("S01E01-Deep Blue [crc].mkv"). This fills gaps the per-file
+	// parse leaves behind.
+	folderCtx := runGuessit(pathBase(savePath))
+	slog.Info("createHardlinks: folder context", "folder", pathBase(savePath), "title", folderCtx.Title, "season", folderCtx.Season)
+
 	walkRoot := savePath
 	if _, err := os.Stat(savePath); err != nil {
 		// savePath doesn't exist — single-file torrent where t.Name has no extension.
@@ -590,9 +598,15 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		g := runGuessit(info.Name())
 		slog.Info("createHardlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
 
+		// Title precedence: explicit media folder > torrent entry title >
+		// folder-name parse > per-file parse. Each later source is a weaker
+		// guess used only when the stronger ones are empty.
 		resolvedTitle := mediaFolder
 		if resolvedTitle == "" {
 			resolvedTitle = entryTitle
+			if resolvedTitle == "" {
+				resolvedTitle = folderCtx.Title
+			}
 			if resolvedTitle == "" {
 				resolvedTitle = g.Title
 			}
@@ -607,19 +621,35 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		if episode == 0 {
 			episode = episodeHint
 		}
+		releaseGroup := g.ReleaseGroup
+		if releaseGroup == "" {
+			releaseGroup = folderCtx.ReleaseGroup
+		}
 		var linkName string
 		if episode > 0 {
+			// Season precedence: per-file > folder-name > default to 1.
 			season := g.Season
+			if season == 0 {
+				season = folderCtx.Season
+			}
 			if season == 0 {
 				season = 1
 			}
-			if g.ReleaseGroup != "" {
-				linkName = fmt.Sprintf("%s - S%02dE%02d [%s]%s", resolvedTitle, season, episode, g.ReleaseGroup, ext)
+			if releaseGroup != "" {
+				linkName = fmt.Sprintf("%s - S%02dE%02d [%s]%s", resolvedTitle, season, episode, releaseGroup, ext)
 			} else {
 				linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, episode, ext)
 			}
 		} else {
-			linkName = naming.SanitizeFilename(info.Name())
+			// No episode number: a movie or single-file OVA. Name it after the
+			// resolved series/title and preserve the real extension, rather than
+			// scrubbing the raw release string (which strips the dot before the
+			// extension and mangles the name).
+			if releaseGroup != "" {
+				linkName = fmt.Sprintf("%s [%s]%s", resolvedTitle, releaseGroup, ext)
+			} else {
+				linkName = resolvedTitle + ext
+			}
 		}
 		linkPath := filepath.Join(mediaPath, resolvedTitle, linkName)
 		slog.Info("createHardlinks: planned hardlink", "src", path, "dst", linkPath)

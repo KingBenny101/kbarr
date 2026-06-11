@@ -30,6 +30,12 @@ var memo sync.Map // filename → ParseResult
 //   - 第1話 / 第01話 (Japanese episode notation)
 var episodeFallbackRe = regexp.MustCompile(`[#＃](\d+)|第(\d+)話`)
 
+// seasonEpisodeRe catches Western-style SxxExx markers. anitogo only recognises
+// these when a title precedes them, so title-less scene names such as
+// "S01E01-Deep Blue [crc].mkv" fall through with no episode. This fallback
+// recovers both the season and episode from anywhere in the name.
+var seasonEpisodeRe = regexp.MustCompile(`(?i)S(\d{1,2})E(\d{1,3})`)
+
 // normalizeWidth folds full-width Unicode characters to their ASCII equivalents
 // before passing to anitogo, so patterns like ＃1 (U+FF03) are recognised as #1.
 func normalizeWidth(s string) string {
@@ -64,6 +70,18 @@ func Parse(filename string) ParseResult {
 		if strings.EqualFold(t, "movie") {
 			r.Type = "movie"
 			break
+		}
+	}
+	if r.Episode == 0 {
+		if m := seasonEpisodeRe.FindStringSubmatch(filename); m != nil {
+			r.Season, _ = strconv.Atoi(m[1])
+			r.Episode, _ = strconv.Atoi(m[2])
+			// A title-less scene name (e.g. "S01E01-Deep Blue") makes anitogo
+			// treat the whole string as the title. Drop it so callers fall back
+			// to folder/monitor context for the series name.
+			if seasonEpisodeRe.MatchString(r.Title) {
+				r.Title = ""
+			}
 		}
 	}
 	if r.Episode == 0 {
