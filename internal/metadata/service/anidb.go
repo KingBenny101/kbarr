@@ -32,6 +32,11 @@ const (
 	// aniDBBanCooldown is how long we stop calling AniDB after it reports a ban,
 	// so a ban halts the hammering instead of amplifying it.
 	aniDBBanCooldown = 30 * time.Minute
+	// detailsCacheTTL is the lifetime of the per-aid anime details cache. Details
+	// are effectively static, so this is long (and independent of anidbSyncInterval,
+	// which only governs the titles-dump refresh) to avoid needless AniDB calls —
+	// and ban risk — when a show is reopened.
+	detailsCacheTTL = 7 * 24 * time.Hour
 )
 
 type AniDBService struct {
@@ -184,9 +189,8 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error)
 		return nil, err
 	}
 
-	ttl := config.GetMinutes(s.db, "anidbSyncInterval", 1440*time.Minute, time.Minute)
 	cacheFile := filepath.Join(DataRootDir(), "metadata", "details", fmt.Sprintf("%d.xml", aid))
-	if details, ok := s.loadCachedAnimeDetails(cacheFile, ttl); ok {
+	if details, ok := s.loadCachedAnimeDetails(cacheFile, detailsCacheTTL); ok {
 		return details, nil
 	}
 

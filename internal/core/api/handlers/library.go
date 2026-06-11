@@ -54,6 +54,13 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 
 		var monitors []models.Monitor
 		for _, ep := range prepared.Episodes {
+			// Only regular episodes (AniDB EpNo type 1) become monitors; specials,
+			// credits, trailers and parodies (types 2+) are skipped. Gate on Type
+			// explicitly rather than relying on their "S1"/"C1" numbers failing to
+			// parse, so the monitor count matches the real episode count.
+			if ep.Type != 1 {
+				continue
+			}
 			epNum, err := strconv.Atoi(ep.Number)
 			if err != nil {
 				continue
