@@ -41,8 +41,19 @@ func AddMediaWithMonitors(media models.Media, detailed models.Detailed, monitors
 		id = int64(media.ID)
 
 		detailed.LibraryID = uint(id)
-		if _, err := tx.NewInsert().Model(&detailed).Exec(ctx); err != nil {
+		// Episodes is a has-many relation; a plain insert won't cascade it, so detach
+		// and insert the episode rows explicitly (this is what populates the episode
+		// table shown in the UI).
+		episodes := detailed.Episodes
+		detailed.Episodes = nil
+		if _, err := tx.NewInsert().Model(&detailed).Returning("id").Exec(ctx); err != nil {
 			return fmt.Errorf("failed to insert detailed: %w", err)
+		}
+		for i := range episodes {
+			episodes[i].DetailedID = detailed.ID
+			if _, err := tx.NewInsert().Model(&episodes[i]).Exec(ctx); err != nil {
+				return fmt.Errorf("failed to insert episode: %w", err)
+			}
 		}
 
 		if len(monitors) > 0 {
