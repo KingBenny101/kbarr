@@ -3,10 +3,12 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -389,7 +391,7 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	}
 	if walked && hasVideo && mon != nil {
 		s.writeTVShowNFO(ctx, mon.LibraryID, mediaFolder)
-		s.triggerJellyfinScan(ctx)
+		s.triggerJellyfinScan(ctx, mon.LibraryID)
 	}
 
 	// If we successfully walked the directory but found no supported video files,
@@ -500,7 +502,7 @@ func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int6
 	walked, hasVideo = s.CreateHardlinks(savePath, title, mediaFolder, episodeHint)
 	if walked && hasVideo {
 		s.writeTVShowNFO(ctx, libraryID, mediaFolder)
-		s.triggerJellyfinScan(ctx)
+		s.triggerJellyfinScan(ctx, libraryID)
 	}
 	return
 }
@@ -720,7 +722,16 @@ func (s *DownloaderService) writeTVShowNFO(ctx context.Context, libraryID uint, 
 	slog.Info("writeTVShowNFO: written", "path", nfoPath)
 }
 
-func (s *DownloaderService) triggerJellyfinScan(ctx context.Context) {
+// triggerJellyfinScan kicks off a Jellyfin library scan and then refreshes the
+// individual show so the freshly-written tvshow.nfo (with the AniDB id) is used
+// to fill in metadata. The clean flow is:
+//   - POST /Library/Refresh to pick up the new files
+//   - GET /Items?searchTerm=<title> to resolve the series item id
+//   - POST /Items/{itemId}/Refresh (Default mode) to fill missing metadata
+//
+// The library scan is asynchronous, so the per-item refresh runs in a background
+// goroutine after a short delay to give Jellyfin time to register the series.
+func (s *DownloaderService) triggerJellyfinScan(ctx context.Context, libraryID uint) {
 	jellyfinURL := strings.TrimRight(config.Get(s.db, "jellyfinUrl", ""), "/")
 	if jellyfinURL == "" {
 		return
@@ -741,6 +752,83 @@ func (s *DownloaderService) triggerJellyfinScan(ctx context.Context) {
 	}
 	resp.Body.Close()
 	slog.Info("triggerJellyfinScan: library refresh triggered", "status", resp.StatusCode)
+
+	// Resolve the show title so the per-item refresh can locate the series.
+	var title string
+	if libraryID != 0 {
+		_ = s.db.NewSelect().TableExpr("media").ColumnExpr("title").
+			Where("id = ?", libraryID).Scan(ctx, &title)
+	}
+	if title == "" {
+		return
+	}
+
+	go s.refreshJellyfinItem(jellyfinURL, apiKey, title)
+}
+
+// refreshJellyfinItem finds the series by title and triggers a Default-mode
+// metadata refresh so the tvshow.nfo identifiers are honoured.
+func (s *DownloaderService) refreshJellyfinItem(jellyfinURL, apiKey, title string) {
+	// Give the asynchronous library scan time to register the new series.
+	time.Sleep(15 * time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	itemID := s.findJellyfinSeries(ctx, jellyfinURL, apiKey, title)
+	if itemID == "" {
+		slog.Info("refreshJellyfinItem: series not found yet, relying on library scan", "title", title)
+		return
+	}
+
+	u := fmt.Sprintf("%s/Items/%s/Refresh?metadataRefreshMode=Default&imageRefreshMode=Default&replaceAllMetadata=false", jellyfinURL, itemID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+	if err != nil {
+		slog.Warn("refreshJellyfinItem: failed to build request", "error", err)
+		return
+	}
+	req.Header.Set("X-Emby-Token", apiKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Warn("refreshJellyfinItem: request failed", "title", title, "error", err)
+		return
+	}
+	resp.Body.Close()
+	slog.Info("refreshJellyfinItem: item refresh triggered", "title", title, "item_id", itemID, "status", resp.StatusCode)
+}
+
+// findJellyfinSeries returns the id of the Series item matching title, or "".
+func (s *DownloaderService) findJellyfinSeries(ctx context.Context, jellyfinURL, apiKey, title string) string {
+	u := fmt.Sprintf("%s/Items?searchTerm=%s&IncludeItemTypes=Series&Recursive=true&Limit=10",
+		jellyfinURL, url.QueryEscape(title))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("X-Emby-Token", apiKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Warn("findJellyfinSeries: request failed", "title", title, "error", err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Items []struct {
+			ID   string `json:"Id"`
+			Name string `json:"Name"`
+		} `json:"Items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil || len(body.Items) == 0 {
+		return ""
+	}
+	// Prefer an exact (case-insensitive) name match; otherwise take the first hit.
+	for _, it := range body.Items {
+		if strings.EqualFold(it.Name, title) {
+			return it.ID
+		}
+	}
+	return body.Items[0].ID
 }
 
 func (s *DownloaderService) resolveMediaFolder(ctx context.Context, mon *models.Monitor) string {
