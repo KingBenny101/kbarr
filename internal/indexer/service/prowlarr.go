@@ -324,7 +324,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	if !mon.IsSeason {
 		seasonActive, _ := s.db.NewSelect().
 			Model((*models.Monitor)(nil)).
-			Where("library_id = ? AND is_season = true AND status IN ('queued','downloading','available') AND deleted_at IS NULL", libraryID).
+			Where("library_id = ? AND is_season = true AND (status IN ('queued','downloading') OR available = true) AND deleted_at IS NULL", libraryID).
 			Exists(ctx)
 		if seasonActive {
 			slog.Info("Skipping episode — season pack already in progress, resetting to pending", "monitor_id", mon.ID)

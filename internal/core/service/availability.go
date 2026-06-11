@@ -242,20 +242,35 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		}
 		var total, available int
 		bunDB.NewSelect().TableExpr("monitors").
-			ColumnExpr("COUNT(*) AS total, SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) AS available").
+			ColumnExpr("COUNT(*) AS total, SUM(CASE WHEN available THEN 1 ELSE 0 END) AS available").
 			Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", sm.LibraryID).
 			Scan(ctx, &total, &available)
 		slog.Info("availability: season monitor check", "monitor_id", sm.ID, "library_id", sm.LibraryID, "total_episodes", total, "available_episodes", available, "current_status", sm.Status)
 
 		allAvailable := total > 0 && available == total
-		if allAvailable && !sm.Available {
-			bunDB.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("available = true, updated_at = now()").Where("id = ?", sm.ID).Exec(ctx)
-			slog.Info("availability: season marked available", "monitor_id", sm.ID)
-		} else if !allAvailable && sm.Available {
-			bunDB.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("available = false, updated_at = now()").Where("id = ?", sm.ID).Exec(ctx)
-			slog.Info("availability: season marked unavailable", "monitor_id", sm.ID)
+		if allAvailable {
+			// All episodes present — reconcile both the flag and the status, so a
+			// season left in 'missing'/'searching' by the indexer reflects reality.
+			if !sm.Available || sm.Status != "downloaded" {
+				bunDB.NewUpdate().Model((*models.Monitor)(nil)).
+					Set("available = true, status = 'downloaded', updated_at = now()").
+					Where("id = ?", sm.ID).Exec(ctx)
+				slog.Info("availability: season marked available", "monitor_id", sm.ID)
+			}
+		} else {
+			// Incomplete — clear availability and, if it had been marked complete,
+			// reset to pending so the indexer searches a season pack again.
+			if sm.Available {
+				bunDB.NewUpdate().Model((*models.Monitor)(nil)).
+					Set("available = false, status = 'pending', updated_at = now()").
+					Where("id = ?", sm.ID).Exec(ctx)
+				slog.Info("availability: season marked unavailable", "monitor_id", sm.ID)
+			} else if sm.Status == "downloaded" {
+				bunDB.NewUpdate().Model((*models.Monitor)(nil)).
+					Set("status = 'pending', updated_at = now()").
+					Where("id = ?", sm.ID).Exec(ctx)
+				slog.Info("availability: season status reset to pending", "monitor_id", sm.ID)
+			}
 		}
 	}
 
