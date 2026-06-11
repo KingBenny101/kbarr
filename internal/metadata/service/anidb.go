@@ -30,8 +30,9 @@ type AniDBService struct {
 	db         *bun.DB
 	httpClient *http.Client
 
-	mu         sync.RWMutex
-	titlesDump *mdmodels.AnimeTitlesDump
+	mu          sync.RWMutex
+	titlesDump  *mdmodels.AnimeTitlesDump
+	searchIndex []searchEntry
 
 	alMu       sync.RWMutex
 	animeLists map[uint]ExternalIDs
@@ -60,43 +61,6 @@ func (s *AniDBService) LoadTitlesDump() error {
 	}
 
 	return s.parseTitlesDump(titlesFile)
-}
-
-func (s *AniDBService) SearchTitles(query string) ([]imodels.SearchResult, error) {
-	s.mu.RLock()
-	dumpReady := s.titlesDump != nil
-	s.mu.RUnlock()
-
-	if !dumpReady {
-		if err := s.LoadTitlesDump(); err != nil {
-			return nil, err
-		}
-	}
-
-	s.mu.RLock()
-	dump := s.titlesDump
-	s.mu.RUnlock()
-
-	query = strings.ToLower(strings.TrimSpace(query))
-	if query == "" {
-		return []imodels.SearchResult{}, nil
-	}
-
-	results := make([]imodels.SearchResult, 0)
-	for _, anime := range dump.Anime {
-		for _, t := range anime.Titles {
-			if strings.Contains(strings.ToLower(t.Title), query) {
-				results = append(results, imodels.SearchResult{
-					Source:   "anidb",
-					SourceID: strconv.FormatUint(uint64(anime.AID), 10),
-					Title:    t.Title,
-				})
-				break
-			}
-		}
-	}
-
-	return results, nil
 }
 
 func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error) {
@@ -251,11 +215,14 @@ func (s *AniDBService) parseTitlesDump(titlesFile string) error {
 		return fmt.Errorf("failed to parse titles dump: %w", err)
 	}
 
+	index := buildSearchIndex(&dump)
+
 	s.mu.Lock()
 	s.titlesDump = &dump
+	s.searchIndex = index
 	s.mu.Unlock()
 
-	slog.Info("Titles dump loaded", "entries", len(dump.Anime))
+	slog.Info("Titles dump loaded", "entries", len(dump.Anime), "search_index", len(index))
 	return nil
 }
 
