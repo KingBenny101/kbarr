@@ -16,14 +16,14 @@ import { LogsPage } from "@/pages/LogsPage"
 const navigation = [
     {
         group: "Media", items: [
-            { label: "Library", to: "/", icon: <IconLibraryPhoto size={18} />, match: (p: string) => p === "/" || p.startsWith("/media") },
             { label: "Search", to: "/search", icon: <IconSearch size={18} /> },
-            { label: "Monitored", to: "/monitored", icon: <IconListCheck size={18} /> },
+            { label: "Library", to: "/", icon: <IconLibraryPhoto size={18} />, match: (p: string) => p === "/" || p.startsWith("/media") },
         ]
     },
     {
         group: "System", items: [
-{ label: "Downloads", to: "/downloads", icon: <IconCloudDownload size={18} /> },
+            { label: "Monitored", to: "/monitored", icon: <IconListCheck size={18} /> },
+            { label: "Downloads", to: "/downloads", icon: <IconCloudDownload size={18} /> },
             { label: "Logs", to: "/logs", icon: <IconActivity size={18} /> },
         ]
     },
