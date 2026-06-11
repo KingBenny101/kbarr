@@ -184,10 +184,15 @@ func preferredQualityRank(preferred string) int {
 func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentResult) *models.TorrentResult {
 	preferred := config.Get(s.db, "preferredQuality", "any")
 	cap := preferredQualityRank(preferred)
+	minSeeders := s.minSeeders()
 
 	var candidates []models.TorrentResult
 	for i := range results {
 		if s.isBlacklisted(ctx, results[i].Title) {
+			continue
+		}
+		if results[i].Seeds < minSeeders {
+			slog.Debug("Skipping torrent below minimum seeders", "torrent", results[i].Title, "seeds", results[i].Seeds, "min", minSeeders)
 			continue
 		}
 		filename := results[i].FileName
@@ -233,6 +238,15 @@ func (s *IndexerService) matchThreshold() float64 {
 		return 80
 	}
 	return float64(n)
+}
+
+func (s *IndexerService) minSeeders() int {
+	raw := config.Get(s.db, "minSeeders", "1")
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 1
+	}
+	return n
 }
 
 func (s *IndexerService) cacheFileLimit() int {
