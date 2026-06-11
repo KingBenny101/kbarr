@@ -62,7 +62,7 @@ function MediaCard({ media, onClick }: { media: Media; onClick: () => void }) {
 export function LibraryPage() {
     const [medias, setMedias] = useState<Media[]>([])
     const [filter, setFilter] = useState("")
-    const [sort, setSort] = useState<SortKey>("name-asc")
+    const [sort, setSort] = useState<SortKey>(() => (localStorage.getItem("library.sort") as SortKey) ?? "name-asc")
     const [nsfwOpen, setNsfwOpen] = useState(() => sessionStorage.getItem("library.nsfwOpen") === "true")
     const navigate = useNavigate()
 
@@ -107,7 +107,7 @@ export function LibraryPage() {
                         <Select
                             data={SORT_OPTIONS}
                             value={sort}
-                            onChange={(v) => v && setSort(v as SortKey)}
+                            onChange={(v) => { if (v) { setSort(v as SortKey); localStorage.setItem("library.sort", v) } }}
                             w={200}
                             allowDeselect={false}
                             size="md"
