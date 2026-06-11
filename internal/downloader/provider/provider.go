@@ -16,6 +16,7 @@ type TorrentInfo struct {
 	State       string
 	Size        int64
 	Progress    float64
+	DLSpeed     int64
 	ETA         int64
 	SavePath    string
 	Category    string

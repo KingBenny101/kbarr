@@ -291,8 +291,12 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 			prevProgress = *entry.Progress
 		}
 
-		if t.Progress != prevProgress {
-			// Progress changed — update both progress and the timestamp
+		// Treat the torrent as making forward progress if either the progress value
+		// moved or qBittorrent reports an active download speed. Very slow torrents
+		// can download for longer than a poll interval without the progress float
+		// changing between samples; keying the stall timer off dlspeed too prevents
+		// them from being wrongly classified as stalled.
+		if t.Progress != prevProgress || t.DLSpeed > 0 {
 			s.db.NewUpdate().
 				Model((*models.DownloadQueue)(nil)).
 				Set("progress = ?, progress_updated_at = now(), updated_at = now()", t.Progress).
@@ -324,9 +328,9 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 		if entry.ProgressUpdatedAt == nil {
 			slog.Debug("Stall check skipped — progress_updated_at is nil", "id", entry.ID)
 		} else {
-			slog.Debug("Stall check", "id", entry.ID, "stalled_for", time.Since(*entry.ProgressUpdatedAt).Round(time.Second), "timeout", stallTimeout, "progress", t.Progress)
+			slog.Debug("Stall check", "id", entry.ID, "stalled_for", time.Since(*entry.ProgressUpdatedAt).Round(time.Second), "timeout", stallTimeout, "progress", t.Progress, "dlspeed", t.DLSpeed)
 		}
-		if stallTimeout > 0 && entry.ProgressUpdatedAt != nil && time.Since(*entry.ProgressUpdatedAt) > stallTimeout {
+		if stallTimeout > 0 && t.DLSpeed == 0 && entry.ProgressUpdatedAt != nil && time.Since(*entry.ProgressUpdatedAt) > stallTimeout {
 			slog.Warn("Torrent stalled — blacklisting and removing", "id", entry.ID, "hash", *entry.TorrentHash, "stalled_for", time.Since(*entry.ProgressUpdatedAt).Round(time.Second))
 			s.blacklistTorrent(ctx, entry)
 			_ = s.client.DeleteTorrent(ctx, *entry.TorrentHash, true)

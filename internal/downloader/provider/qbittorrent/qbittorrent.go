@@ -191,6 +191,7 @@ func (c *QBittorrentClient) FetchTorrents(ctx context.Context, hash, category st
 		State       string  `json:"state"`
 		Size        int64   `json:"size"`
 		Progress    float64 `json:"progress"`
+		DLSpeed     int64   `json:"dlspeed"`
 		ETA         int64   `json:"eta"`
 		SavePath    string  `json:"save_path"`
 		Category    string  `json:"category"`
@@ -208,6 +209,7 @@ func (c *QBittorrentClient) FetchTorrents(ctx context.Context, hash, category st
 			State:       r.State,
 			Size:        r.Size,
 			Progress:    r.Progress,
+			DLSpeed:     r.DLSpeed,
 			ETA:         r.ETA,
 			SavePath:    r.SavePath,
 			Category:    r.Category,
