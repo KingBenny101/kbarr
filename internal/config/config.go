@@ -4,11 +4,46 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	imodels "github.com/kingbenny101/kbarr/internal/models"
 	"github.com/uptrace/bun"
 )
+
+// settingsCacheTTL bounds how long a setting value is served from the in-process
+// cache before re-reading the DB. Kept short because each service runs as its own
+// process: a write in one process can only invalidate its own cache, so other
+// processes converge on a changed value within this window.
+const settingsCacheTTL = 3 * time.Second
+
+type cachedSetting struct {
+	value   string
+	present bool
+	expiry  time.Time
+}
+
+var (
+	cacheMu      sync.RWMutex
+	settingCache = map[string]cachedSetting{}
+)
+
+func cacheLoad(key string) (cachedSetting, bool) {
+	cacheMu.RLock()
+	e, ok := settingCache[key]
+	cacheMu.RUnlock()
+	if !ok || time.Now().After(e.expiry) {
+		return cachedSetting{}, false
+	}
+	return e, true
+}
+
+func cacheStore(key, value string, present bool) {
+	cacheMu.Lock()
+	settingCache[key] = cachedSetting{value: value, present: present, expiry: time.Now().Add(settingsCacheTTL)}
+	cacheMu.Unlock()
+}
 
 // DefaultSettings is derived from Schema so there is one source of truth.
 var DefaultSettings = func() map[string]string {
@@ -35,16 +70,30 @@ func EnsureDefaults(db *bun.DB) error {
 }
 
 // Get returns the value for key from the settings table, or fallback if not found.
+// Results are cached in-process for settingsCacheTTL to spare the DB a round-trip on
+// every read (the poll loops read several settings per cycle).
 func Get(db *bun.DB, key, fallback string) string {
 	if db == nil {
 		return fallback
 	}
-	var s imodels.Setting
-	err := db.NewSelect().Model(&s).Where("key = ?", key).Scan(context.Background())
-	if err != nil || s.Value == nil {
+	if e, ok := cacheLoad(key); ok {
+		if e.present {
+			return e.value
+		}
 		return fallback
 	}
-	return *s.Value
+	var s imodels.Setting
+	err := db.NewSelect().Model(&s).Where("key = ?", key).Scan(context.Background())
+	present := err == nil && s.Value != nil
+	value := ""
+	if present {
+		value = *s.Value
+	}
+	cacheStore(key, value, present)
+	if present {
+		return value
+	}
+	return fallback
 }
 
 // GetSeconds parses a setting stored as a second count into a time.Duration.
@@ -82,8 +131,54 @@ func SetSetting(db *bun.DB, key, value string) error {
 	if err != nil {
 		return fmt.Errorf("failed to upsert setting %s: %w", key, err)
 	}
+	// Refresh this process's cache immediately so the writer sees its own change
+	// without waiting out the TTL.
+	cacheStore(key, value, true)
 	return nil
 }
+
+// ValidateSetting checks value against the schema definition for key. It returns
+// known=false for keys not in the schema so callers can ignore unknown keys, and a
+// non-nil error when a known setting's value violates its type/options.
+func ValidateSetting(key, value string) (known bool, err error) {
+	def, ok := schemaByKey[key]
+	if !ok {
+		return false, nil
+	}
+	switch def.Type {
+	case TypeInt:
+		n, e := strconv.Atoi(strings.TrimSpace(value))
+		if e != nil {
+			return true, fmt.Errorf("%q must be a whole number", def.Key)
+		}
+		if n < 0 {
+			return true, fmt.Errorf("%q must not be negative", def.Key)
+		}
+	case TypeBool:
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "true", "false":
+		default:
+			return true, fmt.Errorf("%q must be true or false", def.Key)
+		}
+	case TypeSelect:
+		for _, opt := range def.Options {
+			if strings.EqualFold(opt, strings.TrimSpace(value)) {
+				return true, nil
+			}
+		}
+		return true, fmt.Errorf("%q must be one of %s", def.Key, strings.Join(def.Options, ", "))
+	}
+	return true, nil
+}
+
+// schemaByKey indexes Schema for O(1) lookup during validation.
+var schemaByKey = func() map[string]SettingDef {
+	m := make(map[string]SettingDef, len(Schema))
+	for _, d := range Schema {
+		m[d.Key] = d
+	}
+	return m
+}()
 
 func GetSettingsMap(db *bun.DB) (map[string]string, error) {
 	if db == nil {

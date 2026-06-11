@@ -128,7 +128,19 @@ func GetSettings() func(context.Context, *struct{}) (*SettingsOutput, error) {
 
 func UpdateSettings() func(context.Context, *UpdateSettingsInput) (*struct{}, error) {
 	return func(ctx context.Context, input *UpdateSettingsInput) (*struct{}, error) {
+		// Validate everything first so one bad value can't leave a partial write.
+		// Unknown keys (not in the schema) are ignored rather than persisted.
+		toWrite := make(map[string]string, len(input.Body))
 		for key, value := range input.Body {
+			known, err := config.ValidateSetting(key, value)
+			if err != nil {
+				return nil, huma.Error400BadRequest(err.Error())
+			}
+			if known {
+				toWrite[key] = value
+			}
+		}
+		for key, value := range toWrite {
 			if err := config.SetSetting(db.DB, key, value); err != nil {
 				return nil, huma.Error500InternalServerError("failed to update settings", err)
 			}
