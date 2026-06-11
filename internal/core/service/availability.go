@@ -13,61 +13,84 @@ import (
 	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
+	"github.com/kingbenny101/kbarr/internal/parser"
 	"github.com/uptrace/bun"
 )
 
-var episodePattern = regexp.MustCompile(`(?i)[Ss](\d+)[Ee](\d+)`)
+// episodePattern is the fast path for SxxExx filenames produced by the hardlinker.
+// Only the episode group (2) is used — the season digit is intentionally ignored
+// because anime sequels live in their own folder and the season digit guessit
+// stamps is unreliable.
+var episodePattern = regexp.MustCompile(`(?i)[Ss]\d+[Ee](\d+)`)
 
-var (
-	seasonInTitleRe = regexp.MustCompile(`(?i)\bseason\s*(\d+)\b`)
-	ordinalSeasonRe = regexp.MustCompile(`(?i)\b(\d+)(?:st|nd|rd|th)\s+season\b`)
-)
-
-func effectiveSeason(title string, dbSeason int64) int64 {
-	if dbSeason > 1 {
-		return dbSeason
-	}
-	if m := ordinalSeasonRe.FindStringSubmatch(title); m != nil {
-		if n, err := strconv.ParseInt(m[1], 10, 64); err == nil && n > 1 {
-			return n
-		}
-	}
-	if m := seasonInTitleRe.FindStringSubmatch(title); m != nil {
-		if n, err := strconv.ParseInt(m[1], 10, 64); err == nil && n > 1 {
-			return n
-		}
-	}
-	return dbSeason
+// AvailabilityChecker reconciles monitor rows with files on disk. It keeps a
+// per-folder cache keyed by directory mtime so that, on cycles where nothing on
+// disk changed, no directory is re-read or re-parsed.
+type AvailabilityChecker struct {
+	db    *bun.DB
+	cache map[string]folderScan // sanitized folder name -> last scan
 }
 
-func PollAvailability(ctx context.Context, bunDB *bun.DB) {
-	CheckAvailability(ctx, bunDB)
+// folderScan is a cached directory listing: the mtime it was taken at and the
+// episode numbers found in it (episode -> first file path).
+type folderScan struct {
+	mtime    time.Time
+	episodes map[int64]string
+}
 
+// NewAvailabilityChecker constructs a checker with an empty cache.
+func NewAvailabilityChecker(db *bun.DB) *AvailabilityChecker {
+	return &AvailabilityChecker{db: db, cache: map[string]folderScan{}}
+}
+
+// PollAvailability runs CheckAvailability on a loop. Kept as a package function
+// for the existing caller; it owns a single checker so the mtime cache persists.
+func PollAvailability(ctx context.Context, bunDB *bun.DB) {
+	NewAvailabilityChecker(bunDB).Poll(ctx)
+}
+
+// CheckAvailability runs a single reconciliation pass. Used by the manual trigger
+// endpoint; it uses a throwaway checker (full scan, no cache reuse).
+func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
+	NewAvailabilityChecker(bunDB).Check(ctx)
+}
+
+func (c *AvailabilityChecker) Poll(ctx context.Context) {
+	c.Check(ctx)
 	for {
-		interval := config.GetSeconds(bunDB, "availabilityCheckInterval", 10*time.Second, 10*time.Second)
+		interval := config.GetSeconds(c.db, "availabilityCheckInterval", 60*time.Second, 10*time.Second)
 		select {
 		case <-time.After(interval):
-			CheckAvailability(ctx, bunDB)
+			c.Check(ctx)
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
-	mediaPath := strings.TrimRight(config.Get(bunDB, "mediaPath", ""), "/")
+type monitorRow struct {
+	models.Monitor
+	MediaFolder string `bun:"media_folder"`
+}
+
+// libEpKey identifies an episode monitor within a specific library.
+type libEpKey struct {
+	libraryID int64
+	episode   int64
+}
+
+func (c *AvailabilityChecker) Check(ctx context.Context) {
+	mediaPath := strings.TrimRight(config.Get(c.db, "mediaPath", ""), "/")
 	if mediaPath == "" {
 		slog.Debug("availability: mediaPath not configured, skipping")
 		return
 	}
-	slog.Info("availability: check start", "media_path", mediaPath)
+	slog.Debug("availability: check start", "media_path", mediaPath)
 
-	type monitorRow struct {
-		models.Monitor
-		MediaFolder string `bun:"media_folder"`
-	}
+	allowedExts := allowedVideoExts(c.db)
+
 	var allMonitors []monitorRow
-	if err := bunDB.NewSelect().
+	if err := c.db.NewSelect().
 		TableExpr("monitors mon").
 		ColumnExpr("mon.*, COALESCE(m.media_folder, '') AS media_folder").
 		Join("LEFT JOIN media m ON m.id = mon.library_id").
@@ -76,203 +99,288 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 		slog.Error("availability: failed to fetch monitors", "error", err)
 		return
 	}
-	slog.Info("availability: loaded monitors", "count", len(allMonitors))
+	slog.Debug("availability: loaded monitors", "count", len(allMonitors))
+
+	// Index episode monitors by (library_id, episode). The folder scopes the show,
+	// so season is irrelevant to matching.
+	monitorsByLibEp := map[libEpKey]*monitorRow{}
 	for i := range allMonitors {
 		m := &allMonitors[i]
-		title := m.Title
-		ep := int64(m.EpisodeNumber)
-		season := int64(1)
-		if m.Season > 0 {
-			season = int64(m.Season)
-		}
-		status := m.Status
-		slog.Debug("availability: monitor loaded", "monitor_id", m.ID, "title", title, "season", season, "episode", ep, "status", status)
-	}
-
-	type seKey struct {
-		title   string
-		season  int64
-		episode int64
-	}
-	type seKeyNoTitle struct{ season, episode int64 }
-	monitorsByKey := map[seKey]*monitorRow{}
-	monitorsByEpisode := map[seKeyNoTitle][]*monitorRow{}
-	for i := range allMonitors {
-		m := &allMonitors[i]
-		if m.Title == "" || m.EpisodeNumber == 0 {
+		if m.EpisodeNumber == 0 {
 			continue
 		}
-		dbSeason := int64(1)
-		if m.Season > 0 {
-			dbSeason = int64(m.Season)
-		}
-		season := effectiveSeason(m.Title, dbSeason)
-		folder := m.MediaFolder
-		if folder == "" {
-			folder = naming.SanitizeFilename(m.Title)
-		}
-		k := seKey{folder, season, int64(m.EpisodeNumber)}
-		monitorsByKey[k] = m
-		nk := seKeyNoTitle{season, int64(m.EpisodeNumber)}
-		monitorsByEpisode[nk] = append(monitorsByEpisode[nk], m)
+		monitorsByLibEp[libEpKey{int64(m.LibraryID), int64(m.EpisodeNumber)}] = m
 	}
 
-	type fileKey struct {
-		title   string
-		season  int64
-		episode int64
-	}
-	foundOnDisk := map[fileKey]string{}
+	folderToLib, ambiguous := c.indexMediaFolders(ctx)
 
-	titleDirs, err := os.ReadDir(mediaPath)
-	if err != nil {
-		slog.Warn("availability: cannot read media path", "path", mediaPath, "error", err)
-		return
-	}
-	slog.Info("availability: scanning title dirs", "count", len(titleDirs))
+	// Scan disk into folder -> episode -> path, reusing cached listings for any
+	// directory whose mtime is unchanged since the last cycle.
+	filesByFolder := c.scanDisk(mediaPath, allowedExts)
 
-	for _, titleDir := range titleDirs {
-		if !titleDir.IsDir() {
+	// ── Phase 1: mark episodes available ────────────────────────────────────
+	for folder, episodes := range filesByFolder {
+		if ambiguous[folder] {
+			slog.Debug("availability: ambiguous folder, skipping", "folder", folder)
 			continue
 		}
-		dirName := titleDir.Name()
-		dirPath := filepath.Join(mediaPath, dirName)
-		files, err := os.ReadDir(dirPath)
-		if err != nil {
-			slog.Warn("availability: cannot read title dir", "path", dirPath, "error", err)
+		libID, ok := folderToLib[folder]
+		if !ok {
+			slog.Debug("availability: folder maps to no library, skipping", "folder", folder)
 			continue
 		}
-		slog.Info("availability: scanning dir", "title", dirName, "files", len(files))
-
-		for _, f := range files {
-			if f.IsDir() {
-				continue
-			}
-			m := episodePattern.FindStringSubmatch(f.Name())
-			if m == nil {
-				slog.Debug("availability: no S__E__ pattern in filename", "file", f.Name())
-				continue
-			}
-			s, _ := strconv.ParseInt(m[1], 10, 64)
-			e, _ := strconv.ParseInt(m[2], 10, 64)
-			fk := fileKey{dirName, s, e}
-			if _, seen := foundOnDisk[fk]; !seen {
-				foundOnDisk[fk] = filepath.Join(dirPath, f.Name())
-			}
-			slog.Info("availability: file found", "title", dirName, "season", s, "episode", e, "file", f.Name())
-
-			mk := seKey{dirName, s, e}
-			mon, ok := monitorsByKey[mk]
+		for ep := range episodes {
+			mon, ok := monitorsByLibEp[libEpKey{int64(libID), ep}]
 			if !ok {
-				nk := seKeyNoTitle{s, e}
-				candidates := monitorsByEpisode[nk]
-				slog.Info("availability: primary key miss, trying fallback", "title", dirName, "season", s, "episode", e, "fallback_candidates", len(candidates))
-				for _, c := range candidates {
-					slog.Info("availability: fallback candidate", "monitor_id", c.ID, "title_in_db", c.Title, "folder", c.MediaFolder)
-				}
-				if len(candidates) == 1 {
-					mon = candidates[0]
-					ok = true
-				} else if len(candidates) > 1 {
-					slog.Info("availability: multiple fallback candidates, skipping to avoid wrong match", "season", s, "episode", e)
-					continue
-				}
-			}
-			if !ok {
-				slog.Info("availability: no monitor found for file", "title", dirName, "season", s, "episode", e)
+				slog.Debug("availability: no monitor for episode", "folder", folder, "episode", ep)
 				continue
 			}
 			if mon.Available {
-				slog.Debug("availability: already available", "monitor_id", mon.ID)
 				continue
 			}
-			if _, err := bunDB.NewUpdate().Model((*models.Monitor)(nil)).
+			if _, err := c.db.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("available = true, updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx); err != nil {
 				slog.Warn("availability: failed to update monitor", "monitor_id", mon.ID, "error", err)
 			} else {
-				slog.Info("availability: episode marked available", "monitor_id", mon.ID, "title", dirName, "season", s, "episode", e)
+				mon.Available = true
+				slog.Info("availability: episode marked available", "monitor_id", mon.ID, "title", mon.Title, "episode", ep)
 			}
 		}
 	}
 
-	// Phase 2: clear available=true for monitors whose file is no longer on disk.
+	// ── Phase 2: clear availability for monitors whose file is gone ───────────
 	for i := range allMonitors {
 		mon := &allMonitors[i]
-		if !mon.Available || mon.Title == "" || mon.EpisodeNumber == 0 {
+		if !mon.Available || mon.EpisodeNumber == 0 {
 			continue
 		}
-		dbSeason := int64(1)
-		if mon.Season > 0 {
-			dbSeason = int64(mon.Season)
+		folder := monitorFolder(mon)
+		if eps, ok := filesByFolder[folder]; ok {
+			if _, present := eps[int64(mon.EpisodeNumber)]; present {
+				continue
+			}
 		}
-		season := effectiveSeason(mon.Title, dbSeason)
-		folder := mon.MediaFolder
-		if folder == "" {
-			folder = naming.SanitizeFilename(mon.Title)
-		}
-		fk := fileKey{folder, season, int64(mon.EpisodeNumber)}
-		if _, exists := foundOnDisk[fk]; exists {
-			continue
-		}
-		slog.Info("availability: file missing for available monitor", "monitor_id", mon.ID, "title", mon.Title, "season", season, "episode", int64(mon.EpisodeNumber))
-
 		if mon.Status == "downloaded" {
-			bunDB.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("available = false, status = 'pending', updated_at = now()").
+			// kbarr's own download vanished — re-search, but throttled: 'missing'
+			// is only retried after missingRetryInterval, not every cycle.
+			c.db.NewUpdate().Model((*models.Monitor)(nil)).
+				Set("available = false, status = 'missing', updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx)
-			slog.Info("availability: episode reset to pending (kbarr download removed)", "monitor_id", mon.ID, "title", mon.Title)
+			slog.Info("availability: episode file gone, reset to missing", "monitor_id", mon.ID, "title", mon.Title)
 		} else {
-			bunDB.NewUpdate().Model((*models.Monitor)(nil)).
+			c.db.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("available = false, updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx)
 			slog.Info("availability: episode marked unavailable (manual file removed)", "monitor_id", mon.ID, "title", mon.Title)
 		}
 	}
 
-	// Phase 3: sync season monitors.
+	// ── Phase 3: aggregate season monitors (per library, season-agnostic) ─────
+	c.syncSeasonMonitors(ctx)
+
+	slog.Debug("availability: check done")
+}
+
+// scanDisk returns folder -> (episode -> path) for every show directory under
+// mediaPath. Directories whose mtime is unchanged since the last cycle are served
+// from the cache without a ReadDir. Folder keys are sanitized for matching.
+func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]bool) map[string]map[int64]string {
+	titleDirs, err := os.ReadDir(mediaPath)
+	if err != nil {
+		slog.Warn("availability: cannot read media path", "path", mediaPath, "error", err)
+		return nil
+	}
+
+	result := map[string]map[int64]string{}
+	live := map[string]bool{}
+
+	for _, titleDir := range titleDirs {
+		if !titleDir.IsDir() {
+			continue
+		}
+		folder := naming.SanitizeFilename(titleDir.Name())
+		if folder == "" {
+			continue
+		}
+		live[folder] = true
+		dirPath := filepath.Join(mediaPath, titleDir.Name())
+
+		info, err := titleDir.Info()
+		if err != nil {
+			slog.Warn("availability: cannot stat dir", "path", dirPath, "error", err)
+			continue
+		}
+		mtime := info.ModTime()
+
+		if cached, ok := c.cache[folder]; ok && cached.mtime.Equal(mtime) {
+			result[folder] = cached.episodes
+			continue
+		}
+
+		episodes := c.readFolderEpisodes(dirPath, allowedExts)
+		c.cache[folder] = folderScan{mtime: mtime, episodes: episodes}
+		result[folder] = episodes
+		slog.Debug("availability: scanned dir", "folder", folder, "episodes", len(episodes))
+	}
+
+	// Forget cache entries for directories that no longer exist.
+	for folder := range c.cache {
+		if !live[folder] {
+			delete(c.cache, folder)
+		}
+	}
+
+	return result
+}
+
+// readFolderEpisodes reads one directory and returns episode -> first file path.
+func (c *AvailabilityChecker) readFolderEpisodes(dirPath string, allowedExts map[string]bool) map[int64]string {
+	episodes := map[int64]string{}
+	files, err := os.ReadDir(dirPath)
+	if err != nil {
+		slog.Warn("availability: cannot read title dir", "path", dirPath, "error", err)
+		return episodes
+	}
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		ep, ok := parseEpisodeNumber(f.Name(), allowedExts)
+		if !ok {
+			continue
+		}
+		if _, seen := episodes[ep]; !seen {
+			episodes[ep] = filepath.Join(dirPath, f.Name())
+		}
+	}
+	return episodes
+}
+
+// indexMediaFolders maps sanitized folder names to library (media) IDs. Each
+// media row contributes its media_folder and its sanitized title as keys. Keys
+// that resolve to more than one library are flagged ambiguous and skipped at
+// match time so two shows can never be conflated.
+func (c *AvailabilityChecker) indexMediaFolders(ctx context.Context) (map[string]uint, map[string]bool) {
+	var rows []struct {
+		ID          uint   `bun:"id"`
+		Title       string `bun:"title"`
+		MediaFolder string `bun:"media_folder"`
+	}
+	folderToLib := map[string]uint{}
+	ambiguous := map[string]bool{}
+	if err := c.db.NewSelect().
+		TableExpr("media").
+		ColumnExpr("id, title, COALESCE(media_folder, '') AS media_folder").
+		Where("deleted_at IS NULL").
+		Scan(ctx, &rows); err != nil {
+		slog.Error("availability: failed to index media folders", "error", err)
+		return folderToLib, ambiguous
+	}
+
+	add := func(name string, id uint) {
+		key := naming.SanitizeFilename(name)
+		if key == "" {
+			return
+		}
+		if existing, ok := folderToLib[key]; ok && existing != id {
+			ambiguous[key] = true
+			return
+		}
+		folderToLib[key] = id
+	}
+	for _, r := range rows {
+		add(r.MediaFolder, r.ID)
+		add(r.Title, r.ID)
+	}
+	return folderToLib, ambiguous
+}
+
+// syncSeasonMonitors reconciles season monitors with the availability of their
+// episode monitors. It is purely DB-driven and runs every cycle.
+func (c *AvailabilityChecker) syncSeasonMonitors(ctx context.Context) {
 	var seasonMonitors []models.Monitor
-	bunDB.NewSelect().Model(&seasonMonitors).
+	if err := c.db.NewSelect().Model(&seasonMonitors).
 		Where("is_season = true AND status != 'unmonitored' AND deleted_at IS NULL AND library_id != 0").
-		Scan(ctx)
+		Scan(ctx); err != nil {
+		slog.Error("availability: failed to fetch season monitors", "error", err)
+		return
+	}
 
 	for _, sm := range seasonMonitors {
 		if sm.Status == "" {
 			continue
 		}
 		var total, available int
-		bunDB.NewSelect().TableExpr("monitors").
+		c.db.NewSelect().TableExpr("monitors").
 			ColumnExpr("COUNT(*) AS total, SUM(CASE WHEN available THEN 1 ELSE 0 END) AS available").
 			Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", sm.LibraryID).
 			Scan(ctx, &total, &available)
-		slog.Info("availability: season monitor check", "monitor_id", sm.ID, "library_id", sm.LibraryID, "total_episodes", total, "available_episodes", available, "current_status", sm.Status)
 
 		allAvailable := total > 0 && available == total
 		if allAvailable {
-			// All episodes present — reconcile both the flag and the status, so a
-			// season left in 'missing'/'searching' by the indexer reflects reality.
 			if !sm.Available || sm.Status != "downloaded" {
-				bunDB.NewUpdate().Model((*models.Monitor)(nil)).
+				c.db.NewUpdate().Model((*models.Monitor)(nil)).
 					Set("available = true, status = 'downloaded', updated_at = now()").
 					Where("id = ?", sm.ID).Exec(ctx)
-				slog.Info("availability: season marked available", "monitor_id", sm.ID)
+				slog.Info("availability: season marked available", "monitor_id", sm.ID, "title", sm.Title)
 			}
-		} else {
-			// Incomplete — clear availability and, if it had been marked complete,
-			// reset to pending so the indexer searches a season pack again.
-			if sm.Available {
-				bunDB.NewUpdate().Model((*models.Monitor)(nil)).
-					Set("available = false, status = 'pending', updated_at = now()").
-					Where("id = ?", sm.ID).Exec(ctx)
-				slog.Info("availability: season marked unavailable", "monitor_id", sm.ID)
-			} else if sm.Status == "downloaded" {
-				bunDB.NewUpdate().Model((*models.Monitor)(nil)).
-					Set("status = 'pending', updated_at = now()").
-					Where("id = ?", sm.ID).Exec(ctx)
-				slog.Info("availability: season status reset to pending", "monitor_id", sm.ID)
-			}
+			continue
+		}
+
+		// Incomplete. Reset to 'missing' (not 'pending') so the indexer's
+		// missingRetryInterval throttles re-search instead of re-queuing every cycle.
+		if sm.Available {
+			c.db.NewUpdate().Model((*models.Monitor)(nil)).
+				Set("available = false, status = 'missing', updated_at = now()").
+				Where("id = ?", sm.ID).Exec(ctx)
+			slog.Info("availability: season incomplete, reset to missing", "monitor_id", sm.ID, "title", sm.Title, "available", available, "total", total)
+		} else if sm.Status == "downloaded" {
+			c.db.NewUpdate().Model((*models.Monitor)(nil)).
+				Set("status = 'missing', updated_at = now()").
+				Where("id = ?", sm.ID).Exec(ctx)
+			slog.Info("availability: season incomplete, reset to missing", "monitor_id", sm.ID, "title", sm.Title, "available", available, "total", total)
 		}
 	}
+}
 
-	slog.Info("availability: check done")
+// monitorFolder returns the sanitized folder key for an episode monitor.
+func monitorFolder(m *monitorRow) string {
+	folder := m.MediaFolder
+	if folder == "" {
+		folder = m.Title
+	}
+	return naming.SanitizeFilename(folder)
+}
+
+// parseEpisodeNumber extracts an episode number from a filename, returning false
+// for non-video files or names with no detectable episode. The SxxExx fast path
+// is tried first, then the anitogo-based parser (which also handles absolute
+// numbering and Japanese/hash notation).
+func parseEpisodeNumber(filename string, allowedExts map[string]bool) (int64, bool) {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if len(allowedExts) > 0 && !allowedExts[ext] {
+		return 0, false
+	}
+	if m := episodePattern.FindStringSubmatch(filename); m != nil {
+		if n, err := strconv.ParseInt(m[1], 10, 64); err == nil && n > 0 {
+			return n, true
+		}
+	}
+	if ep := parser.Parse(filename).Episode; ep > 0 {
+		return int64(ep), true
+	}
+	return 0, false
+}
+
+// allowedVideoExts returns the configured allowed video extensions as a set.
+func allowedVideoExts(db *bun.DB) map[string]bool {
+	raw := config.Get(db, "allowedVideoExtensions", ".mkv,.mp4,.avi,.mov,.wmv,.m4v")
+	exts := map[string]bool{}
+	for _, e := range strings.Split(raw, ",") {
+		if t := strings.TrimSpace(strings.ToLower(e)); t != "" {
+			exts[t] = true
+		}
+	}
+	return exts
 }

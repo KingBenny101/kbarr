@@ -36,7 +36,7 @@ var Schema = []SettingDef{
 	{Key: "downloadPath", Type: TypeString, Default: "/app/downloads", Label: "Download path", Description: "Absolute path where qBittorrent saves files.", Group: "general", Section: "File management"},
 	{Key: "mediaPath", Type: TypeString, Default: "/app/media", Label: "Media path", Description: "Absolute path where organised hardlinks are created.", Group: "general", Section: "File management"},
 	{Key: "allowedVideoExtensions", Type: TypeString, Default: ".mkv,.mp4,.avi,.mov,.wmv,.m4v", Label: "Allowed video extensions", Description: "Comma-separated list of file extensions to hardlink on completion.", Group: "general", Section: "File management"},
-	{Key: "availabilityCheckInterval", Type: TypeInt, Default: "10", Label: "Availability check interval", Description: "How often the media folder is scanned to update episode availability.", Group: "general", Section: "File management", Unit: "sec"},
+	{Key: "availabilityCheckInterval", Type: TypeInt, Default: "60", Label: "Availability check interval", Description: "How often the media folder is scanned to update episode availability.", Group: "general", Section: "File management", Unit: "sec"},
 	{Key: "devMode", Type: TypeBool, Default: "false", Label: "Dev mode", Description: "Enables test torrent insertion on the Download Queue page.", Group: "general", Section: "Developer options"},
 
 	// ── Metadata ─────────────────────────────────────────────────────────
