@@ -30,6 +30,10 @@ type Detailed struct {
 	PosterURL       string    `bun:"poster_url" json:"poster_url"`
 	TotalEpisodes   int       `bun:"total_episodes" json:"total_episodes"`
 	TotalSeasons    int       `bun:"total_seasons" json:"total_seasons"`
+	TVDBID          string    `bun:"tvdb_id" json:"tvdb_id"`
+	AniListID       string    `bun:"anilist_id" json:"anilist_id"`
+	IMDBID          string    `bun:"imdb_id" json:"imdb_id"`
+	TMDBID          string    `bun:"tmdb_id" json:"tmdb_id"`
 	Episodes        []Episode `bun:"rel:has-many,join:id=detailed_id" json:"episodes"`
 	IsNSFW          bool      `json:"-" bun:"-"` // set from media, not stored in detaileds table
 }

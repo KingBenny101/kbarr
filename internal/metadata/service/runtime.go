@@ -23,6 +23,9 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 	if err := s.LoadTitlesDump(); err != nil {
 		slog.Warn("Initial titles sync failed", "error", err)
 	}
+	if err := s.LoadAnimeListsMapping(); err != nil {
+		slog.Warn("Initial anime-lists sync failed", "error", err)
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -32,6 +35,9 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 		case <-ticker.C:
 			if err := s.LoadTitlesDump(); err != nil {
 				slog.Warn("Scheduled titles sync failed", "error", err)
+			}
+			if err := s.LoadAnimeListsMapping(); err != nil {
+				slog.Warn("Scheduled anime-lists sync failed", "error", err)
 			}
 
 			nextInterval := s.currentTitlesInterval()

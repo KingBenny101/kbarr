@@ -1,7 +1,9 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/xml"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -584,14 +586,35 @@ func (s *DownloaderService) writeTVShowNFO(ctx context.Context, libraryID uint, 
 		return // already exists
 	}
 
-	content := fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
-<tvshow>
-  <title>%s</title>
-  <uniqueid type="anidb" default="true">%s</uniqueid>
-</tvshow>
-`, d.Title, d.SourceID)
+	type tvshow struct {
+		XMLName   xml.Name `xml:"tvshow"`
+		Title     string   `xml:"title"`
+		AnidbID   string   `xml:"anidbid"`
+		TvdbID    string   `xml:"tvdbid,omitempty"`
+		AnilistID string   `xml:"anilistid,omitempty"`
+		ImdbID    string   `xml:"imdb_id,omitempty"`
+		TmdbID    string   `xml:"tmdbid,omitempty"`
+	}
 
-	if err := os.WriteFile(nfoPath, []byte(content), 0644); err != nil {
+	nfo := tvshow{
+		Title:     d.Title,
+		AnidbID:   d.SourceID,
+		TvdbID:    d.TVDBID,
+		AnilistID: d.AniListID,
+		ImdbID:    d.IMDBID,
+		TmdbID:    d.TMDBID,
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString(`<?xml version="1.0" encoding="utf-8" standalone="yes"?>` + "\n")
+	enc := xml.NewEncoder(&buf)
+	enc.Indent("", "  ")
+	if err := enc.Encode(nfo); err != nil {
+		slog.Warn("writeTVShowNFO: failed to encode", "path", nfoPath, "error", err)
+		return
+	}
+
+	if err := os.WriteFile(nfoPath, buf.Bytes(), 0644); err != nil {
 		slog.Warn("writeTVShowNFO: failed to write", "path", nfoPath, "error", err)
 		return
 	}

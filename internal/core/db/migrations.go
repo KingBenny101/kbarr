@@ -29,6 +29,12 @@ func runMigrations(ctx context.Context) error {
 		END $$`,
 		`ALTER TABLE detaileds DROP COLUMN IF EXISTS aid`,
 
+		// detaileds: external database IDs from Fribb/anime-lists (Jellyfin NFO)
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS tvdb_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS anilist_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS imdb_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS tmdb_id TEXT NOT NULL DEFAULT ''`,
+
 		// episodes
 		`ALTER TABLE episodes ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'anidb'`,
 		`ALTER TABLE episodes ADD COLUMN IF NOT EXISTS external_id TEXT`,

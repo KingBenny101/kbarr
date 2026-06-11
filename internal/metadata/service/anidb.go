@@ -32,6 +32,9 @@ type AniDBService struct {
 
 	mu         sync.RWMutex
 	titlesDump *mdmodels.AnimeTitlesDump
+
+	alMu       sync.RWMutex
+	animeLists map[uint]ExternalIDs
 }
 
 func New(db *bun.DB) *AniDBService {
@@ -167,6 +170,12 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 			AirDate:    ep.AirDate,
 		})
 	}
+
+	ids := s.LookupExternalIDs(aid)
+	metadata.TVDBID = ids.TVDB
+	metadata.AniListID = ids.AniList
+	metadata.IMDBID = ids.IMDB
+	metadata.TMDBID = ids.TMDB
 
 	if details.Picture != "" {
 		metadata.PosterURL = "/api/images/" + details.Picture

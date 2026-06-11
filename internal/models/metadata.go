@@ -31,6 +31,10 @@ type AnimeMetadata struct {
 	PosterURL       string            `json:"poster_url"`
 	TotalEpisodes   int               `json:"total_episodes"`
 	TotalSeasons    int               `json:"total_seasons"`
+	TVDBID          string            `json:"tvdb_id"`
+	AniListID       string            `json:"anilist_id"`
+	IMDBID          string            `json:"imdb_id"`
+	TMDBID          string            `json:"tmdb_id"`
 	Episodes        []EpisodeMetadata `json:"episodes"`
 }
 
