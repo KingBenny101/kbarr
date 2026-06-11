@@ -25,7 +25,8 @@ func Login(store *auth.Store) func(context.Context, *LoginInput) (*TokenOutput, 
 
 func Logout(store *auth.Store) func(context.Context, *LogoutInput) (*struct{}, error) {
 	return func(ctx context.Context, input *LogoutInput) (*struct{}, error) {
-		store.Revoke(input.Authorization)
+		token := strings.TrimPrefix(input.Authorization, "Bearer ")
+		store.Revoke(token)
 		return nil, nil
 	}
 }
