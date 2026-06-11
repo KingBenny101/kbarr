@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Pagination, Progress, ScrollArea, Stack, Table, Text, TextInput, Title, Tooltip, UnstyledButton } from "@mantine/core"
 import { IconChevronDown, IconChevronUp, IconExternalLink, IconFlask, IconLink, IconSearch, IconSelector, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
+import { usePolling } from "@/hooks"
 import { StatusPill } from "@/components"
 
 interface DownloadItem {
@@ -132,25 +133,27 @@ export function DownloadsPage() {
         }
     }
 
-    const fetchQueue = async () => {
+    const fetchQueue = async (): Promise<boolean> => {
         try {
             const response = await apiFetch(`${API_URL}/api/downloads`)
             if (!response.ok) throw new Error("Failed to fetch download queue")
             const data = await response.json()
             setQueue(data || [])
+            return true
         } catch (error) {
             console.error(error)
-            showToast("Failed to load download queue", "error")
+            return false
         } finally {
             setLoading(false)
         }
     }
 
-    useEffect(() => {
-        fetchQueue()
-        const interval = setInterval(fetchQueue, 5000)
-        return () => clearInterval(interval)
-    }, [])
+    usePolling(fetchQueue, {
+        interval: 5000,
+        onError: (failures) => {
+            if (failures === 1) showToast("Failed to load download queue", "error")
+        },
+    })
 
     const handleRetryHardlinks = async (item: DownloadItem) => {
         try {

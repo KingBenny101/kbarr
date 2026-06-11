@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Badge, Card, Code, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
 import { IconCircleCheck, IconCircleX } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
+import { usePolling } from "@/hooks"
 
 interface ServiceHealth {
     name: string
@@ -31,35 +32,26 @@ function LogViewer({ service }: { service: ServiceHealth }) {
     const viewport = useRef<HTMLDivElement>(null)
     const isAtBottom = useRef(true)
 
-    useEffect(() => {
-        setLogs([])
-        setLoading(true)
-        let cancelled = false
-
-        const fetchLogs = async () => {
-            try {
-                const res = await apiFetch(`${API_URL}/api/workers/${service.name}/logs`)
-                if (!res.ok) throw new Error()
-                const data: LogEntry[] = await res.json()
-                if (!cancelled) {
-                    setLogs(data)
-                    if (isAtBottom.current) {
-                        setTimeout(() => {
-                            if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight
-                        }, 30)
-                    }
-                }
-            } catch {
-                // ignore
-            } finally {
-                if (!cancelled) setLoading(false)
+    const fetchLogs = async (): Promise<boolean> => {
+        try {
+            const res = await apiFetch(`${API_URL}/api/workers/${service.name}/logs`)
+            if (!res.ok) throw new Error()
+            const data: LogEntry[] = await res.json()
+            setLogs(data)
+            if (isAtBottom.current) {
+                setTimeout(() => {
+                    if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight
+                }, 30)
             }
+            return true
+        } catch {
+            return false
+        } finally {
+            setLoading(false)
         }
+    }
 
-        fetchLogs()
-        const interval = setInterval(fetchLogs, 3000)
-        return () => { cancelled = true; clearInterval(interval) }
-    }, [service.name])
+    usePolling(fetchLogs, { interval: 3000 }, [service.name])
 
     const handleScroll = () => {
         if (!viewport.current) return
@@ -177,24 +169,26 @@ export function LogsPage() {
     const [loading, setLoading] = useState(true)
     const isMobile = useMediaQuery("(max-width: 768px)")
 
-    const fetchLogs = async () => {
+    const fetchWorkers = async (): Promise<boolean> => {
         try {
             const res = await apiFetch(`${API_URL}/api/workers`)
             if (!res.ok) throw new Error()
             const data: ServiceHealth[] = await res.json()
             setServices(data || [])
+            return true
         } catch {
-            showToast("Failed to load worker statuses", "error")
+            return false
         } finally {
             setLoading(false)
         }
     }
 
-    useEffect(() => {
-        fetchLogs()
-        const interval = setInterval(fetchLogs, 10000)
-        return () => clearInterval(interval)
-    }, [])
+    usePolling(fetchWorkers, {
+        interval: 10000,
+        onError: (failures) => {
+            if (failures === 1) showToast("Failed to load worker statuses", "error")
+        },
+    })
 
     const selectedService = services.find((s) => s.name === selected) ?? null
 
@@ -227,7 +221,7 @@ export function LogsPage() {
                 {/* Log panel fills remaining height */}
                 <Card withBorder radius="xl" p="md" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
                     {selectedService ? (
-                        <LogViewer service={selectedService} />
+                        <LogViewer key={selectedService.name} service={selectedService} />
                     ) : (
                         <Text c="dimmed" ta="center" py="xl">Select a service to view logs.</Text>
                     )}
@@ -266,7 +260,7 @@ export function LogsPage() {
                 {/* Log panel */}
                 <Card withBorder radius="xl" p="md" style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column" }}>
                     {selectedService ? (
-                        <LogViewer service={selectedService} />
+                        <LogViewer key={selectedService.name} service={selectedService} />
                     ) : (
                         <Text c="dimmed" ta="center" py="xl">Select a service to view logs.</Text>
                     )}
