@@ -42,6 +42,10 @@ type AniDBService struct {
 	titlesDump  *mdmodels.AnimeTitlesDump
 	searchIndex []searchEntry
 
+	// loadMu serializes the lazy titles-dump load so concurrent first-time
+	// searches don't each download the multi-MB dump (thundering herd).
+	loadMu sync.Mutex
+
 	alMu       sync.RWMutex
 	animeLists map[uint]ExternalIDs
 
@@ -79,6 +83,59 @@ func (s *AniDBService) markBanned() {
 	s.apiMu.Lock()
 	s.bannedUntil = time.Now().Add(aniDBBanCooldown)
 	s.apiMu.Unlock()
+}
+
+// ensureIndexLoaded loads the titles dump exactly once across concurrent callers.
+// The first caller downloads/parses; the rest wait on loadMu and then observe the
+// ready index instead of triggering their own download.
+func (s *AniDBService) ensureIndexLoaded() error {
+	s.mu.RLock()
+	ready := s.searchIndex != nil
+	s.mu.RUnlock()
+	if ready {
+		return nil
+	}
+
+	s.loadMu.Lock()
+	defer s.loadMu.Unlock()
+	// Re-check after acquiring: another goroutine may have loaded it while we waited.
+	s.mu.RLock()
+	ready = s.searchIndex != nil
+	s.mu.RUnlock()
+	if ready {
+		return nil
+	}
+	return s.LoadTitlesDump()
+}
+
+// atomicWriteFile writes data to path via a temp file in the same directory then
+// renames it into place, so a crash mid-write can't leave a truncated file that
+// breaks the next load. The temp file shares the destination's directory to keep
+// the rename on one filesystem (where rename is atomic).
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	if err := os.Chmod(tmpName, perm); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return nil
 }
 
 // anidbErrorBody reports whether an AniDB HTTP API response is an <error>…</error>
@@ -144,7 +201,7 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error)
 		return nil, err
 	}
 
-	if err := os.WriteFile(cacheFile, raw, 0644); err != nil {
+	if err := atomicWriteFile(cacheFile, raw, 0644); err != nil {
 		slog.Warn("Failed to write anime details cache", "cacheFile", cacheFile, "error", err)
 	}
 
@@ -261,7 +318,7 @@ func (s *AniDBService) downloadTitlesDump(titlesFile, client, version string) er
 		return fmt.Errorf("failed to read titles dump: %w", err)
 	}
 
-	if err := os.WriteFile(titlesFile, data, 0644); err != nil {
+	if err := atomicWriteFile(titlesFile, data, 0644); err != nil {
 		return fmt.Errorf("failed to cache titles dump: %w", err)
 	}
 

@@ -92,13 +92,8 @@ func canonicalTitle(titles []mdmodels.TitleEntry) string {
 // (exact > prefix > substring > fuzzy), dedupes by AniDB ID, and caps the result
 // count.
 func (s *AniDBService) SearchTitles(query string) ([]imodels.SearchResult, error) {
-	s.mu.RLock()
-	ready := s.searchIndex != nil
-	s.mu.RUnlock()
-	if !ready {
-		if err := s.LoadTitlesDump(); err != nil {
-			return nil, err
-		}
+	if err := s.ensureIndexLoaded(); err != nil {
+		return nil, err
 	}
 
 	s.mu.RLock()
