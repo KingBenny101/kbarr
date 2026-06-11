@@ -58,6 +58,7 @@ export function DownloadsPage() {
     const [queue, setQueue] = useState<DownloadItem[]>([])
     const [loading, setLoading] = useState(true)
     const [triggering, setTriggering] = useState(false)
+    const [clearing, setClearing] = useState(false)
     const [devMode, setDevMode] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<DownloadItem | null>(null)
     const [blacklist, setBlacklist] = useState(false)
@@ -92,6 +93,20 @@ export function DownloadsPage() {
             showToast("Failed to trigger downloader", "error")
         } finally {
             setTriggering(false)
+        }
+    }
+
+    const handleClearCompleted = async () => {
+        setClearing(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/downloads/completed`, { method: "DELETE" })
+            if (!res.ok) throw new Error()
+            showToast("Cleared completed downloads", "success")
+            fetchQueue()
+        } catch {
+            showToast("Failed to clear completed downloads", "error")
+        } finally {
+            setClearing(false)
         }
     }
 
@@ -290,6 +305,11 @@ export function DownloadsPage() {
                             {devMode && (
                                 <Button variant="light" color="orange" size="xs" leftSection={<IconFlask size={14} />} onClick={() => setTestModalOpen(true)}>
                                     Add test torrent
+                                </Button>
+                            )}
+                            {(statusCounts["completed"] ?? 0) > 0 && (
+                                <Button variant="light" color="gray" size="xs" loading={clearing} onClick={handleClearCompleted}>
+                                    Clear completed
                                 </Button>
                             )}
                             <Button variant="light" color="gray" size="xs" loading={triggering} onClick={handleTrigger}>

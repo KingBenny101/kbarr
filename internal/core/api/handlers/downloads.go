@@ -46,6 +46,18 @@ func ClearBlacklist() func(context.Context, *struct{}) (*struct{}, error) {
 	}
 }
 
+func ClearCompletedDownloads() func(context.Context, *struct{}) (*struct{}, error) {
+	return func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+		n, err := db.ClearCompletedDownloads(ctx)
+		if err != nil {
+			slog.Error("Failed to clear completed downloads", "error", err)
+			return nil, huma.Error500InternalServerError("failed to clear completed downloads", err)
+		}
+		slog.Info("Cleared completed downloads from queue", "count", n)
+		return nil, nil
+	}
+}
+
 func CreateHardlinks(downloaderAddr string) func(context.Context, *HardlinkInput) (*struct{}, error) {
 	return func(ctx context.Context, input *HardlinkInput) (*struct{}, error) {
 		body, _ := json.Marshal(map[string]int64{"id": input.ID})

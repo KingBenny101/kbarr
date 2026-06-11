@@ -53,6 +53,7 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 	huma.Register(api, huma.Operation{OperationID: "create-hardlinks", Method: "POST", Path: "/api/downloads/{id}/hardlink", Security: secured, Tags: []string{"downloads"}, Summary: "Create hardlinks", DefaultStatus: 204}, handlers.CreateHardlinks(handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083")))
 	huma.Register(api, huma.Operation{OperationID: "delete-download", Method: "DELETE", Path: "/api/downloads/{id}", Security: secured, Tags: []string{"downloads"}, Summary: "Delete download", DefaultStatus: 204}, handlers.DeleteDownload())
 	huma.Register(api, huma.Operation{OperationID: "clear-blacklist", Method: "DELETE", Path: "/api/downloads/blacklist", Security: secured, Tags: []string{"downloads"}, Summary: "Clear blacklist", DefaultStatus: 204}, handlers.ClearBlacklist())
+	huma.Register(api, huma.Operation{OperationID: "clear-completed-downloads", Method: "DELETE", Path: "/api/downloads/completed", Security: secured, Tags: []string{"downloads"}, Summary: "Clear completed downloads", DefaultStatus: 204}, handlers.ClearCompletedDownloads())
 
 	// Settings
 	huma.Register(api, huma.Operation{OperationID: "get-settings-schema", Method: "GET", Path: "/api/settings/schema", Security: secured, Tags: []string{"settings"}, Summary: "Get settings schema"}, handlers.GetSettingsSchema())

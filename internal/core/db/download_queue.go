@@ -116,6 +116,24 @@ func DeleteDownloadQueueEntry(ctx context.Context, id string, opts DeleteOptions
 	return err
 }
 
+// ClearCompletedDownloads soft-deletes every completed queue entry so the
+// downloads table is decluttered. It deliberately does not touch qBittorrent or
+// any files on disk — the torrents keep seeding and the hardlinks remain.
+func ClearCompletedDownloads(ctx context.Context) (int64, error) {
+	if err := ensureDB(); err != nil {
+		return 0, err
+	}
+	res, err := DB.NewUpdate().Model((*models.DownloadQueue)(nil)).
+		Set("deleted_at = now(), updated_at = now()").
+		Where("status = 'completed' AND deleted_at IS NULL").
+		Exec(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to clear completed downloads: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
 func resetMonitorOnQueueDelete(ctx context.Context, monitorID int64, unmonitor bool) {
 	var mon models.Monitor
 	if err := DB.NewSelect().Model(&mon).Where("id = ? AND deleted_at IS NULL", monitorID).Scan(ctx); err != nil {
