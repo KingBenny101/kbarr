@@ -1,0 +1,16 @@
+[data-theme='dark'] {
+  --ifm-color-primary: #f0a500;
+  --ifm-color-primary-dark: #d89400;
+  --ifm-color-primary-darker: #cc8b00;
+  --ifm-color-primary-darkest: #a87200;
+  --ifm-color-primary-light: #f2b020;
+  --ifm-color-primary-lighter: #f4bb3a;
+  --ifm-color-primary-lightest: #f8d07a;
+
+  --ifm-background-color: #161410;
+  --ifm-background-surface-color: #1f1c16;
+  --ifm-navbar-background-color: #1a1710;
+  --ifm-footer-background-color: #111009;
+
+  --ifm-color-warning: #f0a500;
+}

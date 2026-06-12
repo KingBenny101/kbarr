@@ -111,6 +111,11 @@ const config: Config = {
       ],
       copyright: `Copyright © ${new Date().getFullYear()} KingBenny101. Released under the MIT License.`,
     },
+    colorMode: {
+      defaultMode: 'dark',
+      disableSwitch: true,
+      respectPrefersColorScheme: false,
+    },
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
