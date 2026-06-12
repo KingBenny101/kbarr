@@ -1,48 +1,89 @@
 .hero {
-  padding: 4rem 0;
+  padding: 5rem 0 4rem;
   text-align: center;
 }
 
-.heroTagline {
-  font-size: 1.1rem;
-  margin: 0.5rem 0 0;
-  opacity: 0.85;
+.heroSubtitle {
+  font-size: 1.2rem;
+  opacity: 0.8;
+  margin: 0.75rem 0 0;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
 }
 
 .heroActions {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-top: 2rem;
+  margin-top: 2.5rem;
   flex-wrap: wrap;
 }
 
-.features {
-  padding: 3rem 0;
-  background: var(--ifm-background-surface-color);
-}
-
-.featureCard {
-  padding: 1.5rem;
-}
+/* ── Content ──────────────────────────────────────── */
 
 .content {
-  padding: 3rem 0;
+  padding: 4rem 0;
 }
 
-.content section {
+.inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.section {
   margin-bottom: 3rem;
 }
 
-.content table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1rem 0;
+.section p {
+  line-height: 1.75;
+  opacity: 0.9;
 }
 
-.content th,
-.content td {
-  padding: 0.6rem 1rem;
-  border: 1px solid var(--ifm-table-border-color);
-  text-align: left;
+.section h2 {
+  margin-bottom: 1rem;
+}
+
+/* Disclaimer callout */
+.disclaimer {
+  background: var(--ifm-background-surface-color);
+  border-left: 3px solid var(--ifm-color-warning);
+  border-radius: 0 8px 8px 0;
+  padding: 1rem 1.25rem;
+}
+
+.disclaimer p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  opacity: 0.8;
+}
+
+.disclaimer p + p {
+  margin-top: 0.6rem;
+}
+
+/* Requirements list */
+.requirements {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.requirements li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.requirements li::before {
+  content: '→';
+  opacity: 0.4;
+  flex-shrink: 0;
 }
