@@ -14,16 +14,16 @@ import (
 	"golang.org/x/text/width"
 )
 
-// diacriticStripper folds combining marks (accents) away: NFD decomposes, the
-// runes.Remove drops the combining marks, NFC recomposes what's left.
-var diacriticStripper = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-
 // Normalize lowercases, folds full-width forms and diacritics to ASCII, keeps
 // only letters and digits, and collapses every other run to a single space.
 // e.g. "Café!" -> "cafe", "３×３ EYES" -> "3x3 eyes".
 func Normalize(s string) string {
 	s = width.Narrow.String(s)
-	if folded, _, err := transform.String(diacriticStripper, s); err == nil {
+	// A new chain is created per call: transform.Chain is stateful and not safe
+	// for concurrent use, so sharing a package-level instance would be a data race
+	// when multiple goroutines call Normalize simultaneously (e.g. metadata /search).
+	stripper := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+	if folded, _, err := transform.String(stripper, s); err == nil {
 		s = folded
 	}
 	s = strings.ToLower(s)
