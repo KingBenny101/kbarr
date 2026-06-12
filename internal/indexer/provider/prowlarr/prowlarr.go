@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/config"
 	iprovider "github.com/kingbenny101/kbarr/internal/indexer/provider"
 	"github.com/kingbenny101/kbarr/internal/models"
+	"github.com/kingbenny101/kbarr/internal/naming"
 	"github.com/uptrace/bun"
 )
 
@@ -43,7 +43,7 @@ func (p *Prowlarr) IsEnabled(db *bun.DB) bool {
 // Search builds all applicable query variants, queries Prowlarr for each,
 // and returns deduplicated results merged from all variants.
 func (p *Prowlarr) Search(ctx context.Context, db *bun.DB, req iprovider.SearchRequest) ([]models.TorrentResult, error) {
-	queryTitles := asciiQueryTitles(req.AllTitles())
+	queryTitles := req.AllTitles()
 	limit := cacheFileLimit(db)
 
 	var buildQueries func(string) []string
@@ -170,40 +170,9 @@ func cacheFileLimit(db *bun.DB) int {
 
 // ── query builders ─────────────────────────────────────────────────────────────
 
-var (
-	seasonInTitleRe = regexp.MustCompile(`(?i)\bseason\s*(\d+)\b`)
-	ordinalSeasonRe = regexp.MustCompile(`(?i)\b(\d+)(?:st|nd|rd|th)\s+season\b`)
-)
-
-func stripSeasonFromTitle(title string) string {
-	s := ordinalSeasonRe.ReplaceAllString(title, "")
-	s = seasonInTitleRe.ReplaceAllString(s, "")
-	return strings.Join(strings.Fields(s), " ")
-}
-
-func asciiQueryTitles(titles []string) []string {
-	var out []string
-	for _, t := range titles {
-		ascii := true
-		for _, r := range t {
-			if r > 127 {
-				ascii = false
-				break
-			}
-		}
-		if ascii {
-			out = append(out, t)
-		}
-	}
-	if len(out) == 0 {
-		return titles
-	}
-	return out
-}
-
 func seasonQueries(title string) []string {
 	queries := []string{title, title + " Batch", title + " Complete"}
-	if stripped := stripSeasonFromTitle(title); stripped != title && stripped != "" {
+	if stripped := naming.StripSeasonFromTitle(title); stripped != title && stripped != "" {
 		queries = append(queries, stripped, stripped+" Batch", stripped+" Complete")
 	}
 	return queries

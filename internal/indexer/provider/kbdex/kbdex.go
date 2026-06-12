@@ -111,8 +111,7 @@ func (k *Kbdex) Search(ctx context.Context, db *bun.DB, req iprovider.SearchRequ
 			dlURL = *item.TorrentURL
 		}
 		results = append(results, models.TorrentResult{
-			Title:       item.Title,
-			FileName:    item.Title,
+			Title: item.Title,
 			DownloadURL: dlURL,
 			Size:        item.SizeBytes,
 			Indexer:     item.SourceIndexer,

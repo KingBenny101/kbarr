@@ -3,6 +3,7 @@ package naming
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -22,4 +23,31 @@ func SanitizeFilename(name string) string {
 	cleaned := disallowed.ReplaceAllString(name, "")
 	cleaned = multiSpace.ReplaceAllString(cleaned, " ")
 	return strings.TrimSpace(cleaned)
+}
+
+var (
+	seasonInTitleRe = regexp.MustCompile(`(?i)\bseason\s*(\d+)\b`)
+	ordinalSeasonRe = regexp.MustCompile(`(?i)\b(\d+)(?:st|nd|rd|th)\s+season\b`)
+)
+
+// StripSeasonFromTitle removes trailing "Season N" and "Nth Season" phrases from
+// a show title so that season-qualified titles match season-agnostic release names.
+func StripSeasonFromTitle(title string) string {
+	s := ordinalSeasonRe.ReplaceAllString(title, "")
+	s = seasonInTitleRe.ReplaceAllString(s, "")
+	return strings.Join(strings.Fields(s), " ")
+}
+
+// ExtractSeasonFromTitle returns the season number embedded in a show title
+// (e.g. "Attack on Titan Season 3" → 3). Returns 0 if no season phrase is found.
+func ExtractSeasonFromTitle(title string) int {
+	if m := ordinalSeasonRe.FindStringSubmatch(title); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	if m := seasonInTitleRe.FindStringSubmatch(title); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	return 0
 }

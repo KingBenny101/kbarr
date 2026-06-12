@@ -22,7 +22,9 @@ type TorrentInfo struct {
 	Category    string
 }
 
-func pathBase(p string) string {
+// PathBase extracts the final path component handling both '/' (POSIX) and '\'
+// (Windows) separators. filepath.Base on Linux does not split on '\'.
+func PathBase(p string) string {
 	if i := strings.LastIndexAny(p, "/\\"); i >= 0 {
 		return p[i+1:]
 	}
@@ -32,15 +34,15 @@ func pathBase(p string) string {
 // ContentName returns the actual on-disk name of the torrent content.
 func (t TorrentInfo) ContentName() string {
 	if t.ContentPath != "" {
-		return pathBase(t.ContentPath)
+		return PathBase(t.ContentPath)
 	}
-	return pathBase(t.Name)
+	return PathBase(t.Name)
 }
 
 // ContentRelPath returns the path of the torrent content relative to the save directory.
 func (t TorrentInfo) ContentRelPath() string {
 	if t.ContentPath == "" {
-		return pathBase(t.Name)
+		return PathBase(t.Name)
 	}
 	if t.SavePath != "" {
 		cp := strings.ReplaceAll(t.ContentPath, "\\", "/")
@@ -49,7 +51,7 @@ func (t TorrentInfo) ContentRelPath() string {
 			return filepath.FromSlash(cp[len(sp)+1:])
 		}
 	}
-	return pathBase(t.ContentPath)
+	return PathBase(t.ContentPath)
 }
 
 // TorrentClient is the interface implemented by each download client backend.

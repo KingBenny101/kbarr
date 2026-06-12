@@ -36,14 +36,6 @@ func NewDownloaderService(db *bun.DB) *DownloaderService {
 	}
 }
 
-// pathBase extracts the final path component handling both '/' (POSIX) and '\'
-// (Windows) separators. filepath.Base on Linux does not split on '\'.
-func pathBase(p string) string {
-	if i := strings.LastIndexAny(p, "/\\"); i >= 0 {
-		return p[i+1:]
-	}
-	return p
-}
 
 // linkOrCopy hardlinks src to dst, falling back to a copy only when the two
 // paths live on different filesystems (EXDEV). Hardlinks are impossible across
@@ -617,7 +609,7 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		if strings.HasPrefix(sp, dp) {
 			savePath = filepath.Join(downloadPath, sp[len(dp):])
 		} else {
-			savePath = filepath.Join(downloadPath, pathBase(savePath))
+			savePath = filepath.Join(downloadPath, dlprovider.PathBase(savePath))
 		}
 	}
 
@@ -645,8 +637,8 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 	// "Grand Blue Dreaming S01 1080p BDRip ...") while the files inside are
 	// title-less ("S01E01-Deep Blue [crc].mkv"). This fills gaps the per-file
 	// parse leaves behind.
-	folderCtx := runGuessit(pathBase(savePath))
-	slog.Info("createHardlinks: folder context", "folder", pathBase(savePath), "title", folderCtx.Title, "season", folderCtx.Season)
+	folderCtx := runGuessit(dlprovider.PathBase(savePath))
+	slog.Info("createHardlinks: folder context", "folder", dlprovider.PathBase(savePath), "title", folderCtx.Title, "season", folderCtx.Season)
 
 	walkRoot := savePath
 	if _, err := os.Stat(savePath); err != nil {

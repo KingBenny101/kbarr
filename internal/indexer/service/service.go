@@ -13,6 +13,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/config"
 	iprovider "github.com/kingbenny101/kbarr/internal/indexer/provider"
 	"github.com/kingbenny101/kbarr/internal/models"
+	"github.com/kingbenny101/kbarr/internal/naming"
 	"github.com/kingbenny101/kbarr/internal/parser"
 	"github.com/kingbenny101/kbarr/internal/textmatch"
 	"github.com/uptrace/bun"
@@ -100,36 +101,13 @@ func (s *IndexerService) currentMonitorInterval() time.Duration {
 	return config.GetSeconds(s.db, "prowlarrInterval", 1*time.Second, 1*time.Second)
 }
 
-var (
-	seasonInTitleRe  = regexp.MustCompile(`(?i)\bseason\s*(\d+)\b`)
-	ordinalSeasonRe  = regexp.MustCompile(`(?i)\b(\d+)(?:st|nd|rd|th)\s+season\b`)
-	westernEpPattern = regexp.MustCompile(`(?i)S\d{1,2}E\d{1,2}`)
-)
+var westernEpPattern = regexp.MustCompile(`(?i)S\d{1,2}E\d{1,2}`)
 
 // isIndividualEpisode returns true if the result is a single episode rather than a season pack.
 func isIndividualEpisode(parsedEp int, filename, torrentTitle string) bool {
 	return parsedEp > 0 || westernEpPattern.MatchString(filename) || westernEpPattern.MatchString(torrentTitle)
 }
 
-// extractSeasonFromTitle returns the season number embedded in a show title.
-func extractSeasonFromTitle(title string) int {
-	if m := ordinalSeasonRe.FindStringSubmatch(title); m != nil {
-		n, _ := strconv.Atoi(m[1])
-		return n
-	}
-	if m := seasonInTitleRe.FindStringSubmatch(title); m != nil {
-		n, _ := strconv.Atoi(m[1])
-		return n
-	}
-	return 0
-}
-
-// stripSeasonFromTitle removes season indicators from a title.
-func stripSeasonFromTitle(title string) string {
-	s := ordinalSeasonRe.ReplaceAllString(title, "")
-	s = seasonInTitleRe.ReplaceAllString(s, "")
-	return strings.Join(strings.Fields(s), " ")
-}
 
 // expandWithStrippedSeasons appends stripped-season variants to the titles list.
 func expandWithStrippedSeasons(titles []string) []string {
@@ -140,7 +118,7 @@ func expandWithStrippedSeasons(titles []string) []string {
 			out = append(out, t)
 			seen[t] = true
 		}
-		if stripped := stripSeasonFromTitle(t); stripped != t && stripped != "" && !seen[stripped] {
+		if stripped := naming.StripSeasonFromTitle(t); stripped != t && stripped != "" && !seen[stripped] {
 			out = append(out, stripped)
 			seen[stripped] = true
 		}
@@ -476,7 +454,7 @@ func effectiveSeason(mon models.Monitor, title string) int64 {
 		season = int64(mon.Season)
 	}
 	if season == 1 {
-		if embedded := extractSeasonFromTitle(title); embedded > 1 {
+		if embedded := naming.ExtractSeasonFromTitle(title); embedded > 1 {
 			season = int64(embedded)
 		}
 	}
