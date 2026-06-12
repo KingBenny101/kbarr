@@ -97,7 +97,7 @@ const config: Config = {
           title: 'Docs',
           items: [
             { label: 'Installation', to: '/docs/installation' },
-            { label: 'Internal Services', to: '/docs/internals' },
+            { label: 'Development', to: '/docs/development' },
             { label: 'API Reference', to: '/docs/api/kbarr-api' },
           ],
         },
