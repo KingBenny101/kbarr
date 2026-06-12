@@ -12,6 +12,7 @@ try {
 const sidebars: SidebarsConfig = {
   docs: [
     'installation',
+    'development',
     {
       type: 'category',
       label: 'Architecture',
