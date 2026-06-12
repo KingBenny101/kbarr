@@ -66,7 +66,10 @@ export function MediaDetailPage() {
     const fetchMonitored = () => {
         if (!id) return
         apiFetch(`${API_URL}/api/library/${id}/monitored`)
-            .then((response) => response.json())
+            .then((response) => {
+                if (!response.ok) throw new Error(response.statusText)
+                return response.json()
+            })
             .then((data: MonitoredItem[]) => {
                 setMonitoredItems(data || [])
                 setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1 && item.monitored) ?? false)
@@ -147,6 +150,8 @@ export function MediaDetailPage() {
                     showToast("Season monitoring applied", "success")
                     setRangeInput("")
                     fetchMonitored()
+                } else {
+                    showToast("Failed to apply season monitoring", "error")
                 }
             } else if (rangeInput.trim()) {
                 const episodeNumbers = parseRange(rangeInput)
@@ -159,6 +164,8 @@ export function MediaDetailPage() {
                     showToast("Episode monitoring applied", "success")
                     setRangeInput("")
                     fetchMonitored()
+                } else {
+                    showToast("Failed to apply episode monitoring", "error")
                 }
             } else if (monitoredItems.some((item) => item.is_season && item.season === 1 && item.monitored)) {
                 const response = await apiFetch(`${API_URL}/api/unmonitor/season`, {
@@ -169,6 +176,8 @@ export function MediaDetailPage() {
                 if (response.ok) {
                     showToast("Stopped monitoring entire season", "success")
                     fetchMonitored()
+                } else {
+                    showToast("Failed to stop monitoring", "error")
                 }
             } else {
                 showToast("Enter a range or select entire season", "error")
@@ -181,7 +190,7 @@ export function MediaDetailPage() {
 
     const handleMonitorEpisode = async (episode: Episode) => {
         if (!media || !id) return
-        await apiFetch(`${API_URL}/api/monitor`, {
+        const monRes = await apiFetch(`${API_URL}/api/monitor`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -197,6 +206,10 @@ export function MediaDetailPage() {
                 monitored: true,
             }),
         })
+        if (!monRes.ok) {
+            showToast("Failed to monitor episode", "error")
+            return
+        }
 
         // Immediately reflect the change in local state
         const existing = monitoredItems.find((i) => i.external_id === episode.external_id && i.is_episode)
@@ -237,11 +250,15 @@ export function MediaDetailPage() {
         if (!media || !id) return
         const seasonMonitor = monitoredItems.find((item) => item.is_season)
 
-        await apiFetch(`${API_URL}/api/unmonitor`, {
+        const unmonRes = await apiFetch(`${API_URL}/api/unmonitor`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ library_id: Number(id), external_id: episode.external_id }),
         })
+        if (!unmonRes.ok) {
+            showToast("Failed to unmonitor episode", "error")
+            return
+        }
 
         if (seasonMonitor) {
             // Remove only the season-level monitor record, not all episode monitors
@@ -275,7 +292,10 @@ export function MediaDetailPage() {
             params.set("types", [...activeTypes].join(","))
         }
         apiFetch(`${API_URL}/api/library/${id}/episodes?${params}`)
-            .then((r) => r.json())
+            .then((r) => {
+                if (!r.ok) throw new Error(r.statusText)
+                return r.json()
+            })
             .then((data: EpisodesResponse) => setEpisodesData(data))
             .catch((error) => console.error("Failed to fetch episodes", error))
     }, [id, page, sortField, sortDir, activeTypes])
@@ -312,6 +332,8 @@ export function MediaDetailPage() {
             if (response.ok) {
                 showToast("Media deleted", "success")
                 navigate("/")
+            } else {
+                showToast("Failed to delete media", "error")
             }
         } catch (error) {
             console.error(error)

@@ -230,6 +230,7 @@ export function SettingsPage() {
                 apiFetch(`${API_URL}/api/settings/schema`),
                 apiFetch(`${API_URL}/api/settings`),
             ])
+            if (!schemaRes.ok || !valuesRes.ok) throw new Error("Failed to load settings")
             const schemaDefs: SettingDef[] = await schemaRes.json()
             const data: Record<string, string> = await valuesRes.json()
 
@@ -244,6 +245,7 @@ export function SettingsPage() {
             setInitialSettings(next)
         } catch (error) {
             console.error("Fetch settings error:", error)
+            showToast("Failed to load settings", "error")
         } finally {
             setLoading(false)
         }
@@ -368,8 +370,11 @@ export function SettingsPage() {
 
     const isDownloader = path.includes("downloader")
 
-    if (loading || !settings) {
+    if (loading) {
         return <Group justify="center" py="xl"><Loader color="gray" /></Group>
+    }
+    if (!settings) {
+        return <Text c="red" ta="center" py="xl">Failed to load settings. Please refresh the page.</Text>
     }
 
     const showSaveBar =

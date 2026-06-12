@@ -88,7 +88,8 @@ export function DownloadsPage() {
     const handleTrigger = async () => {
         setTriggering(true)
         try {
-            await apiFetch(`${API_URL}/api/downloads/trigger`, { method: "POST" })
+            const res = await apiFetch(`${API_URL}/api/downloads/trigger`, { method: "POST" })
+            if (!res.ok) throw new Error()
             setTimeout(fetchQueue, 1000)
         } catch {
             showToast("Failed to trigger downloader", "error")

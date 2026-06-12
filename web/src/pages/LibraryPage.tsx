@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Badge, Card, Center, Collapse, Divider, Group, ScrollArea, Select, Stack, Text, TextInput, Title, UnstyledButton } from "@mantine/core"
 import { IconChevronDown, IconChevronRight, IconPlayerPlayFilled, IconSearch } from "@tabler/icons-react"
-import { API_URL, apiFetch, resolvePosterUrl } from "@/utils"
+import { API_URL, apiFetch, resolvePosterUrl, showToast } from "@/utils"
 import type { Media } from "@/types"
 import { EmptyState } from "@/components"
 
@@ -68,9 +68,15 @@ export function LibraryPage() {
 
     useEffect(() => {
         apiFetch(`${API_URL}/api/library`)
-            .then((response) => response.json())
+            .then((response) => {
+                if (!response.ok) throw new Error(response.statusText)
+                return response.json()
+            })
             .then((data: Media[]) => setMedias(data || []))
-            .catch((error) => console.error("Failed to fetch media list:", error))
+            .catch((error) => {
+                console.error("Failed to fetch media list:", error)
+                showToast("Failed to load library", "error")
+            })
     }, [])
 
     const { normalItems, nsfwItems } = useMemo(() => {
