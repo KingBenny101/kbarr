@@ -28,6 +28,8 @@ export function clearToken() {
     localStorage.removeItem(TOKEN_KEY)
 }
 
+let redirectingToLogin = false
+
 export async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
     const token = getToken()
     const headers = new Headers(init?.headers)
@@ -35,9 +37,11 @@ export async function apiFetch(input: string, init?: RequestInit): Promise<Respo
 
     const res = await fetch(input, { ...init, headers })
 
-    if (res.status === 401) {
+    if (res.status === 401 && !redirectingToLogin) {
+        redirectingToLogin = true
         clearToken()
-        window.location.href = "/login"
+        showToast("Session expired — please log in again", "error")
+        setTimeout(() => { window.location.href = "/login" }, 1000)
     }
 
     return res
