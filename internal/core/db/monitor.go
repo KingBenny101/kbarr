@@ -82,9 +82,18 @@ func DeleteMonitorsByLibraryID(libraryID uint) error {
 	if err := ensureDB(); err != nil {
 		return err
 	}
+	ctx := context.Background()
+	// Hard-delete any queued downloads for these monitors first so no dangling
+	// monitor_id references remain in download_queue. Torrents are intentionally
+	// left in qBittorrent for the user to manage.
+	if _, err := DB.NewDelete().Model((*models.DownloadQueue)(nil)).
+		Where("monitor_id IN (SELECT id FROM monitors WHERE library_id = ?)", libraryID).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("failed to delete download queue entries for library ID %d: %w", libraryID, err)
+	}
 	if _, err := DB.NewDelete().Model((*models.Monitor)(nil)).
 		Where("library_id = ?", libraryID).
-		Exec(context.Background()); err != nil {
+		Exec(ctx); err != nil {
 		return fmt.Errorf("failed to delete monitor entries for library ID %d: %w", libraryID, err)
 	}
 	return nil

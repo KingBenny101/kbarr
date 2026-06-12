@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const bufSize = 200
+const bufSize = 1000
 
 type LogEntry struct {
 	Time    string `json:"time"`

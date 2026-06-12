@@ -5,12 +5,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/models"
 )
+
+// errorFromResponse reads the response body and returns a descriptive error.
+// It prefers a JSON {"error":"..."} field, falls back to the raw body, and
+// falls back further to just the HTTP status.
+func errorFromResponse(resp *http.Response) error {
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	var errResp map[string]string
+	if json.Unmarshal(body, &errResp) == nil {
+		if msg, ok := errResp["error"]; ok && msg != "" {
+			return fmt.Errorf("%s", msg)
+		}
+	}
+	if trimmed := strings.TrimSpace(string(body)); trimmed != "" {
+		return fmt.Errorf("metadata service: %s", trimmed)
+	}
+	return fmt.Errorf("metadata service returned status %d", resp.StatusCode)
+}
 
 type MetadataClient struct {
 	baseURL    string
@@ -38,7 +57,7 @@ func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]mode
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("metadata service returned status %d", resp.StatusCode)
+		return nil, errorFromResponse(resp)
 	}
 
 	var results []models.SearchResult
@@ -74,12 +93,7 @@ func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title st
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		var errResp map[string]string
-		_ = json.NewDecoder(resp.Body).Decode(&errResp)
-		if msg, ok := errResp["error"]; ok {
-			return nil, fmt.Errorf("%s", msg)
-		}
-		return nil, fmt.Errorf("metadata service returned status %d", resp.StatusCode)
+		return nil, errorFromResponse(resp)
 	}
 
 	var metadata models.AnimeMetadata
