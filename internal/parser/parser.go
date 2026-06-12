@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/nssteinbrenner/anitogo"
 	"golang.org/x/text/unicode/norm"
@@ -22,8 +21,6 @@ type ParseResult struct {
 	ReleaseGroup string
 	Type         string
 }
-
-var memo sync.Map // filename → ParseResult
 
 // episodeFallbackRe catches patterns anitogo misses:
 //   - #1 / ＃1 (hash-prefixed, common in adult/doujin releases)
@@ -45,9 +42,6 @@ func normalizeWidth(s string) string {
 func Parse(filename string) ParseResult {
 	if filename == "" {
 		return ParseResult{}
-	}
-	if v, ok := memo.Load(filename); ok {
-		return v.(ParseResult)
 	}
 	e := anitogo.Parse(normalizeWidth(filename), anitogo.DefaultOptions)
 	r := ParseResult{
@@ -93,7 +87,6 @@ func Parse(filename string) ParseResult {
 			}
 		}
 	}
-	memo.Store(filename, r)
 	return r
 }
 

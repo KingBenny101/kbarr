@@ -20,7 +20,7 @@ import (
 
 func init() {
 	iprovider.Register(func() iprovider.Provider {
-		return &Kbdex{httpClient: &http.Client{Timeout: 5 * time.Minute}}
+		return &Kbdex{httpClient: &http.Client{Timeout: 60 * time.Second}}
 	})
 }
 

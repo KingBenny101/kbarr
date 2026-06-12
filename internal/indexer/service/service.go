@@ -149,8 +149,9 @@ func expandWithStrippedSeasons(titles []string) []string {
 }
 
 func (s *IndexerService) isBlacklisted(ctx context.Context, name string) bool {
-	q := s.db.NewSelect().Model((*models.TorrentBlacklist)(nil)).WhereOr("torrent_name = ?", name)
-	exists, _ := q.Exists(ctx)
+	exists, _ := s.db.NewSelect().Model((*models.TorrentBlacklist)(nil)).
+		Where("torrent_name = ?", name).
+		Exists(ctx)
 	return exists
 }
 

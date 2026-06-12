@@ -163,6 +163,27 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 			continue
 		}
 
+		// If the resolved infohash is already blacklisted (same content, different
+		// name), remove the torrent immediately and re-queue the monitor.
+		if hash != "" {
+			if bl, _ := s.db.NewSelect().Model((*models.TorrentBlacklist)(nil)).
+				Where("torrent_hash = ?", hash).
+				Exists(ctx); bl {
+				slog.Warn("Torrent hash is blacklisted — removing and re-queuing", "id", entry.ID, "hash", hash)
+				_ = s.client.DeleteTorrent(ctx, hash, true)
+				s.db.NewUpdate().Model((*models.DownloadQueue)(nil)).
+					Set("deleted_at = now(), updated_at = now()").
+					Where("id = ?", entry.ID).Exec(ctx)
+				if entry.MonitorID != nil {
+					s.db.NewUpdate().Model((*models.Monitor)(nil)).
+						Set("status = 'pending', updated_at = now()").
+						Where("id = ?", *entry.MonitorID).Exec(ctx)
+					s.releaseEpisodeMonitors(ctx, *entry.MonitorID)
+				}
+				continue
+			}
+		}
+
 		// Resolve the on-disk subdirectory from qBittorrent. This is best-effort:
 		// the torrent may not be registered in the split-second after add, and the
 		// save path is authoritatively rebuilt from the content path at completion

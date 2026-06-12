@@ -80,7 +80,7 @@ func (c *QBittorrentClient) AddTorrent(ctx context.Context, torrentURL string) (
 	}
 
 	var (
-		buf    strings.Builder
+		buf    bytes.Buffer
 		writer = multipart.NewWriter(&buf)
 	)
 
@@ -132,7 +132,7 @@ func (c *QBittorrentClient) AddTorrent(ctx context.Context, torrentURL string) (
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, qbtURL+"/api/v2/torrents/add", strings.NewReader(buf.String()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, qbtURL+"/api/v2/torrents/add", bytes.NewReader(buf.Bytes()))
 	if err != nil {
 		return "", err
 	}
@@ -357,7 +357,7 @@ func (c *QBittorrentClient) resolveURL(ctx context.Context, torrentURL string) (
 		return "", nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
 
-	b, err := io.ReadAll(resp.Body)
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", nil, err
 	}
