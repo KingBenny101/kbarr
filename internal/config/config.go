@@ -103,10 +103,14 @@ func GetSeconds(db *bun.DB, key string, fallback, min time.Duration) time.Durati
 		return fallback
 	}
 	n, err := strconv.Atoi(raw)
-	if err != nil || time.Duration(n)*time.Second < min {
+	if err != nil {
 		return fallback
 	}
-	return time.Duration(n) * time.Second
+	if d := time.Duration(n) * time.Second; d < min {
+		return min
+	} else {
+		return d
+	}
 }
 
 // GetMinutes parses a setting stored as a minute count into a time.Duration.
@@ -116,10 +120,14 @@ func GetMinutes(db *bun.DB, key string, fallback, min time.Duration) time.Durati
 		return fallback
 	}
 	n, err := strconv.Atoi(raw)
-	if err != nil || time.Duration(n)*time.Minute < min {
+	if err != nil {
 		return fallback
 	}
-	return time.Duration(n) * time.Minute
+	if d := time.Duration(n) * time.Minute; d < min {
+		return min
+	} else {
+		return d
+	}
 }
 
 func SetSetting(db *bun.DB, key, value string) error {
