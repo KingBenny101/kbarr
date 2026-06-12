@@ -27,8 +27,9 @@ var episodePattern = regexp.MustCompile(`(?i)[Ss]\d+[Ee](\d+)`)
 // per-folder cache keyed by directory mtime so that, on cycles where nothing on
 // disk changed, no directory is re-read or re-parsed.
 type AvailabilityChecker struct {
-	db    *bun.DB
-	cache map[string]folderScan // sanitized folder name -> last scan
+	db        *bun.DB
+	cache     map[string]folderScan // sanitized folder name -> last scan
+	scanCount int                   // incremented each cycle; every 10th forces a full re-scan
 }
 
 // folderScan is a cached directory listing: the mtime it was taken at and the
@@ -116,7 +117,11 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 
 	// Scan disk into folder -> episode -> path, reusing cached listings for any
 	// directory whose mtime is unchanged since the last cycle.
-	filesByFolder := c.scanDisk(mediaPath, allowedExts)
+	// Every 10th cycle we force a full re-scan regardless of mtime, to guard
+	// against network mounts (NFS/SMB) where directory mtime is not reliably
+	// updated when files inside the directory change.
+	c.scanCount++
+	filesByFolder := c.scanDisk(mediaPath, allowedExts, c.scanCount%10 == 0)
 
 	// ── Phase 1: mark episodes available ────────────────────────────────────
 	for folder, episodes := range filesByFolder {
@@ -185,7 +190,7 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 // scanDisk returns folder -> (episode -> path) for every show directory under
 // mediaPath. Directories whose mtime is unchanged since the last cycle are served
 // from the cache without a ReadDir. Folder keys are sanitized for matching.
-func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]bool) map[string]map[int64]string {
+func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]bool, forceRescan bool) map[string]map[int64]string {
 	titleDirs, err := os.ReadDir(mediaPath)
 	if err != nil {
 		slog.Warn("availability: cannot read media path", "path", mediaPath, "error", err)
@@ -196,7 +201,17 @@ func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]
 	live := map[string]bool{}
 
 	for _, titleDir := range titleDirs {
-		if !titleDir.IsDir() {
+		dirPath := filepath.Join(mediaPath, titleDir.Name())
+		// DirEntry.IsDir() returns false for symlinks even when they point to a
+		// directory. Fall back to os.Stat (which follows symlinks) so that
+		// symlinked show folders are treated the same as real ones.
+		isDir := titleDir.IsDir()
+		if !isDir {
+			if fi, err := os.Stat(dirPath); err == nil {
+				isDir = fi.IsDir()
+			}
+		}
+		if !isDir {
 			continue
 		}
 		folder := naming.SanitizeFilename(titleDir.Name())
@@ -204,18 +219,19 @@ func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]
 			continue
 		}
 		live[folder] = true
-		dirPath := filepath.Join(mediaPath, titleDir.Name())
 
-		info, err := titleDir.Info()
+		info, err := os.Stat(dirPath)
 		if err != nil {
 			slog.Warn("availability: cannot stat dir", "path", dirPath, "error", err)
 			continue
 		}
 		mtime := info.ModTime()
 
-		if cached, ok := c.cache[folder]; ok && cached.mtime.Equal(mtime) {
-			result[folder] = cached.episodes
-			continue
+		if !forceRescan {
+			if cached, ok := c.cache[folder]; ok && cached.mtime.Equal(mtime) {
+				result[folder] = cached.episodes
+				continue
+			}
 		}
 
 		episodes := c.readFolderEpisodes(dirPath, allowedExts)
