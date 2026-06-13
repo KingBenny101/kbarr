@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
 	"github.com/kingbenny101/kbarr/internal/parser"
+	"github.com/kingbenny101/kbarr/internal/subtitle"
 	"github.com/uptrace/bun"
 )
 
@@ -703,6 +705,23 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		walkRoot = match
 	}
 
+	// videoTarget records where a placed video landed so its subtitles can be
+	// linked next to it as sidecars. Keyed by episode number (0 for a movie /
+	// single-file release).
+	type videoTarget struct {
+		stem string // destination filename without extension
+		dir  string // destination directory
+	}
+	videoTargets := map[int]videoTarget{}
+	// subFile is a subtitle deferred to a second pass: subtitles are processed
+	// after every video so they can be matched to a video target by episode.
+	type subFile struct {
+		path string
+		ext  string
+		dirs []string // path segments between walkRoot and the file (e.g. ["ENG"])
+	}
+	var subFiles []subFile
+
 	walked = true
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -716,7 +735,16 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 
 		ext := strings.ToLower(filepath.Ext(path))
 		if !allowedExts[ext] {
-			slog.Info("createHardlinks: skipping (extension not allowed)", "file", info.Name(), "ext", ext)
+			// Defer subtitles to the second pass; everything else is ignored.
+			if subtitle.IsSubtitle(info.Name()) {
+				var dirs []string
+				if rel, relErr := filepath.Rel(walkRoot, filepath.Dir(path)); relErr == nil && rel != "." {
+					dirs = strings.Split(rel, string(filepath.Separator))
+				}
+				subFiles = append(subFiles, subFile{path: path, ext: ext, dirs: dirs})
+			} else {
+				slog.Info("createHardlinks: skipping (extension not allowed)", "file", info.Name(), "ext", ext)
+			}
 			return nil
 		}
 		hasVideo = true
@@ -788,6 +816,10 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		slog.Info("createHardlinks: planned hardlink", "src", path, "dst", linkPath)
 
 		destDir := filepath.Dir(linkPath)
+		// Record the target so subtitles can be placed beside this video. Done
+		// before the collision check below because the destination exists either
+		// way; later videos for the same episode simply overwrite the entry.
+		videoTargets[episode] = videoTarget{stem: strings.TrimSuffix(linkName, ext), dir: destDir}
 		if err := os.MkdirAll(destDir, 0755); err != nil {
 			slog.Warn("createHardlinks: failed to create directory", "path", destDir, "error", err)
 			return nil
@@ -820,6 +852,72 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 	if err != nil {
 		slog.Warn("createHardlinks: walk failed", "path", savePath, "error", err)
 	}
+
+	// ── Second pass: place subtitles as sidecars next to their video ──────────
+	// Releases scatter subtitles into language subfolders (ENG/, RUS/SUB/) or bury
+	// the language in the filename; none of that follows the sidecar convention a
+	// player expects. Rename each to "<videoStem>.<lang>.<ext>" so it sits beside
+	// the episode and the availability checker can read its language.
+	for _, sub := range subFiles {
+		g := parser.Parse(filepath.Base(sub.path))
+		episode := g.Episode
+		if episode == 0 {
+			episode = episodeHint
+		}
+		target, ok := videoTargets[episode]
+		// When the episode can't be resolved but the release has exactly one video
+		// (e.g. a movie with per-language sub folders), attach to that single video.
+		if !ok && len(videoTargets) == 1 {
+			for _, t := range videoTargets {
+				target, ok = t, true
+			}
+		}
+		if !ok {
+			slog.Warn("createHardlinks: subtitle has no matching video, skipping", "file", sub.path, "episode", episode)
+			continue
+		}
+
+		lang := subtitle.GuessLang(sub.dirs, filepath.Base(sub.path))
+		// Find a free sidecar name. The first track for a language is
+		// "<stem>.<lang>.<ext>"; further tracks get ".2", ".3", … so multiple
+		// subtitles in the same language (e.g. RUS/SUB and RUS/VOL) are all kept.
+		var linkPath string
+		for i := 0; ; i++ {
+			name := target.stem + "." + lang
+			if i > 0 {
+				name += "." + strconv.Itoa(i+1)
+			}
+			name += sub.ext
+			cand := filepath.Join(target.dir, name)
+			if dstInfo, statErr := os.Stat(cand); statErr == nil {
+				srcInfo, _ := os.Stat(sub.path)
+				if srcInfo != nil && os.SameFile(srcInfo, dstInfo) {
+					placed = true
+					linkPath = ""
+					break // already linked
+				}
+				continue // name taken by a different file, try the next index
+			}
+			linkPath = cand
+			break
+		}
+		if linkPath == "" {
+			slog.Info("createHardlinks: subtitle already linked, skipping", "src", sub.path)
+			continue
+		}
+
+		if mkErr := os.MkdirAll(target.dir, 0755); mkErr != nil {
+			slog.Warn("createHardlinks: failed to create directory for subtitle", "path", target.dir, "error", mkErr)
+			continue
+		}
+		if copied, linkErr := linkOrCopy(sub.path, linkPath); linkErr != nil {
+			slog.Error("createHardlinks: failed to place subtitle", "src", sub.path, "dst", linkPath, "error", linkErr)
+		} else {
+			placed = true
+			slog.Info("createHardlinks: subtitle placed", "src", sub.path, "dst", linkPath, "lang", lang, "copied", copied)
+		}
+	}
+
 	slog.Info("createHardlinks: done", "save_path", savePath)
 	return
 }

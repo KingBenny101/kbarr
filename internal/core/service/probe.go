@@ -8,10 +8,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/parser"
+	"github.com/kingbenny101/kbarr/internal/subtitle"
 )
 
 // detectQualityAndSubs resolves the quality label and comma-separated subtitle
@@ -20,7 +22,8 @@ import (
 // stamps with the resolution at hardlink time) and subtitles to whatever sidecar
 // files reveal.
 func (c *AvailabilityChecker) detectQualityAndSubs(path string) (quality, subtitles string) {
-	info, err := probeMedia(path)
+	videoEpisode, _ := parseSubEpisode(filepath.Base(path))
+	info, err := probeMedia(path, videoEpisode)
 	quality = info.Resolution
 	if err != nil {
 		slog.Debug("availability: ffprobe unavailable, falling back to name parse", "path", path, "error", err)
@@ -69,7 +72,7 @@ var imageCodecs = map[string]bool{"mjpeg": true, "png": true, "bmp": true, "gif"
 // If ffprobe is not installed, probeMedia degrades gracefully: it returns an
 // error for the caller to fall back on name-based parsing, but still merges in
 // any sidecar subtitle languages it can detect without ffprobe.
-func probeMedia(path string) (MediaInfo, error) {
+func probeMedia(path string, videoEpisode int64) (MediaInfo, error) {
 	info := MediaInfo{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -85,7 +88,7 @@ func probeMedia(path string) (MediaInfo, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		// ffprobe missing or failed — still try sidecar files before giving up.
-		for _, l := range sidecarSubLangs(path) {
+		for _, l := range sidecarSubLangs(path, videoEpisode) {
 			langs[l] = true
 		}
 		info.SubLangs = sortedKeys(langs)
@@ -118,21 +121,24 @@ func probeMedia(path string) (MediaInfo, error) {
 	}
 	info.Resolution = heightToQuality(maxHeight)
 
-	for _, l := range sidecarSubLangs(path) {
+	for _, l := range sidecarSubLangs(path, videoEpisode) {
 		langs[l] = true
 	}
 	info.SubLangs = sortedKeys(langs)
 	return info, nil
 }
 
-// subtitleExts are the sidecar subtitle file extensions kbarr recognises.
-var subtitleExts = map[string]bool{".srt": true, ".ass": true, ".ssa": true, ".sub": true, ".vtt": true}
-
 // sidecarSubLangs scans the directory of path for subtitle files that belong to
-// the same video — e.g. "Show - S01E01.en.srt" next to "Show - S01E01.mkv" —
-// and returns the languages encoded in their names. A subtitle file with no
-// language segment (e.g. "Show - S01E01.srt") contributes "und" (undetermined).
-func sidecarSubLangs(path string) []string {
+// the same video and returns their languages. It handles three layouts:
+//   - the kbarr sidecar convention, "<videoBase>.<lang>.srt" next to the video;
+//   - an unqualified sidecar, "<videoBase>.srt" (contributes "und");
+//   - a manually-dropped release-named file that carries the same episode number
+//     as the video (e.g. "Show_[crc].eng_Fansub.ass" next to "Show - S01E01.mkv"),
+//     whose language is guessed from the filename.
+//
+// The episode fallback is what lets a subtitle a user moved in by hand — which
+// almost never matches the renamed video stem — still be detected.
+func sidecarSubLangs(path string, videoEpisode int64) []string {
 	dir := filepath.Dir(path)
 	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 
@@ -147,26 +153,47 @@ func sidecarSubLangs(path string) []string {
 			continue
 		}
 		name := e.Name()
-		ext := strings.ToLower(filepath.Ext(name))
-		if !subtitleExts[ext] {
+		if !subtitle.IsSubtitle(name) {
 			continue
 		}
 		stem := strings.TrimSuffix(name, filepath.Ext(name))
-		if stem == base {
+		switch {
+		case stem == base:
 			langs["und"] = true
-			continue
-		}
-		// Expect "<videoBase>.<lang>" — strip the video base and read the suffix.
-		if strings.HasPrefix(stem, base+".") {
+		case strings.HasPrefix(stem, base+"."):
+			// "<videoBase>.<lang>[.n]" — the language is the first segment after the base.
 			suffix := strings.TrimPrefix(stem, base+".")
+			suffix = strings.SplitN(suffix, ".", 2)[0]
 			if l := normalizeLang(suffix); l != "" {
 				langs[l] = true
 			} else {
 				langs["und"] = true
 			}
+		default:
+			// Not named after the video. Accept it only when its episode number
+			// matches (so a folder of mixed episodes can't cross-contaminate), or
+			// when the video has no episode number at all (a movie / single file).
+			subEp, hasEp := parseSubEpisode(name)
+			if videoEpisode == 0 || (hasEp && subEp == videoEpisode) {
+				langs[subtitle.GuessLang(nil, name)] = true
+			}
 		}
 	}
 	return sortedKeys(langs)
+}
+
+// parseSubEpisode extracts an episode number from a subtitle filename, reusing
+// the same SxxExx fast path / anitogo parser the video scanner uses.
+func parseSubEpisode(name string) (int64, bool) {
+	if m := episodePattern.FindStringSubmatch(name); m != nil {
+		if n, err := strconv.ParseInt(m[1], 10, 64); err == nil && n > 0 {
+			return n, true
+		}
+	}
+	if ep := parser.Parse(name).Episode; ep > 0 {
+		return int64(ep), true
+	}
+	return 0, false
 }
 
 // heightToQuality maps a pixel height to the quality vocabulary used elsewhere

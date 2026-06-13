@@ -220,7 +220,7 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 	// against network mounts (NFS/SMB) where directory mtime is not reliably
 	// updated when files inside the directory change.
 	c.scanCount++
-	filesByFolder := c.scanDisk(mediaPath, allowedExts, c.scanCount%10 == 0)
+	filesByFolder, changedFolders := c.scanDisk(mediaPath, allowedExts, c.scanCount%10 == 0)
 
 	// ── Phase 1: mark episodes available ────────────────────────────────────
 	for folder, episodes := range filesByFolder {
@@ -240,10 +240,12 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 				continue
 			}
 
-			// Probe the file for quality + subtitles at most once: only when the
-			// monitor has neither recorded yet. The folder mtime cache already keeps
-			// this off the hot path for unchanged directories.
-			setQuality, setSubs, doProbe := "", "", mon.Quality == "" && mon.Subtitles == ""
+			// Probe the file for quality + subtitles when the monitor has neither
+			// recorded yet, or when this folder changed on disk this cycle (a file
+			// was added/removed — e.g. a subtitle dropped in by hand). The folder
+			// mtime cache keeps this off the hot path for unchanged directories, so
+			// re-probing only happens on real changes.
+			setQuality, setSubs, doProbe := "", "", mon.Quality == "" && mon.Subtitles == "" || changedFolders[folder]
 			if doProbe {
 				setQuality, setSubs = c.detectQualityAndSubs(path)
 			}
@@ -303,14 +305,19 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 // scanDisk returns folder -> (episode -> path) for every show directory under
 // mediaPath. Directories whose mtime is unchanged since the last cycle are served
 // from the cache without a ReadDir. Folder keys are sanitized for matching.
-func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]bool, forceRescan bool) map[string]map[int64]string {
+// scanDisk additionally returns the set of folders that were freshly read this
+// cycle (mtime changed or forced), so the caller can re-probe their episodes —
+// a subtitle dropped in by hand bumps the directory mtime, and re-probing is how
+// its language gets noticed for an episode whose quality was already recorded.
+func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]bool, forceRescan bool) (map[string]map[int64]string, map[string]bool) {
 	titleDirs, err := os.ReadDir(mediaPath)
 	if err != nil {
 		slog.Warn("availability: cannot read media path", "path", mediaPath, "error", err)
-		return nil
+		return nil, nil
 	}
 
 	result := map[string]map[int64]string{}
+	changed := map[string]bool{}
 	live := map[string]bool{}
 
 	for _, titleDir := range titleDirs {
@@ -350,6 +357,7 @@ func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]
 		episodes := c.readFolderEpisodes(dirPath, allowedExts)
 		c.cache[folder] = folderScan{mtime: mtime, episodes: episodes}
 		result[folder] = episodes
+		changed[folder] = true
 		slog.Debug("availability: scanned dir", "folder", folder, "episodes", len(episodes))
 	}
 
@@ -360,7 +368,7 @@ func (c *AvailabilityChecker) scanDisk(mediaPath string, allowedExts map[string]
 		}
 	}
 
-	return result
+	return result, changed
 }
 
 // readFolderEpisodes reads one directory and returns episode -> first file path.
