@@ -336,16 +336,22 @@ export function DownloadsPage() {
                                 ) : (
                                     visible.map((item) => (
                                         <Table.Tr key={item.id}>
-                                            <Table.Td fw={700} style={{ whiteSpace: "nowrap" }}>{item.title ?? "—"}</Table.Td>
-                                            <Table.Td>
-                                                {item.torrent_url ? (
-                                                    <Anchor href={item.torrent_url} target="_blank" rel="noreferrer" c="gray">
-                                                        <Group gap={4} wrap="nowrap">
-                                                            <IconExternalLink size={14} style={{ flexShrink: 0 }} />
-                                                            <Text size="sm" style={{ wordBreak: "break-all" }}>{item.torrent_name ?? "Link"}</Text>
-                                                        </Group>
-                                                    </Anchor>
-                                                ) : <Text c="dimmed" size="sm">{item.torrent_name ?? "—"}</Text>}
+                                            <Table.Td fw={700} style={{ maxWidth: 220 }}>
+                                                <Tooltip label={item.title ?? "—"} disabled={!item.title} openDelay={400}>
+                                                    <Text size="sm" fw={700} truncate="end">{item.title ?? "—"}</Text>
+                                                </Tooltip>
+                                            </Table.Td>
+                                            <Table.Td style={{ maxWidth: 320 }}>
+                                                <Tooltip label={item.torrent_name ?? "—"} multiline maw={420} disabled={!item.torrent_name} openDelay={400}>
+                                                    {item.torrent_url ? (
+                                                        <Anchor href={item.torrent_url} target="_blank" rel="noreferrer" c="gray">
+                                                            <Group gap={4} wrap="nowrap">
+                                                                <IconExternalLink size={14} style={{ flexShrink: 0 }} />
+                                                                <Text size="sm" truncate="end">{item.torrent_name ?? "Link"}</Text>
+                                                            </Group>
+                                                        </Anchor>
+                                                    ) : <Text c="dimmed" size="sm" truncate="end">{item.torrent_name ?? "—"}</Text>}
+                                                </Tooltip>
                                             </Table.Td>
                                             <Table.Td style={{ whiteSpace: "nowrap" }}>
                                                 <Text size="sm">{item.indexer ?? "—"}</Text>
