@@ -107,7 +107,12 @@ function PageShell({ children }: { children: React.ReactNode }) {
                         <div key={group} style={{ marginBottom: 24 }}>
                             <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb="sm">{group}</Text>
                             {items.map(({ to, label, icon, match }) => {
-                                const resolvedTo = label === "Library" ? lastMediaPath : to
+                                // The Library button normally returns to the last-viewed media
+                                // page as a shortcut, but when already on a media page it should
+                                // go to the library home instead.
+                                const resolvedTo = label === "Library"
+                                    ? (pathname.startsWith("/media/") ? "/" : lastMediaPath)
+                                    : to
                                 const active = match ? match(pathname) : pathname === to
                                 return (
                                     <NavLink key={to} component={Link} to={resolvedTo} label={label} leftSection={icon} active={active} variant={active ? "filled" : "subtle"} color="gray" styles={{ root: { borderRadius: 'var(--mantine-radius-xl)' } }} onClick={close} />
