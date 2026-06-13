@@ -28,14 +28,17 @@ const STATUS_PRIORITY: Record<string, number> = {
     monitored:   3,
     missing:     4,
     available:   5,
-    unmonitored: 6,
+    downloaded:  6,
+    unmonitored: 7,
 }
 
 type SortField = "title" | "status" | "type"
 type SortDir = "asc" | "desc"
 
-const ALL_STATUSES = ["monitored", "searching", "queued", "downloading", "missing", "available", "unmonitored"] as const
-type StatusFilter = typeof ALL_STATUSES[number] | "all"
+const ALL_STATUSES = ["monitored", "searching", "queued", "downloading", "missing", "available", "downloaded", "unmonitored"] as const
+// "active" (the default) shows everything still in progress — i.e. every item
+// that is not yet downloaded; "all" includes downloaded items too.
+type StatusFilter = typeof ALL_STATUSES[number] | "all" | "active"
 
 const STATUS_TONES: Record<string, "gray" | "blue" | "green" | "yellow" | "violet" | "red"> = {
     monitored: "blue",
@@ -44,6 +47,7 @@ const STATUS_TONES: Record<string, "gray" | "blue" | "green" | "yellow" | "viole
     downloading: "blue",
     missing: "red",
     available: "green",
+    downloaded: "green",
     unmonitored: "gray",
 }
 
@@ -58,7 +62,7 @@ export function MonitorPage() {
     const [currentPage, setCurrentPage] = useState(1)
     const [sortField, setSortField] = useState<SortField>("status")
     const [sortDir, setSortDir] = useState<SortDir>("asc")
-    const [activeStatus, setActiveStatus] = useState<StatusFilter>("all")
+    const [activeStatus, setActiveStatus] = useState<StatusFilter>("active")
     const itemsPerPage = 9
 
     const fetchMonitors = async () => {
@@ -110,8 +114,13 @@ export function MonitorPage() {
         return counts
     }, [monitors])
 
+    const activeCount = useMemo(() => monitors.filter((m) => m.status !== "downloaded").length, [monitors])
+
     const filtered = useMemo(() => {
-        let list = activeStatus === "all" ? monitors : monitors.filter((m) => m.status === activeStatus)
+        let list: MonitorEntry[]
+        if (activeStatus === "all") list = monitors
+        else if (activeStatus === "active") list = monitors.filter((m) => m.status !== "downloaded")
+        else list = monitors.filter((m) => m.status === activeStatus)
         list = [...list].sort((a, b) => {
             let cmp = 0
             if (sortField === "title") cmp = a.title.localeCompare(b.title)
@@ -142,6 +151,11 @@ export function MonitorPage() {
                             </Text>
                         </div>
                         <Group gap="xs" wrap="wrap" justify="flex-end">
+                            <StatusPill
+                                label={`Active (${activeCount})`}
+                                tone={activeStatus === "active" ? "blue" : "gray"}
+                                onClick={() => setFilter("active")}
+                            />
                             <StatusPill
                                 label={`All (${monitors.length})`}
                                 tone={activeStatus === "all" ? "blue" : "gray"}
