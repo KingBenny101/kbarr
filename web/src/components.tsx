@@ -3,7 +3,15 @@ import type { ReactNode } from "react"
 
 export function StatusPill({ label, tone = "gray", onClick }: { label: string; tone?: "gray" | "yellow" | "blue" | "green" | "red" | "violet"; onClick?: () => void }) {
     return (
-        <Badge radius="xl" variant="light" color={tone} size="sm" style={onClick ? { cursor: "pointer" } : undefined} onClick={onClick}>
+        <Badge
+            radius="xl"
+            variant="light"
+            color={tone}
+            size="sm"
+            style={onClick ? { cursor: "pointer" } : undefined}
+            styles={{ root: { maxWidth: "none" }, label: { overflow: "visible" } }}
+            onClick={onClick}
+        >
             {label}
         </Badge>
     )

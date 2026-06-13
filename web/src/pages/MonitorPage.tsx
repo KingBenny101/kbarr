@@ -17,6 +17,8 @@ interface MonitorEntry {
     is_season: boolean
     anidb_id: string
     status: string
+    quality?: string
+    subtitles?: string
 }
 
 const STATUS_PRIORITY: Record<string, number> = {
@@ -176,6 +178,8 @@ export function MonitorPage() {
                                             Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                         </UnstyledButton>
                                     </Table.Th>
+                                    <Table.Th>Quality</Table.Th>
+                                    <Table.Th>Subtitles</Table.Th>
                                     <Table.Th>AniDB</Table.Th>
                                     <Table.Th w={72} />
                                 </Table.Tr>
@@ -183,11 +187,11 @@ export function MonitorPage() {
                             <Table.Tbody>
                                 {loading ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={6}><Text ta="center" py="md">Loading...</Text></Table.Td>
+                                        <Table.Td colSpan={8}><Text ta="center" py="md">Loading...</Text></Table.Td>
                                     </Table.Tr>
                                 ) : filtered.length === 0 ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={6}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
+                                        <Table.Td colSpan={8}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
                                     </Table.Tr>
                                 ) : (
                                     currentMonitors.map((entry) => (
@@ -205,6 +209,12 @@ export function MonitorPage() {
                                             </Table.Td>
                                             <Table.Td>
                                                 <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
+                                            </Table.Td>
+                                            <Table.Td c={entry.quality ? undefined : "dimmed"}>
+                                                {entry.quality ? entry.quality.toUpperCase() : "—"}
+                                            </Table.Td>
+                                            <Table.Td c={entry.subtitles ? undefined : "dimmed"}>
+                                                {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
                                             </Table.Td>
                                             <Table.Td>
                                                 {entry.anidb_id ? (

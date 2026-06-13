@@ -31,6 +31,8 @@ interface MonitoredItem {
     status?: string
     available?: boolean
     monitored?: boolean
+    quality?: string
+    subtitles?: string
 }
 
 export function MediaDetailPage() {
@@ -593,19 +595,21 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
 
     return (
         <ScrollArea type="auto">
-            <Table striped highlightOnHover withTableBorder withColumnBorders>
+            <Table striped highlightOnHover withTableBorder withColumnBorders w="100%">
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th style={{ cursor: "pointer", textAlign: "center" }} onClick={() => onSort("ep_no")}>
+                        <Table.Th style={{ cursor: "pointer", textAlign: "center", whiteSpace: "nowrap" }} onClick={() => onSort("ep_no")}>
                             No.<SortIndicator field="ep_no" />
                         </Table.Th>
-                        <Table.Th w={585} style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
+                        <Table.Th style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
                             Title<SortIndicator field="title" />
                         </Table.Th>
-                        <Table.Th style={{ textAlign: "center" }}>Type</Table.Th>
-                        <Table.Th style={{ textAlign: "center" }}>Availability</Table.Th>
-                        <Table.Th style={{ textAlign: "center" }}>Monitor</Table.Th>
-                        {hasLinks && <Table.Th w={60} style={{ textAlign: "center" }}>Link</Table.Th>}
+                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Type</Table.Th>
+                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Availability</Table.Th>
+                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Quality</Table.Th>
+                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Subtitles</Table.Th>
+                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Monitor</Table.Th>
+                        {hasLinks && <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Link</Table.Th>}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -613,16 +617,24 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         const monitorEntry = monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
                         const available = monitorEntry?.available === true
                         const monitored = monitorEntry?.monitored === true
+                        const quality = monitorEntry?.quality?.toUpperCase() || ""
+                        const subtitles = (monitorEntry?.subtitles || "").split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ")
                         const link = episodeSourceUrl(episode)
                         return (
                             <Table.Tr key={episode.ID}>
                                 <Table.Td fw={700} style={{ textAlign: "center" }}>{episode.ep_no}</Table.Td>
-                                <Table.Td style={{ maxWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{episode.title}</Table.Td>
+                                <Table.Td style={{ minWidth: 420, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{episode.title}</Table.Td>
                                 <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                                     <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
                                 </Table.Td>
                                 <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                                     <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
+                                </Table.Td>
+                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                                    <Text size="sm" c={quality ? undefined : "dimmed"}>{quality || "—"}</Text>
+                                </Table.Td>
+                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                                    <Text size="sm" c={subtitles ? undefined : "dimmed"}>{subtitles || "—"}</Text>
                                 </Table.Td>
                                 <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                                     <StatusPill
