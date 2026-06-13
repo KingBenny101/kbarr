@@ -6,6 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/core/db"
+	"github.com/kingbenny101/kbarr/internal/core/service"
 	"github.com/kingbenny101/kbarr/internal/models"
 )
 
@@ -24,6 +25,9 @@ func AddMonitor() func(context.Context, *AddMonitorInput) (*struct{}, error) {
 	return func(ctx context.Context, input *AddMonitorInput) (*struct{}, error) {
 		slog.Info("AddMonitor called", "title", input.Body.Title)
 		db.InsertMonitor(input.Body.ToModel())
+		// Mark the new monitor downloaded if its file is already on disk, so the
+		// indexer does not redundantly re-download it.
+		service.ReconcileLibraryAvailability(ctx, db.DB, input.Body.LibraryID)
 		return nil, nil
 	}
 }
@@ -63,10 +67,17 @@ func BulkAddMonitor() func(context.Context, *BulkAddMonitorInput) (*struct{}, er
 	return func(ctx context.Context, input *BulkAddMonitorInput) (*struct{}, error) {
 		slog.Info("BulkAddMonitor called", "items", len(input.Body))
 		monitors := make([]models.Monitor, len(input.Body))
+		libraryIDs := map[uint]bool{}
 		for i, m := range input.Body {
 			monitors[i] = m.ToModel()
+			libraryIDs[m.LibraryID] = true
 		}
 		db.InsertMonitorsBulk(monitors)
+		// Mark any newly-monitored episodes already on disk as downloaded so the
+		// indexer skips them rather than re-downloading.
+		for libraryID := range libraryIDs {
+			service.ReconcileLibraryAvailability(ctx, db.DB, libraryID)
+		}
 		return nil, nil
 	}
 }

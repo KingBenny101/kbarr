@@ -56,6 +56,105 @@ func CheckAvailability(ctx context.Context, bunDB *bun.DB) {
 	NewAvailabilityChecker(bunDB).Check(ctx)
 }
 
+// ReconcileLibraryAvailability marks any episode monitors of a single library
+// whose files already exist on disk as available + downloaded (recording quality
+// and subtitles), then re-aggregates that library's season monitors. It is meant
+// to run synchronously right after monitors are created, so monitoring an anime
+// that is already on disk neither triggers a redundant search/download (the
+// indexer only claims monitors with available = false) nor leaves the episode
+// stuck at 'pending'. It scans only the one show folder, not the whole media path.
+func ReconcileLibraryAvailability(ctx context.Context, bunDB *bun.DB, libraryID uint) {
+	NewAvailabilityChecker(bunDB).reconcileLibrary(ctx, libraryID)
+}
+
+func (c *AvailabilityChecker) reconcileLibrary(ctx context.Context, libraryID uint) {
+	mediaPath := strings.TrimRight(config.Get(c.db, "mediaPath", ""), "/")
+	if mediaPath == "" || libraryID == 0 {
+		return
+	}
+
+	var row struct {
+		Title       string `bun:"title"`
+		MediaFolder string `bun:"media_folder"`
+	}
+	if err := c.db.NewSelect().TableExpr("media").
+		ColumnExpr("title, COALESCE(media_folder, '') AS media_folder").
+		Where("id = ? AND deleted_at IS NULL", libraryID).
+		Scan(ctx, &row); err != nil {
+		slog.Warn("reconcile: media not found", "library_id", libraryID, "error", err)
+		return
+	}
+
+	dirPath := resolveShowDir(mediaPath, row.MediaFolder, row.Title)
+	if dirPath == "" {
+		// Nothing on disk yet — leave the monitors pending for the indexer.
+		return
+	}
+	episodes := c.readFolderEpisodes(dirPath, allowedVideoExts(c.db))
+	if len(episodes) == 0 {
+		return
+	}
+
+	var mons []models.Monitor
+	if err := c.db.NewSelect().Model(&mons).
+		Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", libraryID).
+		Scan(ctx); err != nil {
+		slog.Warn("reconcile: failed to load monitors", "library_id", libraryID, "error", err)
+		return
+	}
+
+	for _, mon := range mons {
+		path, ok := episodes[int64(mon.EpisodeNumber)]
+		if !ok {
+			continue
+		}
+		if mon.Available && mon.Status == "downloaded" {
+			continue
+		}
+		q, subs := c.detectQualityAndSubs(path)
+		if _, err := c.db.NewUpdate().Model((*models.Monitor)(nil)).
+			Set("available = true, status = 'downloaded', quality = ?, subtitles = ?, updated_at = now()", q, subs).
+			Where("id = ?", mon.ID).Exec(ctx); err != nil {
+			slog.Warn("reconcile: failed to update monitor", "monitor_id", mon.ID, "error", err)
+			continue
+		}
+		slog.Info("reconcile: episode already on disk, marked downloaded", "monitor_id", mon.ID, "title", mon.Title, "episode", mon.EpisodeNumber, "quality", q, "subtitles", subs)
+	}
+
+	c.syncSeasonMonitors(ctx)
+}
+
+// resolveShowDir returns the on-disk directory for a show, trying the media
+// folder and title verbatim first, then falling back to a sanitized-name match
+// against the directories under mediaPath. Returns "" when nothing matches.
+func resolveShowDir(mediaPath, mediaFolder, title string) string {
+	for _, cand := range []string{mediaFolder, title} {
+		if cand == "" {
+			continue
+		}
+		p := filepath.Join(mediaPath, cand)
+		if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+			return p
+		}
+	}
+	want := map[string]bool{}
+	for _, n := range []string{mediaFolder, title} {
+		if k := naming.SanitizeFilename(n); k != "" {
+			want[k] = true
+		}
+	}
+	ents, err := os.ReadDir(mediaPath)
+	if err != nil {
+		return ""
+	}
+	for _, e := range ents {
+		if want[naming.SanitizeFilename(e.Name())] {
+			return filepath.Join(mediaPath, e.Name())
+		}
+	}
+	return ""
+}
+
 func (c *AvailabilityChecker) Poll(ctx context.Context) {
 	c.Check(ctx)
 	for {
