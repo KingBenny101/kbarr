@@ -46,7 +46,7 @@ var Schema = []SettingDef{
 
 	// ── Indexer ──────────────────────────────────────────────────────────
 	{Key: "prowlarrInterval", Type: TypeInt, Default: "10", Label: "Scan interval", Description: "How often the monitor table is polled for new items to search.", Group: "indexer", Section: "Indexer", Unit: "sec"},
-	{Key: "matchThreshold", Type: TypeInt, Default: "80", Label: "Title match threshold", Description: "Minimum similarity (0–100) between the guessit-parsed torrent title and the anime title. Lower = more permissive.", Group: "indexer", Section: "Indexer", Unit: "%"},
+	{Key: "matchThreshold", Type: TypeInt, Default: "80", Label: "Title match threshold", Description: "Minimum similarity (0–100) between the parsed torrent title and the anime title. Lower = more permissive.", Group: "indexer", Section: "Indexer", Unit: "%"},
 	{Key: "cacheFileLimit", Type: TypeInt, Default: "10", Label: "Cache file limit", Description: "Maximum files kept in each cache/debug folder. Oldest deleted first.", Group: "indexer", Section: "Indexer"},
 	{Key: "preferredQuality", Type: TypeSelect, Default: "1080p", Label: "Preferred quality", Description: "Torrent results matching this quality score higher.", Group: "indexer", Section: "Indexer", Options: []string{"4K", "1080p", "720p", "480p", "any"}},
 	{Key: "minSeeders", Type: TypeInt, Default: "1", Label: "Minimum seeders", Description: "Torrents with fewer seeders than this are ignored.", Group: "indexer", Section: "Indexer"},

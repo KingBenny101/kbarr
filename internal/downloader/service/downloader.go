@@ -21,6 +21,7 @@ import (
 	dlprovider "github.com/kingbenny101/kbarr/internal/downloader/provider"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
+	"github.com/kingbenny101/kbarr/internal/parser"
 	"github.com/uptrace/bun"
 )
 
@@ -674,7 +675,7 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 	// "Grand Blue Dreaming S01 1080p BDRip ...") while the files inside are
 	// title-less ("S01E01-Deep Blue [crc].mkv"). This fills gaps the per-file
 	// parse leaves behind.
-	folderCtx := runGuessit(dlprovider.PathBase(savePath))
+	folderCtx := parser.Parse(dlprovider.PathBase(savePath))
 	slog.Info("createHardlinks: folder context", "folder", dlprovider.PathBase(savePath), "title", folderCtx.Title, "season", folderCtx.Season)
 
 	walkRoot := savePath
@@ -720,8 +721,8 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		}
 		hasVideo = true
 
-		g := runGuessit(info.Name())
-		slog.Info("createHardlinks: guessit result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
+		g := parser.Parse(info.Name())
+		slog.Info("createHardlinks: parse result", "file", info.Name(), "title", g.Title, "season", g.Season, "episode", g.Episode, "type", g.Type)
 
 		// Title precedence: explicit media folder > torrent entry title >
 		// folder-name parse > per-file parse. Each later source is a weaker

@@ -19,7 +19,7 @@ import (
 
 // episodePattern is the fast path for SxxExx filenames produced by the hardlinker.
 // Only the episode group (2) is used — the season digit is intentionally ignored
-// because anime sequels live in their own folder and the season digit guessit
+// because anime sequels live in their own folder and the season digit the parser
 // stamps is unreliable.
 var episodePattern = regexp.MustCompile(`(?i)[Ss]\d+[Ee](\d+)`)
 
