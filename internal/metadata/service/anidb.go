@@ -183,6 +183,14 @@ func (s *AniDBService) LoadTitlesDump() error {
 }
 
 func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error) {
+	return s.getAnimeDetails(aid, false)
+}
+
+// getAnimeDetails fetches anime details, serving from the per-aid cache unless
+// force is set. force is used by the refresh path for still-airing shows, where
+// the whole point is to see episodes that aired since the cache was written; it
+// still respects the request throttle and ban cooldown, so it cannot stampede AniDB.
+func (s *AniDBService) getAnimeDetails(aid uint, force bool) (*mdmodels.AnimeDetails, error) {
 	client := config.Get(s.db, "anidbClient", "error")
 	version := config.Get(s.db, "anidbVersion", "error")
 	if err := validateAniDBSettings(client, version); err != nil {
@@ -190,8 +198,10 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error)
 	}
 
 	cacheFile := filepath.Join(DataRootDir(), "metadata", "details", fmt.Sprintf("%d.xml", aid))
-	if details, ok := s.loadCachedAnimeDetails(cacheFile, detailsCacheTTL); ok {
-		return details, nil
+	if !force {
+		if details, ok := s.loadCachedAnimeDetails(cacheFile, detailsCacheTTL); ok {
+			return details, nil
+		}
 	}
 
 	// Don't touch AniDB while a ban cooldown is active — serving from cache above
@@ -212,7 +222,7 @@ func (s *AniDBService) GetAnimeDetails(aid uint) (*mdmodels.AnimeDetails, error)
 	return details, nil
 }
 
-func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (imodels.AnimeMetadata, error) {
+func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint, force bool) (imodels.AnimeMetadata, error) {
 	metadata := imodels.AnimeMetadata{
 		Source:    "anidb",
 		SourceID:  strconv.FormatUint(uint64(aid), 10),
@@ -220,13 +230,14 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint) (
 		LibraryID: libraryID,
 	}
 
-	details, err := s.GetAnimeDetails(aid)
+	details, err := s.getAnimeDetails(aid, force)
 	if err != nil {
 		return imodels.AnimeMetadata{}, fmt.Errorf("failed to get anime details: %w", err)
 	}
 
 	metadata.Description = details.Description
 	metadata.ReleaseDate = details.StartDate
+	metadata.EndDate = details.EndDate
 	metadata.TotalEpisodes = details.EpisodeCount
 
 	var altTitles []string

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
-import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconTrash } from "@tabler/icons-react"
+import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconRefresh, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, resolvePosterUrl, showToast } from "@/utils"
 import type { Episode, MediaDetails } from "@/types"
 import { StatusPill } from "@/components"
@@ -48,10 +48,12 @@ export function MediaDetailPage() {
     const [sortDir, setSortDir] = useState<SortDir>("asc")
     const [activeTypes, setActiveTypes] = useState<Set<number>>(() => new Set(ALL_TYPES))
     const [episodesData, setEpisodesData] = useState<EpisodesResponse | null>(null)
+    const [refreshing, setRefreshing] = useState(false)
+    const [refreshNonce, setRefreshNonce] = useState(0)
 
-    useEffect(() => {
+    const fetchDetails = (withSpinner = true) => {
         if (!id) return
-        setLoading(true)
+        if (withSpinner) setLoading(true)
         apiFetch(`${API_URL}/api/library/${id}`)
             .then(async (response) => {
                 if (!response.ok) throw new Error("Failed to fetch media details")
@@ -62,8 +64,29 @@ export function MediaDetailPage() {
                 console.error(error)
                 showToast("Error loading media details", "error")
             })
-            .finally(() => setLoading(false))
-    }, [id])
+            .finally(() => { if (withSpinner) setLoading(false) })
+    }
+
+    useEffect(() => { fetchDetails() }, [id])
+
+    const handleRefresh = async () => {
+        if (!id) return
+        setRefreshing(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/library/${id}/refresh`, { method: "POST" })
+            if (!res.ok) throw new Error(res.statusText)
+            const data = await res.json() as { message?: string; newEpisodes?: number }
+            showToast(data.message || "Refreshed", "success")
+            fetchDetails(false)
+            fetchMonitored()
+            setRefreshNonce((n) => n + 1)
+        } catch (error) {
+            console.error("Failed to refresh metadata", error)
+            showToast("Failed to refresh metadata", "error")
+        } finally {
+            setRefreshing(false)
+        }
+    }
 
     const fetchMonitored = () => {
         if (!id) return
@@ -300,7 +323,7 @@ export function MediaDetailPage() {
             })
             .then((data: EpisodesResponse) => setEpisodesData(data))
             .catch((error) => console.error("Failed to fetch episodes", error))
-    }, [id, page, sortField, sortDir, activeTypes])
+    }, [id, page, sortField, sortDir, activeTypes, refreshNonce])
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -383,7 +406,6 @@ export function MediaDetailPage() {
                         ) : null}
                     </Stack>
                 </Group>
-
             </Group>
 
             <Grid>
@@ -501,7 +523,15 @@ export function MediaDetailPage() {
                         ) : null}
 
                         <Group>
-                        
+                            <Button
+                                variant="light"
+                                color="gray"
+                                leftSection={<IconRefresh size={16} />}
+                                loading={refreshing}
+                                onClick={handleRefresh}
+                            >
+                                Refresh
+                            </Button>
 
                             <Button
                                 color="red"

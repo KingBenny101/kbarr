@@ -29,6 +29,10 @@ func runMigrations(ctx context.Context) error {
 		END $$`,
 		`ALTER TABLE detaileds DROP COLUMN IF EXISTS aid`,
 
+		// detaileds: final-episode air date, used to tell airing shows from finished
+		// ones so the metadata refresh worker only re-fetches shows still in flight.
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS end_date TEXT NOT NULL DEFAULT ''`,
+
 		// detaileds: external database IDs from Fribb/anime-lists (Jellyfin NFO)
 		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS tvdb_id TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS anilist_id TEXT NOT NULL DEFAULT ''`,

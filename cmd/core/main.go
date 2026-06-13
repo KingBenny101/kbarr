@@ -59,6 +59,7 @@ func main() {
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 	defer bgCancel()
 	go coreservice.PollAvailability(bgCtx, db.DB)
+	go coreservice.PollMetadataRefresh(bgCtx, metadataClient)
 
 	go func() {
 		slog.Info("Server running on", "url", "http://localhost:"+port)

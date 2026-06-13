@@ -27,7 +27,11 @@ type AnimeMetadata struct {
 	AlternateTitles string            `json:"alternate_titles"`
 	Description     string            `json:"description"`
 	ReleaseDate     string            `json:"release_date"`
-	Genres          string            `json:"genres"`
+	// EndDate is the air date of the final episode (AniDB <enddate>). Empty while a
+	// show is still airing, which is the signal the refresh worker uses to decide
+	// whether a show is worth re-fetching.
+	EndDate string `json:"end_date"`
+	Genres  string `json:"genres"`
 	PosterURL       string            `json:"poster_url"`
 	TotalEpisodes   int               `json:"total_episodes"`
 	TotalSeasons    int               `json:"total_seasons"`

@@ -26,6 +26,7 @@ type Detailed struct {
 	AlternateTitles string    `bun:"alternate_titles" json:"alternate_titles"`
 	Description     string    `bun:"description" json:"description"`
 	ReleaseDate     string    `bun:"release_date" json:"release_date"`
+	EndDate         string    `bun:"end_date,notnull,default:''" json:"end_date"`
 	Genres          string    `bun:"genres" json:"genres"`
 	PosterURL       string    `bun:"poster_url" json:"poster_url"`
 	TotalEpisodes   int       `bun:"total_episodes" json:"total_episodes"`

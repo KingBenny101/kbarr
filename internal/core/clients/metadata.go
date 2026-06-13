@@ -68,12 +68,13 @@ func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]mode
 	return results, nil
 }
 
-func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title string, libraryID uint) (*models.AnimeMetadata, error) {
+func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title string, libraryID uint, force bool) (*models.AnimeMetadata, error) {
 	body := map[string]any{
 		"source":     source,
 		"source_id":  sourceID,
 		"title":      title,
 		"library_id": libraryID,
+		"force":      force,
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil {

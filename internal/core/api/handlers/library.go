@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/core/clients"
 	"github.com/kingbenny101/kbarr/internal/core/db"
+	"github.com/kingbenny101/kbarr/internal/core/service"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
 )
@@ -38,7 +39,7 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 		ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 		defer cancel()
 
-		prepared, err := mc.Prepare(ctx, media.Source, media.SourceID, media.Title, 0)
+		prepared, err := mc.Prepare(ctx, media.Source, media.SourceID, media.Title, 0, false)
 		if err != nil {
 			slog.Error("Failed to get anime details from metadata service", "error", err)
 			return nil, huma.Error502BadGateway("failed to fetch anime details — check your metadata source settings", err)
@@ -89,6 +90,34 @@ func AddMedia(mc *clients.MetadataClient) func(context.Context, *AddMediaInput) 
 
 		return &AddMediaOutput{Body: MessageResponse{Message: "Media added successfully!"}}, nil
 	}
+}
+
+// RefreshMetadata force-refreshes one show's metadata from the source and adds
+// any episodes that have aired since it was added. Used by the per-show Refresh
+// button; the background worker calls the same service function directly.
+func RefreshMetadata(mc *clients.MetadataClient) func(context.Context, *LibraryIDInput) (*RefreshOutput, error) {
+	return func(ctx context.Context, input *LibraryIDInput) (*RefreshOutput, error) {
+		ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		defer cancel()
+
+		n, err := service.RefreshLibrary(ctx, mc, input.ID)
+		if err != nil {
+			slog.Error("Failed to refresh metadata", "id", input.ID, "error", err)
+			return nil, huma.Error502BadGateway("failed to refresh metadata — check your metadata source settings", err)
+		}
+		msg := "Already up to date."
+		if n > 0 {
+			msg = fmt.Sprintf("Added %d new episode%s.", n, plural(n))
+		}
+		return &RefreshOutput{Body: RefreshResponse{Message: msg, NewEpisodes: n}}, nil
+	}
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 func GetMediaList() func(context.Context, *struct{}) (*MediaListOutput, error) {
@@ -214,6 +243,7 @@ func toDetailedModel(d *models.AnimeMetadata, libraryID uint) models.Detailed {
 		AlternateTitles: d.AlternateTitles,
 		Description:     d.Description,
 		ReleaseDate:     d.ReleaseDate,
+		EndDate:         d.EndDate,
 		Genres:          d.Genres,
 		PosterURL:       d.PosterURL,
 		TotalEpisodes:   d.TotalEpisodes,

@@ -15,6 +15,8 @@ type PrepareRequest struct {
 	SourceID  string `json:"source_id"`
 	Title     string `json:"title"`
 	LibraryID uint   `json:"library_id"`
+	// Force bypasses the per-aid details cache, used when refreshing an airing show.
+	Force bool `json:"force"`
 }
 
 type Handler struct {
@@ -75,7 +77,7 @@ func (h *Handler) Prepare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata, err := h.svc.PrepareDetailed(uint(aid), req.Title, req.LibraryID)
+	metadata, err := h.svc.PrepareDetailed(uint(aid), req.Title, req.LibraryID, req.Force)
 	if err != nil {
 		slog.Error("Prepare failed", "source", req.Source, "source_id", req.SourceID, "error", err)
 		w.Header().Set("Content-Type", "application/json")

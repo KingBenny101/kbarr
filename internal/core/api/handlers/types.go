@@ -51,6 +51,15 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
+type RefreshResponse struct {
+	Message     string `json:"message"`
+	NewEpisodes int    `json:"newEpisodes"`
+}
+
+type RefreshOutput struct {
+	Body RefreshResponse
+}
+
 type VersionResponse struct {
 	Version string `json:"version" example:"0.1.0"`
 }
