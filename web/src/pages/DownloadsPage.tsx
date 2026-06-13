@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Pagination, Progress, ScrollArea, Stack, Table, Text, TextInput, Title, Tooltip, UnstyledButton } from "@mantine/core"
-import { IconChevronDown, IconChevronUp, IconExternalLink, IconFlask, IconLink, IconSearch, IconSelector, IconTrash } from "@tabler/icons-react"
+import { IconChevronDown, IconChevronUp, IconExternalLink, IconLink, IconSearch, IconSelector, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { usePolling } from "@/hooks"
 import { StatusPill } from "@/components"
@@ -60,16 +60,11 @@ export function DownloadsPage() {
     const [loading, setLoading] = useState(true)
     const [triggering, setTriggering] = useState(false)
     const [clearing, setClearing] = useState(false)
-    const [devMode, setDevMode] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<DownloadItem | null>(null)
     const [blacklist, setBlacklist] = useState(false)
     const [unmonitor, setUnmonitor] = useState(false)
     const [deleteFiles, setDeleteFiles] = useState(false)
     const [deleting, setDeleting] = useState(false)
-    const [testModalOpen, setTestModalOpen] = useState(false)
-    const [testURL, setTestURL] = useState("")
-    const [testTitle, setTestTitle] = useState("")
-    const [submitting, setSubmitting] = useState(false)
 
     const [search, setSearch] = useState("")
     const [activeStatus, setActiveStatus] = useState<StatusFilter>("all")
@@ -77,13 +72,6 @@ export function DownloadsPage() {
     const [sortDir, setSortDir] = useState<SortDir>("desc")
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 15
-
-    useEffect(() => {
-        apiFetch(`${API_URL}/api/settings`)
-            .then((r) => r.ok ? r.json() : null)
-            .then((data) => { if (data?.devMode === "true") setDevMode(true) })
-            .catch(() => {})
-    }, [])
 
     const handleTrigger = async () => {
         setTriggering(true)
@@ -109,28 +97,6 @@ export function DownloadsPage() {
             showToast("Failed to clear completed downloads", "error")
         } finally {
             setClearing(false)
-        }
-    }
-
-    const handleAddTest = async () => {
-        if (!testURL.trim()) return
-        setSubmitting(true)
-        try {
-            const res = await apiFetch(`${API_URL}/api/downloads/test`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ torrent_url: testURL.trim(), title: testTitle.trim() }),
-            })
-            if (!res.ok) throw new Error()
-            showToast("Test torrent added", "success")
-            setTestModalOpen(false)
-            setTestURL("")
-            setTestTitle("")
-            fetchQueue()
-        } catch {
-            showToast("Failed to add test torrent", "error")
-        } finally {
-            setSubmitting(false)
         }
     }
 
@@ -269,29 +235,6 @@ export function DownloadsPage() {
                 </Stack>
             </Modal>
 
-            <Modal opened={testModalOpen} onClose={() => setTestModalOpen(false)} title="Add test torrent" centered>
-                <Stack gap="md">
-                    <TextInput
-                        label="Torrent URL"
-                        description="Magnet link or .torrent file URL"
-                        placeholder="magnet:?xt=urn:btih:..."
-                        value={testURL}
-                        onChange={(e) => setTestURL(e.currentTarget.value)}
-                        required
-                    />
-                    <TextInput
-                        label="Title"
-                        description="Optional label (defaults to URL)"
-                        placeholder="My test torrent"
-                        value={testTitle}
-                        onChange={(e) => setTestTitle(e.currentTarget.value)}
-                    />
-                    <Button color="gray" fullWidth loading={submitting} disabled={!testURL.trim()} onClick={handleAddTest}>
-                        Add to queue
-                    </Button>
-                </Stack>
-            </Modal>
-
             <Title order={1}>Downloads</Title>
 
             <Card withBorder radius="xl">
@@ -306,11 +249,6 @@ export function DownloadsPage() {
                             </Text>
                         </div>
                         <Group gap="xs" wrap="wrap" justify="flex-end">
-                            {devMode && (
-                                <Button variant="light" color="orange" size="xs" leftSection={<IconFlask size={14} />} onClick={() => setTestModalOpen(true)}>
-                                    Add test torrent
-                                </Button>
-                            )}
                             {(statusCounts["completed"] ?? 0) > 0 && (
                                 <Button variant="light" color="gray" size="xs" loading={clearing} onClick={handleClearCompleted}>
                                     Clear completed

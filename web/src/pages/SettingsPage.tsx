@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { Navigate, useLocation } from "react-router-dom"
-import { Alert, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core"
+import { Alert, Badge, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, TextInput, Title } from "@mantine/core"
 import { IconAlertTriangle } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, showToast } from "@/utils"
 
@@ -16,7 +16,10 @@ interface SettingDef {
     options?: string[]
     unit?: string
     widget?: string
+    advanced?: boolean
 }
+
+const DEV_OPTIONS_KEY = "kbarr-developer-options"
 
 interface CredentialForm {
     currentPassword: string
@@ -127,6 +130,7 @@ function SectionCard({
     values,
     initialValues,
     onUpdate,
+    devOptions,
     extra,
 }: {
     section: string
@@ -134,10 +138,15 @@ function SectionCard({
     values: Record<string, string>
     initialValues: Record<string, string>
     onUpdate: (key: string, value: string) => void
+    devOptions: boolean
     extra?: ReactNode
 }) {
     const isDeveloper = section === "Developer options"
     const description = SECTION_DESCRIPTIONS[section]
+    const visible = devOptions ? defs : defs.filter((d) => !d.advanced)
+    // Don't render an empty card when every setting in the section is advanced
+    // and the developer toggle is off (and there's no extra content to show).
+    if (visible.length === 0 && !extra) return null
     return (
         <Card
             withBorder
@@ -157,14 +166,18 @@ function SectionCard({
                     )}
                     {description && <Text size="sm" c="dimmed">{description}</Text>}
                 </div>
-                {defs.map((def) => (
-                    <SettingField
-                        key={def.key}
-                        def={def}
-                        value={values[def.key] ?? def.default}
-                        initialValue={initialValues[def.key] ?? def.default}
-                        onChange={(v) => onUpdate(def.key, v)}
-                    />
+                {visible.map((def) => (
+                    <div key={def.key}>
+                        {def.advanced && (
+                            <Badge size="xs" variant="light" color="orange" mb={4}>advanced</Badge>
+                        )}
+                        <SettingField
+                            def={def}
+                            value={values[def.key] ?? def.default}
+                            initialValue={initialValues[def.key] ?? def.default}
+                            onChange={(v) => onUpdate(def.key, v)}
+                        />
+                    </div>
                 ))}
                 {extra}
             </Stack>
@@ -203,6 +216,12 @@ export function SettingsPage() {
     const [testingJellyfin, setTestingJellyfin] = useState(false)
     const [clearBlacklistModal, setClearBlacklistModal] = useState(false)
     const [clearingBlacklist, setClearingBlacklist] = useState(false)
+    const [devOptions, setDevOptions] = useState<boolean>(() => localStorage.getItem(DEV_OPTIONS_KEY) === "true")
+
+    const toggleDevOptions = (v: boolean) => {
+        setDevOptions(v)
+        localStorage.setItem(DEV_OPTIONS_KEY, String(v))
+    }
 
     const handleClearBlacklist = async () => {
         setClearingBlacklist(true)
@@ -391,12 +410,31 @@ export function SettingsPage() {
 
             {path.includes("general") && (
                 <>
+                    <Card withBorder radius="xl" p="lg" style={{ borderColor: "var(--mantine-color-orange-5)" }}>
+                        <Stack gap="md">
+                            <div>
+                                <Group gap="xs">
+                                    <IconAlertTriangle size={18} color="var(--mantine-color-orange-5)" />
+                                    <Title order={3} c="orange">Developer options</Title>
+                                </Group>
+                                <Text size="sm" c="dimmed">Reveals advanced tuning settings across all tabs. Defaults are tuned for normal use — only change these if you know what they do.</Text>
+                            </div>
+                            <Switch
+                                label="Show developer options"
+                                color="orange"
+                                checked={devOptions}
+                                onChange={(e) => toggleDevOptions(e.currentTarget.checked)}
+                            />
+                        </Stack>
+                    </Card>
+
                     <SectionCard
                         section="General settings"
                         defs={defsForSection(schema, "general", "General settings")}
                         values={settings}
                         initialValues={initialSettings ?? {}}
                         onUpdate={update}
+                        devOptions={devOptions}
                     />
 
                     <Card withBorder radius="xl" p="lg">
@@ -454,6 +492,7 @@ export function SettingsPage() {
                                 values={settings}
                                 initialValues={initialSettings ?? {}}
                                 onUpdate={update}
+                        devOptions={devOptions}
                             />
                         ))}
                 </>
@@ -469,6 +508,7 @@ export function SettingsPage() {
                             values={settings}
                             initialValues={initialSettings ?? {}}
                             onUpdate={update}
+                        devOptions={devOptions}
                         />
                     ))}
                 </>
@@ -484,6 +524,7 @@ export function SettingsPage() {
                             values={settings}
                             initialValues={initialSettings ?? {}}
                             onUpdate={update}
+                        devOptions={devOptions}
                             extra={
                                 section === "kbdex" ? (
                                     <Group justify="flex-end">
@@ -514,6 +555,7 @@ export function SettingsPage() {
                             values={settings}
                             initialValues={initialSettings ?? {}}
                             onUpdate={update}
+                        devOptions={devOptions}
                             extra={
                                 section === "qBittorrent" ? (
                                     <Group justify="flex-end">

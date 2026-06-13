@@ -48,7 +48,6 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 
 	// Downloads
 	huma.Register(api, huma.Operation{OperationID: "list-downloads", Method: "GET", Path: "/api/downloads", Security: secured, Tags: []string{"downloads"}, Summary: "List downloads"}, handlers.GetDownloadList())
-	huma.Register(api, huma.Operation{OperationID: "add-test-download", Method: "POST", Path: "/api/downloads/test", Security: secured, Tags: []string{"downloads"}, Summary: "Add test download", DefaultStatus: 201}, handlers.AddTestDownload())
 	huma.Register(api, huma.Operation{OperationID: "trigger-downloader", Method: "POST", Path: "/api/downloads/trigger", Security: secured, Tags: []string{"downloads"}, Summary: "Trigger downloader"}, handlers.TriggerDownloader(handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083")))
 	huma.Register(api, huma.Operation{OperationID: "create-hardlinks", Method: "POST", Path: "/api/downloads/{id}/hardlink", Security: secured, Tags: []string{"downloads"}, Summary: "Create hardlinks", DefaultStatus: 204}, handlers.CreateHardlinks(handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083")))
 	huma.Register(api, huma.Operation{OperationID: "delete-download", Method: "DELETE", Path: "/api/downloads/{id}", Security: secured, Tags: []string{"downloads"}, Summary: "Delete download", DefaultStatus: 204}, handlers.DeleteDownload())

@@ -163,7 +163,7 @@ func preferredQualityRank(preferred string) int {
 func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentResult) *models.TorrentResult {
 	preferred := config.Get(s.db, "preferredQuality", "any")
 	cap := preferredQualityRank(preferred)
-	preferredSub := strings.ToLower(config.Get(s.db, "preferredSubtitleLanguage", "any"))
+	preferredSub := strings.ToLower(config.Get(s.db, "preferredSubtitleLanguage", "eng"))
 	minSeeders := s.minSeeders()
 
 	var candidates []models.TorrentResult

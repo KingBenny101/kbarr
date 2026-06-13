@@ -43,10 +43,6 @@ type UnmonitorSeasonRequest struct {
 	Season    int  `json:"season"`
 }
 
-type TestDownloadRequest struct {
-	TorrentURL string `json:"torrent_url"`
-	Title      string `json:"title"`
-}
 
 type MessageResponse struct {
 	Message string `json:"message"`
@@ -172,10 +168,6 @@ type UnmonitorInput struct {
 
 type UnmonitorSeasonInput struct {
 	Body UnmonitorSeasonRequest
-}
-
-type AddTestDownloadInput struct {
-	Body TestDownloadRequest
 }
 
 type UpdateSettingsInput struct {

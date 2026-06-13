@@ -23,19 +23,6 @@ func GetDownloadList() func(context.Context, *struct{}) (*DownloadListOutput, er
 	}
 }
 
-func AddTestDownload() func(context.Context, *AddTestDownloadInput) (*struct{}, error) {
-	return func(ctx context.Context, input *AddTestDownloadInput) (*struct{}, error) {
-		if input.Body.TorrentURL == "" {
-			return nil, huma.Error400BadRequest("torrent_url is required")
-		}
-		if err := db.InsertTestDownloadQueueEntry(ctx, input.Body.TorrentURL, input.Body.Title); err != nil {
-			slog.Error("Failed to insert test download queue entry", "error", err)
-			return nil, huma.Error500InternalServerError("failed to insert entry", err)
-		}
-		return nil, nil
-	}
-}
-
 func ClearBlacklist() func(context.Context, *struct{}) (*struct{}, error) {
 	return func(ctx context.Context, _ *struct{}) (*struct{}, error) {
 		if err := db.ClearBlacklist(ctx); err != nil {

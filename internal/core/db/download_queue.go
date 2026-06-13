@@ -36,24 +36,6 @@ func GetDownloadQueueEntry(ctx context.Context, id string, entry *models.Downloa
 	return DB.NewSelect().Model(entry).Where("id = ? AND deleted_at IS NULL", numID).Scan(ctx)
 }
 
-func InsertTestDownloadQueueEntry(ctx context.Context, torrentURL, title string) error {
-	if err := ensureDB(); err != nil {
-		return err
-	}
-	status := "pending"
-	if title == "" {
-		title = torrentURL
-	}
-	entry := models.DownloadQueue{
-		TorrentURL:  &torrentURL,
-		TorrentName: &torrentURL,
-		Title:       &title,
-		Status:      &status,
-	}
-	_, err := DB.NewInsert().Model(&entry).Exec(ctx)
-	return err
-}
-
 type DeleteOptions struct {
 	Blacklist   bool `json:"blacklist"`
 	Unmonitor   bool `json:"unmonitor"`
