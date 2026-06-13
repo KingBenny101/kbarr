@@ -588,20 +588,25 @@ export function SettingsPage() {
                         </Stack>
                     </Modal>
 
-                    <Card withBorder radius="xl" p="lg">
-                        <Stack gap="md">
-                            <div>
-                                <Title order={3}>Blacklist</Title>
-                                <Text size="sm" c="dimmed">Torrents are blacklisted automatically when stalled or manually when removed from the queue.</Text>
-                            </div>
-                            <Group justify="space-between" align="center">
-                                <Text size="sm">Clear all blacklisted torrents to allow them to be queued again.</Text>
-                                <Button variant="light" color="red" onClick={() => setClearBlacklistModal(true)}>
-                                    Clear blacklist
-                                </Button>
-                            </Group>
-                        </Stack>
-                    </Card>
+                    {devOptions && (
+                        <Card withBorder radius="xl" p="lg" style={{ borderColor: "var(--mantine-color-orange-5)" }}>
+                            <Stack gap="md">
+                                <div>
+                                    <Group gap="xs">
+                                        <IconAlertTriangle size={18} color="var(--mantine-color-orange-5)" />
+                                        <Title order={3} c="orange">Blacklist</Title>
+                                    </Group>
+                                    <Text size="sm" c="dimmed">Torrents are blacklisted automatically when stalled or manually when removed from the queue.</Text>
+                                </div>
+                                <Group justify="space-between" align="center">
+                                    <Text size="sm">Clear all blacklisted torrents to allow them to be queued again.</Text>
+                                    <Button variant="light" color="red" onClick={() => setClearBlacklistModal(true)}>
+                                        Clear blacklist
+                                    </Button>
+                                </Group>
+                            </Stack>
+                        </Card>
+                    )}
                 </>
             )}
 
