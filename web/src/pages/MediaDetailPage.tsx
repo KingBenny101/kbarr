@@ -587,7 +587,8 @@ export function MediaDetailPage() {
                                 <SimpleKeyValue label="Created" value={media.CreatedAt ? new Date(media.CreatedAt).toLocaleString() : "Unknown"} />
                                 <SimpleKeyValue label="Updated" value={media.UpdatedAt ? new Date(media.UpdatedAt).toLocaleString() : "Unknown"} />
                                 <SimpleKeyValue label="Genres" value={media.genres || "Unknown"} />
-                                <SimpleKeyValue label="Release" value={media.release_date || "Unknown"} />
+                                <SimpleKeyValue label="Released" value={media.release_date || "Unknown"} />
+                                <SimpleKeyValue label="Ended" value={media.end_date || "Not Ended"} />
                                 <Group justify="space-between" align="center" mt={4}>
                                     <Text c="dimmed" size="sm">NSFW</Text>
                                     <Switch

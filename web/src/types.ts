@@ -29,6 +29,7 @@ export interface MediaDetails {
     alternate_titles: string
     description: string
     release_date: string
+    end_date: string
     genres: string
     poster_url: string
     total_episodes: number
