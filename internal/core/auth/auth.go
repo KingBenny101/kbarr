@@ -2,8 +2,10 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -81,6 +83,25 @@ func (s *Store) UsernameFromRequest(r *http.Request) string {
 	return username
 }
 
+// EnvAuth returns the credentials configured via environment and whether the
+// environment override is active. When KBARR_AUTH_PASSWORD is set, kbarr
+// authenticates solely against these values and the stored credentials are
+// ignored — this is the declarative-config / lockout-recovery path: a forgotten
+// password is fixed by editing the environment and restarting, never an
+// unrecoverable state. The username defaults to "admin" when only the password
+// is supplied, so a half-configured environment can't lock the user out.
+func EnvAuth() (username, password string, active bool) {
+	password = os.Getenv("KBARR_AUTH_PASSWORD")
+	if password == "" {
+		return "", "", false
+	}
+	username = strings.TrimSpace(os.Getenv("KBARR_AUTH_USERNAME"))
+	if username == "" {
+		username = "admin"
+	}
+	return username, password, true
+}
+
 func EnsureDefaults(db *bun.DB) error {
 	if config.Get(db, "authPasswordHash", "") != "" {
 		return nil
@@ -96,6 +117,13 @@ func EnsureDefaults(db *bun.DB) error {
 }
 
 func ValidateCredentials(db *bun.DB, username, password string) bool {
+	// Environment override wins outright: the stored hash is never consulted while
+	// it is active. A plaintext compare is fine (and constant-time here) because
+	// the env value is itself the secret — there is nothing to slow-hash.
+	if envUser, envPass, active := EnvAuth(); active {
+		return strings.EqualFold(username, envUser) &&
+			subtle.ConstantTimeCompare([]byte(password), []byte(envPass)) == 1
+	}
 	storedUsername := config.Get(db, "authUsername", "Admin")
 	storedHash := config.Get(db, "authPasswordHash", "")
 	if !strings.EqualFold(username, storedUsername) {
@@ -105,6 +133,11 @@ func ValidateCredentials(db *bun.DB, username, password string) bool {
 }
 
 func UpdateCredentials(db *bun.DB, currentPassword, newUsername, newPassword string) error {
+	// While the environment override is active the stored credentials are inert,
+	// so changing them from the UI would be misleading — reject it outright.
+	if _, _, active := EnvAuth(); active {
+		return &ErrEnvManaged{}
+	}
 	storedHash := config.Get(db, "authPasswordHash", "")
 	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(currentPassword)); err != nil {
 		return &ErrUnauthorized{}
@@ -129,3 +162,9 @@ func UpdateCredentials(db *bun.DB, currentPassword, newUsername, newPassword str
 type ErrUnauthorized struct{}
 
 func (e *ErrUnauthorized) Error() string { return "invalid current password" }
+
+// ErrEnvManaged signals that credentials are pinned by the environment and
+// cannot be changed through the API.
+type ErrEnvManaged struct{}
+
+func (e *ErrEnvManaged) Error() string { return "credentials are managed via environment variables" }

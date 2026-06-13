@@ -21,6 +21,9 @@ type TokenResponse struct {
 
 type UsernameResponse struct {
 	Username string `json:"username" example:"admin"`
+	// EnvManaged is true when credentials come from the environment, in which case
+	// the UI disables the change-credentials form.
+	EnvManaged bool `json:"envManaged"`
 }
 
 type CredentialsRequest struct {

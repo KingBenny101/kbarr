@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { Navigate, useLocation } from "react-router-dom"
 import { Alert, Badge, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, TextInput, Title } from "@mantine/core"
-import { IconAlertTriangle } from "@tabler/icons-react"
+import { IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, showToast } from "@/utils"
 
 interface SettingDef {
@@ -239,8 +239,16 @@ export function SettingsPage() {
 
     const [creds, setCreds] = useState<CredentialForm>({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" })
     const [savingCreds, setSavingCreds] = useState(false)
+    const [credsEnvManaged, setCredsEnvManaged] = useState(false)
 
     useEffect(() => { fetchSettings() }, [])
+
+    useEffect(() => {
+        apiFetch(`${API_URL}/api/auth/me`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => { if (data) setCredsEnvManaged(Boolean(data.envManaged)) })
+            .catch(() => {})
+    }, [])
 
     const fetchSettings = async () => {
         setLoading(true)
@@ -444,41 +452,49 @@ export function SettingsPage() {
                                 <Text size="sm" c="dimmed">Change your login username or password. Current password is always required.</Text>
                             </div>
                             <Divider />
-                            <TextInput
-                                label="New username"
-                                placeholder="Leave blank to keep current"
-                                value={creds.newUsername}
-                                onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, newUsername: v })) }}
-                            />
-                            <PasswordInput
-                                label="New password"
-                                placeholder="Leave blank to keep current"
-                                value={creds.newPassword}
-                                onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, newPassword: v })) }}
-                            />
-                            <PasswordInput
-                                label="Confirm new password"
-                                placeholder="••••••••"
-                                value={creds.confirmPassword}
-                                onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, confirmPassword: v })) }}
-                            />
-                            <Divider />
-                            <PasswordInput
-                                label="Current password"
-                                placeholder="Required to save changes"
-                                value={creds.currentPassword}
-                                onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, currentPassword: v })) }}
-                            />
-                            <Group justify="flex-end">
-                                <Button
-                                    color="gray"
-                                    onClick={handleSaveCreds}
-                                    loading={savingCreds}
-                                    disabled={!creds.currentPassword || (!creds.newUsername && !creds.newPassword)}
-                                >
-                                    Update credentials
-                                </Button>
-                            </Group>
+                            {credsEnvManaged ? (
+                                <Alert color="gray" variant="light" icon={<IconInfoCircle size={18} />}>
+                                    Credentials are managed by the <Text span fw={600}>KBARR_AUTH_USERNAME</Text> and <Text span fw={600}>KBARR_AUTH_PASSWORD</Text> environment variables. To change them, edit your environment and restart kbarr.
+                                </Alert>
+                            ) : (
+                                <>
+                                    <TextInput
+                                        label="New username"
+                                        placeholder="Leave blank to keep current"
+                                        value={creds.newUsername}
+                                        onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, newUsername: v })) }}
+                                    />
+                                    <PasswordInput
+                                        label="New password"
+                                        placeholder="Leave blank to keep current"
+                                        value={creds.newPassword}
+                                        onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, newPassword: v })) }}
+                                    />
+                                    <PasswordInput
+                                        label="Confirm new password"
+                                        placeholder="••••••••"
+                                        value={creds.confirmPassword}
+                                        onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, confirmPassword: v })) }}
+                                    />
+                                    <Divider />
+                                    <PasswordInput
+                                        label="Current password"
+                                        placeholder="Required to save changes"
+                                        value={creds.currentPassword}
+                                        onChange={(e) => { const v = e.currentTarget.value; setCreds((c) => ({ ...c, currentPassword: v })) }}
+                                    />
+                                    <Group justify="flex-end">
+                                        <Button
+                                            color="gray"
+                                            onClick={handleSaveCreds}
+                                            loading={savingCreds}
+                                            disabled={!creds.currentPassword || (!creds.newUsername && !creds.newPassword)}
+                                        >
+                                            Update credentials
+                                        </Button>
+                                    </Group>
+                                </>
+                            )}
                         </Stack>
                     </Card>
 

@@ -33,12 +33,17 @@ func Logout(store *auth.Store) func(context.Context, *LogoutInput) (*struct{}, e
 
 func Me(store *auth.Store) func(context.Context, *MeInput) (*UsernameOutput, error) {
 	return func(ctx context.Context, input *MeInput) (*UsernameOutput, error) {
+		envUser, _, envManaged := auth.EnvAuth()
 		token := strings.TrimPrefix(input.Authorization, "Bearer ")
 		username, _ := store.Validate(token)
 		if username == "" {
-			username = config.Get(db.DB, "authUsername", "admin")
+			if envManaged {
+				username = envUser
+			} else {
+				username = config.Get(db.DB, "authUsername", "admin")
+			}
 		}
-		return &UsernameOutput{Body: UsernameResponse{Username: username}}, nil
+		return &UsernameOutput{Body: UsernameResponse{Username: username, EnvManaged: envManaged}}, nil
 	}
 }
 
@@ -48,6 +53,9 @@ func ChangeCredentials() func(context.Context, *ChangeCredentialsInput) (*struct
 		if err != nil {
 			if _, ok := err.(*auth.ErrUnauthorized); ok {
 				return nil, huma.Error401Unauthorized("invalid current password")
+			}
+			if _, ok := err.(*auth.ErrEnvManaged); ok {
+				return nil, huma.Error409Conflict("credentials are managed via environment variables and cannot be changed here")
 			}
 			return nil, huma.Error500InternalServerError("failed to update credentials", err)
 		}
