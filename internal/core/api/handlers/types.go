@@ -75,6 +75,11 @@ type LibraryIDInput struct {
 	ID uint `path:"id" doc:"Library ID"`
 }
 
+type DeleteMediaInput struct {
+	ID          uint `path:"id" doc:"Library ID"`
+	DeleteFiles bool `query:"deleteFiles" doc:"Also remove the show's folder and organised files from the media path"`
+}
+
 type MonitorIDInput struct {
 	ID uint `path:"id" doc:"Monitor ID"`
 }

@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/core/clients"
 	"github.com/kingbenny101/kbarr/internal/core/db"
 	"github.com/kingbenny101/kbarr/internal/core/service"
@@ -131,10 +134,22 @@ func GetMediaList() func(context.Context, *struct{}) (*MediaListOutput, error) {
 	}
 }
 
-func DeleteMedia() func(context.Context, *LibraryIDInput) (*struct{}, error) {
-	return func(ctx context.Context, input *LibraryIDInput) (*struct{}, error) {
+func DeleteMedia() func(context.Context, *DeleteMediaInput) (*struct{}, error) {
+	return func(ctx context.Context, input *DeleteMediaInput) (*struct{}, error) {
 		id := strconv.FormatUint(uint64(input.ID), 10)
-		slog.Info("Delete media request", "id", id)
+		slog.Info("Delete media request", "id", id, "delete_files", input.DeleteFiles)
+
+		// Remove organised files before the DB rows: the media row carries the folder
+		// name, so we need it while it still exists. Torrents/downloads are left alone.
+		if input.DeleteFiles {
+			media, err := db.GetMediaByID(id)
+			if err != nil {
+				slog.Error("Delete files requested but media not found", "id", id, "error", err)
+				return nil, huma.Error404NotFound("media not found", err)
+			}
+			removeShowFolder(media)
+		}
+
 		if err := db.DeleteMedia(id); err != nil {
 			slog.Error("Failed to delete media", "id", id, "error", err)
 			return nil, huma.Error500InternalServerError("failed to delete media", err)
@@ -142,6 +157,42 @@ func DeleteMedia() func(context.Context, *LibraryIDInput) (*struct{}, error) {
 		slog.Info("Media deleted", "id", id)
 		return nil, nil
 	}
+}
+
+// removeShowFolder deletes a show's organised folder (hardlinks and all) from the
+// media path. It is intentionally conservative: it only removes a directory that
+// sits directly under the configured media path, so a misconfigured or empty
+// setting can never escalate into deleting the media root or an arbitrary path.
+func removeShowFolder(media models.Media) {
+	mediaPath := strings.TrimRight(config.Get(db.DB, "mediaPath", ""), "/")
+	if mediaPath == "" {
+		slog.Warn("Delete files: mediaPath not configured, skipping file removal", "id", media.ID)
+		return
+	}
+	folder := media.MediaFolder
+	if folder == "" {
+		folder = naming.SanitizeFilename(media.Title)
+	}
+	if folder == "" {
+		slog.Warn("Delete files: could not resolve folder name, skipping", "id", media.ID, "title", media.Title)
+		return
+	}
+
+	target := filepath.Clean(filepath.Join(mediaPath, folder))
+	// Guard: target must be a direct child of mediaPath, never the root itself.
+	if target == filepath.Clean(mediaPath) || filepath.Dir(target) != filepath.Clean(mediaPath) {
+		slog.Warn("Delete files: resolved path is not under media path, refusing", "id", media.ID, "target", target)
+		return
+	}
+	if fi, err := os.Stat(target); err != nil || !fi.IsDir() {
+		slog.Info("Delete files: show folder not present, nothing to remove", "id", media.ID, "target", target)
+		return
+	}
+	if err := os.RemoveAll(target); err != nil {
+		slog.Error("Delete files: failed to remove show folder", "id", media.ID, "target", target, "error", err)
+		return
+	}
+	slog.Info("Delete files: removed show folder", "id", media.ID, "target", target)
 }
 
 func UpdateMonitorStatus() func(context.Context, *UpdateMonitorStatusInput) (*struct{}, error) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
@@ -35,6 +35,24 @@ interface MonitoredItem {
     subtitles?: string
 }
 
+// DeleteConfirmBody owns the "delete files" checkbox state. The confirm modal
+// captures its children once, so the checkbox can't bind to parent state; it
+// keeps its own and reports changes upward through onChange.
+function DeleteConfirmBody({ title, onChange }: { title: string; onChange: (v: boolean) => void }) {
+    const [checked, setChecked] = useState(false)
+    return (
+        <Stack gap="sm">
+            <Text size="sm">This removes <strong>{title}</strong> from your library and cannot be undone.</Text>
+            <Checkbox
+                label="Also delete downloaded files from the media folder"
+                description="Removes the show's organised folder and its hardlinks."
+                checked={checked}
+                onChange={(e) => { setChecked(e.currentTarget.checked); onChange(e.currentTarget.checked) }}
+            />
+        </Stack>
+    )
+}
+
 export function MediaDetailPage() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
@@ -50,6 +68,7 @@ export function MediaDetailPage() {
     const [episodesData, setEpisodesData] = useState<EpisodesResponse | null>(null)
     const [refreshing, setRefreshing] = useState(false)
     const [refreshNonce, setRefreshNonce] = useState(0)
+    const deleteFilesRef = useRef(false)
 
     const fetchDetails = (withSpinner = true) => {
         if (!id) return
@@ -350,10 +369,11 @@ export function MediaDetailPage() {
 
     const totalPages = Math.ceil((episodesData?.total ?? 0) / 10)
 
-    const deleteMedia = async () => {
+    const deleteMedia = async (deleteFiles: boolean) => {
         if (!media || !id) return
         try {
-            const response = await apiFetch(`${API_URL}/api/library/${id}`, { method: "DELETE" })
+            const url = `${API_URL}/api/library/${id}${deleteFiles ? "?deleteFiles=true" : ""}`
+            const response = await apiFetch(url, { method: "DELETE" })
             if (response.ok) {
                 showToast("Media deleted", "success")
                 navigate("/")
@@ -537,16 +557,17 @@ export function MediaDetailPage() {
                                 color="red"
                                 variant="light"
                                 leftSection={<IconTrash size={16} />}
-                                onClick={() =>
+                                onClick={() => {
+                                    deleteFilesRef.current = false
                                     modals.openConfirmModal({
                                         title: "Delete media",
                                         centered: true,
-                                        children: <Text size="sm">This removes <strong>{media.title}</strong> from your library and cannot be undone.</Text>,
+                                        children: <DeleteConfirmBody title={media.title} onChange={(v) => { deleteFilesRef.current = v }} />,
                                         labels: { confirm: "Delete", cancel: "Cancel" },
                                         confirmProps: { color: "red" },
-                                        onConfirm: deleteMedia,
+                                        onConfirm: () => deleteMedia(deleteFilesRef.current),
                                     })
-                                }
+                                }}
                             >
                                 Delete media
                             </Button>
