@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core"
-import { IconChevronDown, IconChevronUp, IconExternalLink, IconSelector, IconTrash } from "@tabler/icons-react"
+import { IconChevronDown, IconChevronUp, IconSelector, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
@@ -15,7 +15,6 @@ interface MonitorEntry {
     episode_number: number
     is_episode: boolean
     is_season: boolean
-    anidb_id: string
     status: string
     quality?: string
     subtitles?: string
@@ -25,23 +24,25 @@ const STATUS_PRIORITY: Record<string, number> = {
     downloading: 0,
     queued:      1,
     searching:   2,
-    monitored:   3,
-    missing:     4,
-    available:   5,
-    downloaded:  6,
-    unmonitored: 7,
+    pending:     3,
+    monitored:   4,
+    missing:     5,
+    available:   6,
+    downloaded:  7,
+    unmonitored: 8,
 }
 
 type SortField = "title" | "status" | "type"
 type SortDir = "asc" | "desc"
 
-const ALL_STATUSES = ["monitored", "searching", "queued", "downloading", "missing", "available", "downloaded", "unmonitored"] as const
+const ALL_STATUSES = ["monitored", "searching", "pending", "queued", "downloading", "missing", "available", "downloaded", "unmonitored"] as const
 // "active" (the default) shows everything still in progress — i.e. every item
 // that is not yet downloaded; "all" includes downloaded items too.
 type StatusFilter = typeof ALL_STATUSES[number] | "all" | "active"
 
 const STATUS_TONES: Record<string, "gray" | "blue" | "green" | "yellow" | "violet" | "red"> = {
     monitored: "blue",
+    pending: "gray",
     searching: "yellow",
     queued: "violet",
     downloading: "blue",
@@ -194,18 +195,17 @@ export function MonitorPage() {
                                     </Table.Th>
                                     <Table.Th>Quality</Table.Th>
                                     <Table.Th>Subtitles</Table.Th>
-                                    <Table.Th>AniDB</Table.Th>
                                     <Table.Th w={72} />
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
                                 {loading ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={8}><Text ta="center" py="md">Loading...</Text></Table.Td>
+                                        <Table.Td colSpan={7}><Text ta="center" py="md">Loading...</Text></Table.Td>
                                     </Table.Tr>
                                 ) : filtered.length === 0 ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={8}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
+                                        <Table.Td colSpan={7}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
                                     </Table.Tr>
                                 ) : (
                                     currentMonitors.map((entry) => (
@@ -229,13 +229,6 @@ export function MonitorPage() {
                                             </Table.Td>
                                             <Table.Td c={entry.subtitles ? undefined : "dimmed"}>
                                                 {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
-                                            </Table.Td>
-                                            <Table.Td>
-                                                {entry.anidb_id ? (
-                                                    <ActionIcon component="a" href={entry.is_season ? `https://anidb.net/anime/${entry.anidb_id}` : `https://anidb.net/episode/${entry.anidb_id}`} target="_blank" rel="noreferrer" variant="subtle" color="gray" aria-label="Open AniDB entry">
-                                                        <IconExternalLink size={18} />
-                                                    </ActionIcon>
-                                                ) : null}
                                             </Table.Td>
                                             <Table.Td ta="right">
                                                 <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
