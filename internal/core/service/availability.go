@@ -134,22 +134,36 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 			slog.Debug("availability: folder maps to no library, skipping", "folder", folder)
 			continue
 		}
-		for ep := range episodes {
+		for ep, path := range episodes {
 			mon, ok := monitorsByLibEp[libEpKey{int64(libID), ep}]
 			if !ok {
 				slog.Debug("availability: no monitor for episode", "folder", folder, "episode", ep)
 				continue
 			}
-			if mon.Available {
+
+			// Probe the file for quality + subtitles at most once: only when the
+			// monitor has neither recorded yet. The folder mtime cache already keeps
+			// this off the hot path for unchanged directories.
+			setQuality, setSubs, doProbe := "", "", mon.Quality == "" && mon.Subtitles == ""
+			if doProbe {
+				setQuality, setSubs = c.detectQualityAndSubs(path)
+			}
+
+			if mon.Available && !doProbe {
 				continue
 			}
-			if _, err := c.db.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("available = true, updated_at = now()").
-				Where("id = ?", mon.ID).Exec(ctx); err != nil {
+
+			q := c.db.NewUpdate().Model((*models.Monitor)(nil)).
+				Set("available = true, updated_at = now()")
+			if doProbe {
+				q = q.Set("quality = ?, subtitles = ?", setQuality, setSubs)
+			}
+			if _, err := q.Where("id = ?", mon.ID).Exec(ctx); err != nil {
 				slog.Warn("availability: failed to update monitor", "monitor_id", mon.ID, "error", err)
 			} else {
 				mon.Available = true
-				slog.Info("availability: episode marked available", "monitor_id", mon.ID, "title", mon.Title, "episode", ep)
+				mon.Quality, mon.Subtitles = setQuality, setSubs
+				slog.Info("availability: episode marked available", "monitor_id", mon.ID, "title", mon.Title, "episode", ep, "quality", setQuality, "subtitles", setSubs)
 			}
 		}
 	}
@@ -170,12 +184,12 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 			// kbarr's own download vanished — re-search, but throttled: 'missing'
 			// is only retried after missingRetryInterval, not every cycle.
 			c.db.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("available = false, status = 'missing', updated_at = now()").
+				Set("available = false, status = 'missing', quality = '', subtitles = '', updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx)
 			slog.Info("availability: episode file gone, reset to missing", "monitor_id", mon.ID, "title", mon.Title)
 		} else {
 			c.db.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("available = false, updated_at = now()").
+				Set("available = false, quality = '', subtitles = '', updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx)
 			slog.Info("availability: episode marked unavailable (manual file removed)", "monitor_id", mon.ID, "title", mon.Title)
 		}

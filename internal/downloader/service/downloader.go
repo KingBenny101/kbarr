@@ -751,6 +751,21 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		if releaseGroup == "" {
 			releaseGroup = folderCtx.ReleaseGroup
 		}
+		// Quality precedence: per-file parse > folder-name parse. Empty when neither
+		// release name carries a resolution; the bracket is then omitted.
+		quality := g.ScreenSize
+		if quality == "" {
+			quality = folderCtx.ScreenSize
+		}
+		// tags assembles the trailing bracketed segments (quality, then group) so a
+		// missing one collapses cleanly: "Title - S01E01 [1080p] [Group]".
+		tags := ""
+		if quality != "" {
+			tags += " [" + quality + "]"
+		}
+		if releaseGroup != "" {
+			tags += " [" + releaseGroup + "]"
+		}
 		var linkName string
 		if episode > 0 {
 			// Season precedence: per-file > folder-name > default to 1.
@@ -761,21 +776,13 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 			if season == 0 {
 				season = 1
 			}
-			if releaseGroup != "" {
-				linkName = fmt.Sprintf("%s - S%02dE%02d [%s]%s", resolvedTitle, season, episode, releaseGroup, ext)
-			} else {
-				linkName = fmt.Sprintf("%s - S%02dE%02d%s", resolvedTitle, season, episode, ext)
-			}
+			linkName = fmt.Sprintf("%s - S%02dE%02d%s%s", resolvedTitle, season, episode, tags, ext)
 		} else {
 			// No episode number: a movie or single-file OVA. Name it after the
 			// resolved series/title and preserve the real extension, rather than
 			// scrubbing the raw release string (which strips the dot before the
 			// extension and mangles the name).
-			if releaseGroup != "" {
-				linkName = fmt.Sprintf("%s [%s]%s", resolvedTitle, releaseGroup, ext)
-			} else {
-				linkName = resolvedTitle + ext
-			}
+			linkName = fmt.Sprintf("%s%s%s", resolvedTitle, tags, ext)
 		}
 		linkPath := filepath.Join(mediaPath, resolvedTitle, linkName)
 		slog.Info("createHardlinks: planned hardlink", "src", path, "dst", linkPath)

@@ -11,15 +11,16 @@ import (
 )
 
 type ParseResult struct {
-	Title        string
-	Season       int
-	Episode      int
-	ScreenSize   string
-	VideoCodec   string
-	ColorDepth   string
-	Source       string
-	ReleaseGroup string
-	Type         string
+	Title         string
+	Season        int
+	Episode       int
+	ScreenSize    string
+	VideoCodec    string
+	ColorDepth    string
+	Source        string
+	ReleaseGroup  string
+	Type          string
+	SubtitleLangs []string // subtitle/language hints from the release name (lower-cased)
 }
 
 // episodeFallbackRe catches patterns anitogo misses:
@@ -64,6 +65,17 @@ func Parse(filename string) ParseResult {
 		if strings.EqualFold(t, "movie") {
 			r.Type = "movie"
 			break
+		}
+	}
+	// Subtitle/language hints anitogo extracts from the name. These are only as
+	// reliable as the release naming, but feed the soft subtitle-language
+	// preference at download time (when the file does not yet exist to probe).
+	seenLang := map[string]bool{}
+	for _, l := range append(append([]string{}, e.Subtitles...), e.Language...) {
+		l = strings.ToLower(strings.TrimSpace(l))
+		if l != "" && !seenLang[l] {
+			seenLang[l] = true
+			r.SubtitleLangs = append(r.SubtitleLangs, l)
 		}
 	}
 	if r.Episode == 0 {

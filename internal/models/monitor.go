@@ -18,4 +18,6 @@ type Monitor struct {
 	Status        string `bun:"status" json:"status"`
 	Available     bool   `bun:"available,notnull,default:false" json:"available"`
 	Monitored     bool   `bun:"monitored,notnull,default:false" json:"monitored"`
+	Quality       string `bun:"quality,notnull,default:''" json:"quality"`
+	Subtitles     string `bun:"subtitles,notnull,default:''" json:"subtitles"`
 }

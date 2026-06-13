@@ -21,7 +21,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/kbarr ./cmd/core
 
 FROM alpine:latest
 WORKDIR /app
-RUN apk add --no-cache ca-certificates
+# ffmpeg provides ffprobe, used by the availability tracker to read a file's
+# resolution and embedded subtitle languages.
+RUN apk add --no-cache ca-certificates ffmpeg
 COPY --from=builder /out/kbarr .
 COPY VERSION .
 EXPOSE 8080

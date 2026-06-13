@@ -55,6 +55,10 @@ func runMigrations(ctx context.Context) error {
 		END $$`,
 		`ALTER TABLE monitors DROP COLUMN IF EXISTS anidb_id`,
 
+		// monitors: quality and subtitle tracking of the downloaded file
+		`ALTER TABLE monitors ADD COLUMN IF NOT EXISTS quality TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE monitors ADD COLUMN IF NOT EXISTS subtitles TEXT NOT NULL DEFAULT ''`,
+
 		// download_queue
 		`ALTER TABLE download_queue ADD COLUMN IF NOT EXISTS progress REAL DEFAULT 0`,
 

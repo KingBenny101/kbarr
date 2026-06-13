@@ -163,6 +163,7 @@ func preferredQualityRank(preferred string) int {
 func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentResult) *models.TorrentResult {
 	preferred := config.Get(s.db, "preferredQuality", "any")
 	cap := preferredQualityRank(preferred)
+	preferredSub := strings.ToLower(config.Get(s.db, "preferredSubtitleLanguage", "any"))
 	minSeeders := s.minSeeders()
 
 	var candidates []models.TorrentResult
@@ -181,12 +182,28 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 		return nil
 	}
 
-	rankOf := func(r models.TorrentResult) int {
+	parseOf := func(r models.TorrentResult) parser.ParseResult {
 		fn := r.FileName
 		if fn == "" {
 			fn = r.Title
 		}
-		return qualityRank(parseFilename(fn).ScreenSize)
+		return parseFilename(fn)
+	}
+	rankOf := func(r models.TorrentResult) int {
+		return qualityRank(parseOf(r).ScreenSize)
+	}
+	// subMatch reports whether a release's name advertises the preferred subtitle
+	// language. Always true when no preference is set, so it has no effect then.
+	subMatch := func(r models.TorrentResult) bool {
+		if preferredSub == "" || preferredSub == "any" {
+			return true
+		}
+		for _, l := range parseOf(r).SubtitleLangs {
+			if l == preferredSub {
+				return true
+			}
+		}
+		return false
 	}
 
 	// preferredQuality is a preference, not a hard ceiling. Releases at or below the
@@ -204,6 +221,12 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 				return ri > rj // within cap: higher quality is better
 			}
 			return ri < rj // above cap: closer to the cap is better
+		}
+		// Soft subtitle-language preference: at equal quality, a release that
+		// advertises the preferred language sorts ahead. Never excludes anything.
+		si, sj := subMatch(candidates[i]), subMatch(candidates[j])
+		if si != sj {
+			return si
 		}
 		return candidates[i].Seeds > candidates[j].Seeds
 	})
