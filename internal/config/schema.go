@@ -32,7 +32,6 @@ type SettingDef struct {
 // Schema is the authoritative list of every application setting.
 var Schema = []SettingDef{
 	// ── General ──────────────────────────────────────────────────────────
-	{Key: "monitorSyncInterval", Type: TypeInt, Default: "1", Label: "Monitor sync interval", Description: "Interval in minutes for adding monitored items to the search queue. Minimum 1 minute.", Group: "general", Section: "General settings", Unit: "min", Advanced: true},
 	{Key: "downloadPath", Type: TypeString, Default: "/library/downloads", Label: "Download path", Description: "Absolute path (inside the container) where qBittorrent saves files. Must be on the same filesystem as the media path so hardlinks work — keep both under /library.", Group: "general", Section: "File management"},
 	{Key: "mediaPath", Type: TypeString, Default: "/library/media", Label: "Media path", Description: "Absolute path (inside the container) where organised hardlinks are created. Must be on the same filesystem as the download path — keep both under /library.", Group: "general", Section: "File management"},
 	{Key: "allowedVideoExtensions", Type: TypeString, Default: ".mkv,.mp4,.avi,.mov,.wmv,.m4v", Label: "Allowed video extensions", Description: "Comma-separated list of file extensions to hardlink on completion.", Group: "general", Section: "File management", Advanced: true},
