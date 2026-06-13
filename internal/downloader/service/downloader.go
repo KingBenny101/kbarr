@@ -187,8 +187,8 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 			// We have an exact infohash (magnet btih or one computed from the
 			// uploaded .torrent). Query by it so we only ever read our torrent —
 			// never a stranger's that happens to be first in the list.
-			if items, err := s.client.FetchTorrents(ctx, hash, ""); err == nil && len(items) > 0 && downloadPath != "" {
-				savePath = filepath.Join(downloadPath, items[0].ContentName())
+			if items, err := s.client.FetchTorrents(ctx, hash, ""); err == nil && len(items) > 0 {
+				savePath = resolveSavePath(downloadPath, items[0])
 			}
 		} else if entry.TorrentName != nil && *entry.TorrentName != "" {
 			// No infohash available: match strictly by name. Never adopt items[0]
@@ -198,9 +198,7 @@ func (s *DownloaderService) ProcessPending(ctx context.Context) {
 				for _, t := range items {
 					if t.Name == *entry.TorrentName {
 						hash = t.Hash
-						if downloadPath != "" {
-							savePath = filepath.Join(downloadPath, t.ContentName())
-						}
+						savePath = resolveSavePath(downloadPath, t)
 						break
 					}
 				}
@@ -282,10 +280,7 @@ func (s *DownloaderService) adoptExistingTorrent(ctx context.Context, entry mode
 	}
 
 	downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
-	var savePath string
-	if downloadPath != "" {
-		savePath = filepath.Join(downloadPath, t.ContentName())
-	}
+	savePath := resolveSavePath(downloadPath, t)
 
 	if _, err := s.db.NewUpdate().
 		Model((*models.DownloadQueue)(nil)).
@@ -310,6 +305,52 @@ func (s *DownloaderService) adoptExistingTorrent(ctx context.Context, entry mode
 // normPath normalises a path for comparison: forward slashes, no trailing slash.
 func normPath(p string) string {
 	return strings.TrimRight(strings.ReplaceAll(p, "\\", "/"), "/")
+}
+
+// resolveSavePath locates a torrent's content on the local download mount.
+// qBittorrent's reported paths live in its own namespace — possibly a different
+// OS (e.g. a Windows save path) that is not mounted here — so they cannot be
+// trusted or rebased directly. Instead we take only the content's base name
+// (the torrent's root folder, or the single file's name) and search downloadPath
+// for it. Falls back to a plain join when nothing is found yet (e.g. just after
+// the torrent was added, before files exist on disk).
+func resolveSavePath(downloadPath string, t dlprovider.TorrentInfo) string {
+	if downloadPath == "" {
+		return ""
+	}
+	name := t.ContentName()
+	if name == "" {
+		return ""
+	}
+	if found := findInDownloadPath(downloadPath, name); found != "" {
+		return found
+	}
+	return filepath.Join(downloadPath, name)
+}
+
+// findInDownloadPath recursively searches root for a file or directory whose base
+// name equals name, returning the shallowest match (and "" if none). A matched
+// directory is not descended into, so its contents cannot shadow a shallower hit.
+func findInDownloadPath(root, name string) string {
+	root = strings.TrimRight(root, "/")
+	var best string
+	bestDepth := -1
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || path == root {
+			return nil
+		}
+		if filepath.Base(path) == name {
+			depth := strings.Count(filepath.ToSlash(path[len(root):]), "/")
+			if bestDepth == -1 || depth < bestDepth {
+				best, bestDepth = path, depth
+			}
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+		}
+		return nil
+	})
+	return best
 }
 
 // magnetHash extracts the btih infohash from a magnet link, or "" if absent.
@@ -385,15 +426,13 @@ func (s *DownloaderService) UpdateDownloading(ctx context.Context) {
 				slog.Info("Torrent is moving files — deferring completion", "id", entry.ID, "hash", *entry.TorrentHash)
 				continue
 			}
-			// Rebuild save_path from the torrent's actual content path + local downloadPath.
-			// ContentRelPath preserves subdirectories (e.g. TorrentFolder/file.mkv) so
-			// we land at the right location when the torrent has a root folder.
-			if rel := t.ContentRelPath(); rel != "" {
-				downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
-				if downloadPath != "" {
-					actualPath := filepath.Join(downloadPath, rel)
-					entry.SavePath = &actualPath
-				}
+			// Rebuild save_path by locating the torrent's content on the local
+			// download mount. qBittorrent's paths are in its own namespace and may
+			// not be mountable here, so resolveSavePath searches downloadPath for the
+			// content's base name rather than trusting the reported path.
+			downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
+			if found := resolveSavePath(downloadPath, t); found != "" {
+				entry.SavePath = &found
 			}
 			s.onComplete(ctx, entry)
 			continue
@@ -563,12 +602,10 @@ func (s *DownloaderService) CreateHardlinksForEntry(ctx context.Context, id int6
 	if s.client != nil && entry.TorrentHash != nil && *entry.TorrentHash != "" {
 		if err := s.client.Login(ctx); err == nil {
 			if items, err := s.client.FetchTorrents(ctx, *entry.TorrentHash, ""); err == nil && len(items) > 0 {
-				if rel := items[0].ContentRelPath(); rel != "" {
-					downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
-					if downloadPath != "" {
-						savePath = filepath.Join(downloadPath, rel)
-						slog.Info("CreateHardlinksForEntry: resolved live path from qBittorrent", "id", id, "save_path", savePath)
-					}
+				downloadPath := strings.TrimRight(config.Get(s.db, "downloadPath", ""), "/")
+				if found := resolveSavePath(downloadPath, items[0]); found != "" {
+					savePath = found
+					slog.Info("CreateHardlinksForEntry: resolved live path from qBittorrent", "id", id, "save_path", savePath)
 				}
 			}
 		}

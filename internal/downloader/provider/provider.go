@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 
 	"github.com/uptrace/bun"
@@ -37,21 +36,6 @@ func (t TorrentInfo) ContentName() string {
 		return PathBase(t.ContentPath)
 	}
 	return PathBase(t.Name)
-}
-
-// ContentRelPath returns the path of the torrent content relative to the save directory.
-func (t TorrentInfo) ContentRelPath() string {
-	if t.ContentPath == "" {
-		return PathBase(t.Name)
-	}
-	if t.SavePath != "" {
-		cp := strings.ReplaceAll(t.ContentPath, "\\", "/")
-		sp := strings.TrimRight(strings.ReplaceAll(t.SavePath, "\\", "/"), "/")
-		if strings.HasPrefix(cp, sp+"/") {
-			return filepath.FromSlash(cp[len(sp)+1:])
-		}
-	}
-	return PathBase(t.ContentPath)
 }
 
 // TorrentClient is the interface implemented by each download client backend.
