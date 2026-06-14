@@ -1,89 +1,287 @@
+/* Hero Section */
 .hero {
-  padding: 5rem 0 4rem;
+  position: relative;
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    rgba(240, 165, 0, 0.12) 0%,
+    transparent 60%
+  );
+}
+
+.heroContent {
   text-align: center;
+  max-width: 800px;
+}
+
+.heroTitle {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  margin: 0 0 1rem 0;
+  background: linear-gradient(135deg, #f0a500, #fff8e7);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  letter-spacing: -0.02em;
 }
 
 .heroSubtitle {
-  font-size: 1.2rem;
-  opacity: 0.8;
-  margin: 0.75rem 0 0;
-  max-width: 480px;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.6;
+  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+  color: var(--ifm-color-emphasis-600);
+  margin: 1rem 0 1.5rem 0;
+}
+
+.badges {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.badge {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(240, 165, 0, 0.4);
+  color: rgba(240, 165, 0, 0.9);
+  background: rgba(240, 165, 0, 0.05);
 }
 
 .heroActions {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-top: 2.5rem;
   flex-wrap: wrap;
 }
 
-/* ── Content ──────────────────────────────────────── */
-
-.content {
-  padding: 4rem 0;
+.heroButton {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  display: inline-block;
 }
 
-.inner {
-  max-width: 640px;
+.buttonPrimary {
+  background: #f0a500;
+  color: #161410;
+}
+
+.buttonPrimary:hover {
+  background: #f2b020;
+  box-shadow: 0 0 20px rgba(240, 165, 0, 0.4);
+}
+
+.buttonSecondary {
+  background: transparent;
+  color: #f0a500;
+  border: 2px solid #f0a500;
+}
+
+.buttonSecondary:hover {
+  background: rgba(240, 165, 0, 0.1);
+  box-shadow: 0 0 20px rgba(240, 165, 0, 0.2);
+}
+
+/* Features Section */
+.features {
+  padding: 5rem 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.featureCard {
+  padding: 2rem;
+  background: var(--ifm-color-emphasis-100);
+  border-radius: 12px;
+  border-top: 3px solid #f0a500;
+  transition: all 0.3s ease;
+}
+
+.featureCard:hover {
+  box-shadow: 0 0 24px rgba(240, 165, 0, 0.15);
+  transform: translateY(-4px);
+}
+
+.featureIcon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  color: #f0a500;
+}
+
+.featureTitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0.5rem 0;
+}
+
+.featureDescription {
+  font-size: 0.95rem;
+  color: var(--ifm-color-emphasis-600);
+}
+
+@media (max-width: 996px) {
+  .features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .features {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* How It Works Section */
+.howItWorks {
+  padding: 5rem 1.5rem;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
-.section {
-  margin-bottom: 3rem;
+.stepsContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  margin-top: 3rem;
 }
 
-.section p {
-  line-height: 1.75;
-  opacity: 0.9;
+.stepsContainer::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    #f0a500,
+    rgba(240, 165, 0, 0)
+  );
+  display: none;
 }
 
-.section h2 {
-  margin-bottom: 1rem;
+@media (min-width: 768px) {
+  .stepsContainer::before {
+    display: block;
+  }
 }
 
-/* Disclaimer callout */
-.disclaimer {
-  background: var(--ifm-background-surface-color);
-  border-left: 3px solid var(--ifm-color-warning);
-  border-radius: 0 8px 8px 0;
-  padding: 1rem 1.25rem;
+.step {
+  flex: 1;
+  text-align: center;
+  position: relative;
 }
 
-.disclaimer p {
-  margin: 0;
+.stepNumber {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #f0a500;
+  color: #161410;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 auto 1.5rem;
+  box-shadow: 0 0 20px rgba(240, 165, 0, 0.3);
+}
+
+.stepTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.stepDescription {
+  font-size: 0.95rem;
+  color: var(--ifm-color-emphasis-600);
+}
+
+@media (max-width: 640px) {
+  .stepsContainer {
+    flex-direction: column;
+    gap: 2rem;
+  }
+}
+
+/* Integrations Section */
+.integrations {
+  padding: 4rem 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+}
+
+.integrationsLabel {
   font-size: 0.9rem;
-  line-height: 1.65;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ifm-color-emphasis-600);
+  margin-bottom: 1.5rem;
+}
+
+.integrationChips {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.integrationChip {
+  padding: 0.75rem 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(240, 165, 0, 0.5);
+  color: #f0a500;
+  background: rgba(240, 165, 0, 0.08);
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.integrationChip:hover {
+  border-color: #f0a500;
+  background: rgba(240, 165, 0, 0.15);
+  box-shadow: 0 0 12px rgba(240, 165, 0, 0.2);
+}
+
+/* Disclaimer Section */
+.disclaimer {
+  padding: 2rem;
+  margin: 4rem 1.5rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  background: var(--ifm-color-emphasis-100);
+  border-left: 4px solid #f0a500;
+  border-radius: 8px;
   opacity: 0.8;
 }
 
-.disclaimer p + p {
-  margin-top: 0.6rem;
+.disclaimerTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }
 
-/* Requirements list */
-.requirements {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.requirements li {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
+.disclaimerText {
   font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.requirements li::before {
-  content: '→';
-  opacity: 0.4;
-  flex-shrink: 0;
+  color: var(--ifm-color-emphasis-600);
+  margin: 0;
 }
