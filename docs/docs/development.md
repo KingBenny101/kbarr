@@ -15,7 +15,7 @@ This page is for contributors and anyone who wants to run kbarr from source.
 - [Go](https://go.dev/dl/) (see `go.mod` for the required version)
 - [Node.js](https://nodejs.org/) (LTS)
 - [air](https://github.com/air-verse/air) — live reload for Go services
-- [tmux](https://github.com/tmux/tmux/wiki/Installing)
+- [overmind](https://github.com/DarthSim/overmind) — process manager for local dev
 
 ---
 
@@ -30,13 +30,13 @@ cd kbarr
 
 `dev.env` is included with sensible defaults. No changes are needed to get started.
 
-Start all services in a tmux session:
+Start all services via overmind:
 
 ```bash
 make dev
 ```
 
-This opens a tmux session called `kbarr` with each service in its own window:
+This launches all services (from the Procfile) with each in its own process:
 
 | Window | What runs |
 |---|---|
@@ -88,8 +88,8 @@ pgAdmin is available at **http://localhost:5050** — email: `admin@local.dev`, 
 | Database | PostgreSQL (via [bun ORM](https://bun.uptrace.dev/)) |
 | API | [huma v2](https://huma.rocks/) (OpenAPI 3.0) |
 | Metadata | AniDB UDP/HTTP API |
-| Torrent search | Prowlarr API, kbdex API |
-| Download client | qBittorrent Web API |
+| Torrent search | kbdex and Prowlarr (additional indexers can be wired in) |
+| Download client | qBittorrent (additional clients can be wired in) |
 
 ---
 

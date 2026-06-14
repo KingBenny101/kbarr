@@ -97,7 +97,7 @@ AniDB rate-limits API access strictly. kbarr handles this automatically with pac
 
 ## 6. Set up a torrent indexer
 
-kbarr needs a source to search for torrents. You can use **kbdex**, **Prowlarr**, or both.
+kbarr currently supports **kbdex** and **Prowlarr** as torrent indexers. Support for additional indexers can be added in the future. You can use **kbdex**, **Prowlarr**, or both.
 
 ### Option A — kbdex (recommended)
 
@@ -121,7 +121,11 @@ You can enable both at the same time — kbarr merges results from all active pr
 
 ---
 
-## 7. Set up qBittorrent
+## 7. Set up a download client
+
+kbarr currently supports **qBittorrent** as a download client. Support for additional clients can be added in the future.
+
+### qBittorrent
 
 kbarr does not run qBittorrent — it connects to your existing instance.
 
