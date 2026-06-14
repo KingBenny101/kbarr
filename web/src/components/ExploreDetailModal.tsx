@@ -55,8 +55,16 @@ export function ExploreDetailModal({ media, opened, onClose }: Props) {
     const handleAdd = async () => {
         setAdding(true)
         try {
-            const resolveRes = await apiFetch(`${API_URL}/api/resolve/anilist/${media.id}`)
-            const resolved = (await resolveRes.json()) as { aid: string; found: boolean }
+            // Pass all title variants so the backend can fuzzy-match against the
+            // AniDB title index when there's no direct ID mapping.
+            const titleHints = [media.title.english, media.title.romaji, media.title.native]
+                .filter((t): t is string => !!t)
+            const titleParams = Array.from(new Set(titleHints))
+                .map((t) => `title=${encodeURIComponent(t)}`)
+                .join("&")
+            const resolveUrl = `${API_URL}/api/resolve/anilist/${media.id}${titleParams ? `?${titleParams}` : ""}`
+            const resolveRes = await apiFetch(resolveUrl)
+            const resolved = (await resolveRes.json()) as { aid: string; found: boolean; matched: string }
 
             if (!resolved.found) {
                 showToast("No AniDB match for this title — search for it manually to add it", "error")
@@ -72,7 +80,8 @@ export function ExploreDetailModal({ media, opened, onClose }: Props) {
             })
             if (addRes.ok) {
                 const data = await addRes.json()
-                showToast(data.message ?? "Added to library", "success")
+                const base = data.message ?? "Added to library"
+                showToast(resolved.matched === "title" ? `${base} (matched by title)` : base, "success")
                 onClose()
             } else {
                 showToast("Failed to add media", "error")

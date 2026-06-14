@@ -69,36 +69,50 @@ func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]mode
 }
 
 // ResolveAniListID resolves an AniList ID to its AniDB ID via the metadata
-// service's Fribb reverse index. The bool is false (with a nil error) when no
-// mapping exists, e.g. AniList titles with no AniDB entry.
-func (c *MetadataClient) ResolveAniListID(ctx context.Context, anilistID int) (uint, bool, error) {
+// service. It first tries the Fribb reverse index; the optional titles drive a
+// fuzzy-match fallback when no direct mapping exists. matched is "mapping",
+// "title", or "" (with a nil error) when nothing resolved.
+func (c *MetadataClient) ResolveAniListID(ctx context.Context, anilistID int, titles []string) (uint, string, error) {
 	endpoint := fmt.Sprintf("%s/resolve/anilist/%d", c.baseURL, anilistID)
+	if len(titles) > 0 {
+		q := url.Values{}
+		for _, t := range titles {
+			if t != "" {
+				q.Add("title", t)
+			}
+		}
+		if len(q) > 0 {
+			endpoint += "?" + q.Encode()
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to create request: %w", err)
+		return 0, "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to call metadata service: %w", err)
+		return 0, "", fmt.Errorf("failed to call metadata service: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return 0, false, nil
+		return 0, "", nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		return 0, false, errorFromResponse(resp)
+		return 0, "", errorFromResponse(resp)
 	}
 
 	var body struct {
-		AID uint `json:"aid"`
+		AID     uint   `json:"aid"`
+		Matched string `json:"matched"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return 0, false, fmt.Errorf("failed to decode response: %w", err)
+		return 0, "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return body.AID, true, nil
+	return body.AID, body.Matched, nil
 }
 
 func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title string, libraryID uint, force bool) (*models.AnimeMetadata, error) {

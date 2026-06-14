@@ -164,6 +164,65 @@ func (s *AniDBService) SearchTitles(query string) ([]imodels.SearchResult, error
 	return results, nil
 }
 
+// BestTitleMatch scores the given titles (e.g. an external source's english,
+// romaji and native titles) against every anime's title variants and returns
+// the single highest-scoring AniDB ID. It applies no threshold — the caller
+// decides what score is good enough. ok is false when nothing scored above zero.
+func (s *AniDBService) BestTitleMatch(titles []string) (aid uint, score float64, ok bool) {
+	if err := s.ensureIndexLoaded(); err != nil {
+		return 0, 0, false
+	}
+
+	s.mu.RLock()
+	index := s.searchIndex
+	s.mu.RUnlock()
+
+	norms := make([]string, 0, len(titles))
+	for _, t := range titles {
+		n := textmatch.Normalize(t)
+		if len([]rune(n)) < searchMinChars {
+			continue
+		}
+		norms = append(norms, n)
+	}
+	if len(norms) == 0 {
+		return 0, 0, false
+	}
+
+	best := 0.0
+	var bestAID uint
+	for i := range index {
+		e := &index[i]
+		for _, q := range norms {
+			entryBest := 0.0
+			for _, nt := range e.NormTitles {
+				if sc := cheapScore(q, nt); sc > entryBest {
+					entryBest = sc
+				}
+			}
+			if entryBest < 80 {
+				for _, nt := range e.NormTitles {
+					if !lengthComparable(q, nt) {
+						continue
+					}
+					if sc := textmatch.SimilarityNorm(q, nt); sc > entryBest {
+						entryBest = sc
+					}
+				}
+			}
+			if entryBest > best {
+				best = entryBest
+				bestAID = e.AID
+			}
+		}
+	}
+
+	if best <= 0 {
+		return 0, 0, false
+	}
+	return bestAID, best, true
+}
+
 // cheapScore scores a normalised query against a normalised title using only
 // cheap string operations: exact, prefix, then substring, weighted by how much
 // of the title the query covers.

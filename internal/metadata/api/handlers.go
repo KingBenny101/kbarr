@@ -72,14 +72,18 @@ func (h *Handler) ResolveAniList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	aid, ok := h.svc.LookupAniDBByAniList(anilistID)
-	if !ok {
-		http.Error(w, "no AniDB mapping for AniList ID", http.StatusNotFound)
+	// Optional title hints (repeated ?title=) drive the fuzzy fallback when no
+	// direct Fribb mapping exists.
+	titles := r.URL.Query()["title"]
+
+	aid, matched := h.svc.ResolveAniList(anilistID, titles)
+	if matched == "" {
+		http.Error(w, "no AniDB match for AniList ID", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]uint{"aid": aid})
+	_ = json.NewEncoder(w).Encode(map[string]any{"aid": aid, "matched": matched})
 }
 
 func (h *Handler) Prepare(w http.ResponseWriter, r *http.Request) {

@@ -42,6 +42,7 @@ var Schema = []SettingDef{
 	{Key: "anidbVersion", Type: TypeString, Default: "1", Label: "Client version", Group: "metadata", Section: "AniDB"},
 	{Key: "anidbSyncInterval", Type: TypeInt, Default: "1440", Label: "Sync interval", Description: "Minutes between AniDB title dump refreshes.", Group: "metadata", Section: "AniDB", Unit: "min", Advanced: true},
 	{Key: "metadataRefreshInterval", Type: TypeInt, Default: "1440", Label: "Refresh interval", Description: "How often still-airing shows are re-checked for newly released episodes. Finished shows are never re-fetched. Default 1440 = 1 day.", Group: "metadata", Section: "AniDB", Unit: "min", Advanced: true},
+	{Key: "anilistTitleMatchThreshold", Type: TypeInt, Default: "90", Label: "Browse title-match threshold", Description: "Minimum similarity (0–100) when auto-matching a browsed title to an AniDB entry that has no direct ID mapping. Lower = more permissive.", Group: "metadata", Section: "AniDB", Unit: "%", Advanced: true},
 
 	// ── Indexer ──────────────────────────────────────────────────────────
 	{Key: "prowlarrInterval", Type: TypeInt, Default: "10", Label: "Scan interval", Description: "How often the monitor table is polled for new items to search.", Group: "indexer", Section: "Indexer", Unit: "sec", Advanced: true},

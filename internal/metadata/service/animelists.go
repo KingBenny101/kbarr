@@ -123,6 +123,35 @@ func (s *AniDBService) LookupAniDBByAniList(anilistID int) (uint, bool) {
 	return aid, ok
 }
 
+// ResolveAniList resolves an AniList ID to an AniDB ID. It first tries the
+// direct Fribb mapping; on a miss it falls back to fuzzy-matching the supplied
+// titles (e.g. AniList's english/romaji/native titles) against the AniDB title
+// index, accepting the best match only if it clears the configurable
+// anilistTitleMatchThreshold. matched is "mapping", "title", or "" (not found).
+func (s *AniDBService) ResolveAniList(anilistID int, titles []string) (aid uint, matched string) {
+	if id, ok := s.LookupAniDBByAniList(anilistID); ok {
+		return id, "mapping"
+	}
+
+	if len(titles) == 0 {
+		return 0, ""
+	}
+
+	id, score, ok := s.BestTitleMatch(titles)
+	if !ok {
+		return 0, ""
+	}
+
+	threshold := 90.0
+	if v, err := strconv.Atoi(config.Get(s.db, "anilistTitleMatchThreshold", "90")); err == nil {
+		threshold = float64(v)
+	}
+	if score < threshold {
+		return 0, ""
+	}
+	return id, "title"
+}
+
 func externalIDsFromEntry(e mdmodels.AnimeListEntry) ExternalIDs {
 	ids := ExternalIDs{}
 	if e.TVDBID != nil {

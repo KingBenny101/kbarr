@@ -101,13 +101,15 @@ type SearchInput struct {
 }
 
 type ResolveAniListInput struct {
-	ID int `path:"id" doc:"AniList ID"`
+	ID     int      `path:"id" doc:"AniList ID"`
+	Titles []string `query:"title" doc:"Optional title hints used for fuzzy fallback when no direct mapping exists"`
 }
 
 type ResolveAniListOutput struct {
 	Body struct {
-		AID   string `json:"aid" doc:"Resolved AniDB ID (empty when not found)"`
-		Found bool   `json:"found" doc:"Whether an AniDB mapping exists"`
+		AID     string `json:"aid" doc:"Resolved AniDB ID (empty when not found)"`
+		Found   bool   `json:"found" doc:"Whether an AniDB match was found"`
+		Matched string `json:"matched" doc:"How it resolved: \"mapping\", \"title\", or empty when not found"`
 	}
 }
 
