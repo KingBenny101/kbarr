@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { Badge, Card, Center, Collapse, Divider, Group, ScrollArea, Select, Stack, Text, TextInput, Title, UnstyledButton } from "@mantine/core"
 import { IconChevronDown, IconChevronRight, IconPlayerPlayFilled, IconSearch } from "@tabler/icons-react"
 import { API_URL, apiFetch, resolvePosterUrl, showToast } from "@/utils"
@@ -32,22 +33,22 @@ function sortMedia(items: Media[], key: SortKey): Media[] {
 
 function MediaCard({ media, onClick }: { media: Media; onClick: () => void }) {
     return (
-        <Card withBorder radius="xl" p={0} h="100%" style={{ overflow: "hidden", cursor: "pointer", position: "relative" }} onClick={onClick}>
+        <Card withBorder radius="xl" p={0} h={CARD_HEIGHT} style={{ overflow: "hidden", cursor: "pointer", position: "relative" }} onClick={onClick}>
             {media.is_nsfw && (
                 <Badge color="red" size="xs" style={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}>
                     NSFW
                 </Badge>
             )}
             {media.poster_url ? (
-                <div style={{ width: "100%", aspectRatio: "3 / 4" }}>
+                <div style={{ width: "100%", height: POSTER_HEIGHT }}>
                     <img src={resolvePosterUrl(media.poster_url)} alt={media.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
                 </div>
             ) : (
-                <Center style={{ width: "100%", aspectRatio: "3 / 4", background: "rgba(255,255,255,0.04)" }}>
+                <Center style={{ width: "100%", height: POSTER_HEIGHT, background: "rgba(255,255,255,0.04)" }}>
                     <IconPlayerPlayFilled size={30} opacity={0.5} />
                 </Center>
             )}
-            <Stack gap={0} p="xs" style={{ minHeight: 64 }}>
+            <Stack gap={0} p="xs" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
                 <Title order={6} lineClamp={2}>
                     {media.title}
                 </Title>
@@ -123,9 +124,7 @@ export function LibraryPage() {
                     {normalItems.length === 0 && filter ? (
                         <Text c="dimmed" size="sm">No titles match "{filter}"</Text>
                     ) : (
-                        <ScrollArea scrollbars="x" type="always" scrollbarSize={6}>
-                            <HorizontalGrid items={normalItems} onCardClick={(id) => navigate(`/media/${id}`)} />
-                        </ScrollArea>
+                        <HorizontalGrid items={normalItems} onCardClick={(id) => navigate(`/media/${id}`)} />
                     )}
 
                     {nsfwItems.length > 0 && (
@@ -140,9 +139,7 @@ export function LibraryPage() {
                                 </Group>
                             </UnstyledButton>
                             <Collapse expanded={nsfwOpen}>
-                                <ScrollArea scrollbars="x" type="always" scrollbarSize={6}>
-                                    <HorizontalGrid items={nsfwItems} onCardClick={(id) => navigate(`/media/${id}`)} />
-                                </ScrollArea>
+                                <HorizontalGrid items={nsfwItems} onCardClick={(id) => navigate(`/media/${id}`)} />
                             </Collapse>
                         </Stack>
                     )}
@@ -155,23 +152,54 @@ export function LibraryPage() {
 const ROWS = 2
 const CARD_WIDTH = 180
 const GAP = 16
+// Fixed card dimensions: a 3/4 poster (180×240) plus an 80px footer that fits a
+// two-line title and the source line. Shared with the Explore page for parity.
+const POSTER_HEIGHT = 240
+const FOOTER_HEIGHT = 80
+const CARD_HEIGHT = POSTER_HEIGHT + FOOTER_HEIGHT
+const GRID_HEIGHT = ROWS * CARD_HEIGHT + (ROWS - 1) * GAP + GAP
 
+// Renders cards in a 2-row, horizontally-scrolling strip. Only the columns
+// currently in view are mounted (windowing), so a large library stays fast.
 function HorizontalGrid({ items, onCardClick }: { items: Media[]; onCardClick: (id: number) => void }) {
+    const viewportRef = useRef<HTMLDivElement>(null)
+    const columnCount = Math.ceil(items.length / ROWS)
+
+    const virtualizer = useVirtualizer({
+        count: columnCount,
+        horizontal: true,
+        getScrollElement: () => viewportRef.current,
+        estimateSize: () => CARD_WIDTH + GAP,
+        overscan: 4,
+    })
+
     return (
-        <div
-            style={{
-                display: "grid",
-                gridTemplateRows: `repeat(${ROWS}, auto)`,
-                gridAutoFlow: "column",
-                gridAutoColumns: `${CARD_WIDTH}px`,
-                gap: `${GAP}px`,
-                paddingBottom: GAP,
-                width: "max-content",
-            }}
-        >
-            {items.map((media) => (
-                <MediaCard key={media.ID} media={media} onClick={() => onCardClick(media.ID)} />
-            ))}
-        </div>
+        <ScrollArea scrollbars="x" type="always" scrollbarSize={6} viewportRef={viewportRef}>
+            <div style={{ position: "relative", width: virtualizer.getTotalSize(), height: GRID_HEIGHT }}>
+                {virtualizer.getVirtualItems().map((column) => {
+                    const start = column.index * ROWS
+                    const colItems = items.slice(start, start + ROWS)
+                    return (
+                        <div
+                            key={column.key}
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                transform: `translateX(${column.start}px)`,
+                                width: CARD_WIDTH,
+                                display: "grid",
+                                gridTemplateRows: `repeat(${ROWS}, ${CARD_HEIGHT}px)`,
+                                gap: `${GAP}px`,
+                            }}
+                        >
+                            {colItems.map((media) => (
+                                <MediaCard key={media.ID} media={media} onClick={() => onCardClick(media.ID)} />
+                            ))}
+                        </div>
+                    )
+                })}
+            </div>
+        </ScrollArea>
     )
 }

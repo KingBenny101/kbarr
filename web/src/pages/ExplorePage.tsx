@@ -55,6 +55,9 @@ const STATUS_OPTIONS: { value: MediaStatus; label: string }[] = [
 const CARD_WIDTH = 180
 const GAP = 16
 const ROWS = 2
+const POSTER_HEIGHT = 240
+const FOOTER_HEIGHT = 80
+const CARD_HEIGHT = POSTER_HEIGHT + FOOTER_HEIGHT
 
 const EXPLORE_CACHE_KEY = "kbarr.explore.filters.v1"
 
@@ -258,27 +261,27 @@ export function ExplorePage() {
             {media.length > 0 ? (
                 <Stack gap="lg">
                     <ScrollArea scrollbars="x" type="always" scrollbarSize={6} viewportRef={viewportRef} onScrollPositionChange={({ x }) => { scrollXRef.current = x }}>
-                    <div style={{ display: "grid", gridTemplateRows: `repeat(${ROWS}, auto)`, gridAutoFlow: "column", gridAutoColumns: `${CARD_WIDTH}px`, gap: GAP, paddingBottom: GAP, width: "max-content" }}>
+                    <div style={{ display: "grid", gridTemplateRows: `repeat(${ROWS}, ${CARD_HEIGHT}px)`, gridAutoFlow: "column", gridAutoColumns: `${CARD_WIDTH}px`, gap: GAP, paddingBottom: GAP, width: "max-content" }}>
                         {media.map((item) => {
                             const title = displayTitle(item)
                             const poster = item.coverImage.large ?? item.coverImage.extraLarge
                             return (
-                                <Card key={item.id} withBorder radius="xl" p={0} h="100%" style={{ overflow: "hidden", cursor: "pointer", position: "relative" }} onClick={() => openDetails(item)}>
+                                <Card key={item.id} withBorder radius="xl" p={0} h={CARD_HEIGHT} style={{ overflow: "hidden", cursor: "pointer", position: "relative" }} onClick={() => openDetails(item)}>
                                     {item.isAdult && (
                                         <Badge color="red" size="xs" style={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}>
                                             NSFW
                                         </Badge>
                                     )}
                                     {poster ? (
-                                        <div style={{ width: "100%", aspectRatio: "3 / 4" }}>
+                                        <div style={{ width: "100%", height: POSTER_HEIGHT }}>
                                             <img src={poster} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                         </div>
                                     ) : (
-                                        <Center style={{ width: "100%", aspectRatio: "3 / 4", background: "rgba(255,255,255,0.04)" }}>
+                                        <Center style={{ width: "100%", height: POSTER_HEIGHT, background: "rgba(255,255,255,0.04)" }}>
                                             <IconPlayerPlayFilled size={30} opacity={0.5} />
                                         </Center>
                                     )}
-                                    <Stack gap={0} p="xs" style={{ minHeight: 64 }}>
+                                    <Stack gap={0} p="xs" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
                                         <Title order={6} lineClamp={2}>
                                             {title}
                                         </Title>

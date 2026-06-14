@@ -25,6 +25,7 @@
     "@mantine/spotlight": "^9.2.2",
     "@mantine/tiptap": "^9.2.2",
     "@tabler/icons-react": "^3.35.0",
+    "@tanstack/react-virtual": "^3.14.2",
     "@tiptap/extension-link": "^3.23.6",
     "@tiptap/pm": "^3.23.6",
     "@tiptap/react": "^3.23.6",
