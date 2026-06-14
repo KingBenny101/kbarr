@@ -242,7 +242,7 @@ export function ExplorePage() {
             <TextInput
                 value={search}
                 onChange={(event) => setSearch(event.currentTarget.value)}
-                placeholder="Search anime..."
+                placeholder="Search to discover new anime..."
                 leftSection={<IconSearch size={18} />}
                 size="md"
             />

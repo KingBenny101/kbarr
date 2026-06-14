@@ -148,7 +148,7 @@ export function SearchPage() {
                 value={query}
                 onChange={(event) => setQuery(event.currentTarget.value)}
                 onKeyDown={(event) => event.key === "Enter" && runSearch(query)}
-                placeholder="Search for anime..."
+                placeholder="Search for a show to add to your library..."
                 leftSection={<IconSearch size={18} />}
                 size="md"
             />
@@ -203,7 +203,7 @@ export function SearchPage() {
             ) : null}
 
             {!searching && !hasSearched ? (
-                <EmptyState icon={<IconSearch size={28} />} title="Start searching" description="Use the search field above to discover anime to add to your library." />
+                <EmptyState icon={<IconSearch size={28} />} title="Start searching" description="Search for a show by title to add it to your library." />
             ) : null}
         </Stack>
     )
