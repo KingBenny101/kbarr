@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { ActionIcon, Button, Card, Group, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
 import { IconExternalLink, IconSearch } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
@@ -32,8 +33,10 @@ function readSearchCache(): SearchCache | null {
 }
 
 export function SearchPage() {
+    const [searchParams, setSearchParams] = useSearchParams()
     const [cachedSearch] = useState(() => readSearchCache())
-    const [query, setQuery] = useState(() => cachedSearch?.query ?? "")
+    const [initialQ] = useState(() => searchParams.get("q") ?? "")
+    const [query, setQuery] = useState(() => initialQ || (cachedSearch?.query ?? ""))
     const [lastSearchQuery, setLastSearchQuery] = useState(() => cachedSearch?.query ?? "")
     const [medias, setMedias] = useState<Media[]>(() => cachedSearch?.results ?? [])
     const [hasSearched, setHasSearched] = useState(() => cachedSearch !== null)
@@ -91,6 +94,16 @@ export function SearchPage() {
             // Only the latest request clears the spinner.
             if (abortRef.current === controller) setSearching(false)
         }
+    }, [])
+
+    // Drop the ?q= param once consumed so it doesn't linger in the URL.
+    useEffect(() => {
+        if (searchParams.has("q")) {
+            const next = new URLSearchParams(searchParams)
+            next.delete("q")
+            setSearchParams(next, { replace: true })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     // Debounced live search as the user types.

@@ -100,6 +100,17 @@ type SearchInput struct {
 	Q string `query:"q" doc:"Search query" required:"true"`
 }
 
+type ResolveAniListInput struct {
+	ID int `path:"id" doc:"AniList ID"`
+}
+
+type ResolveAniListOutput struct {
+	Body struct {
+		AID   string `json:"aid" doc:"Resolved AniDB ID (empty when not found)"`
+		Found bool   `json:"found" doc:"Whether an AniDB mapping exists"`
+	}
+}
+
 type GetEpisodesInput struct {
 	ID    uint   `path:"id"`
 	Types string `query:"types" doc:"Comma-separated episode type filter (e.g. 1,2)"`

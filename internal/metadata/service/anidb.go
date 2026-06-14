@@ -51,8 +51,9 @@ type AniDBService struct {
 	// searches don't each download the multi-MB dump (thundering herd).
 	loadMu sync.Mutex
 
-	alMu       sync.RWMutex
-	animeLists map[uint]ExternalIDs
+	alMu        sync.RWMutex
+	animeLists  map[uint]ExternalIDs
+	aniListByID map[int]uint
 
 	// apiMu serializes AniDB requests so the min-interval pacing holds across
 	// concurrent callers; it guards lastCall and bannedUntil.

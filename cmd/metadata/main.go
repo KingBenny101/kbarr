@@ -45,6 +45,7 @@ func main() {
 	mux.HandleFunc("GET /logs", logger.HandleLogs)
 	mux.HandleFunc("GET /search", handler.Search)
 	mux.HandleFunc("GET /anime/{aid}", handler.GetAnimeDetails)
+	mux.HandleFunc("GET /resolve/anilist/{anilistID}", handler.ResolveAniList)
 	mux.HandleFunc("POST /prepare", handler.Prepare)
 
 	server := &http.Server{

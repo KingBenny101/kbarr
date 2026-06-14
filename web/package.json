@@ -32,6 +32,8 @@
     "dayjs": "^1.11.21",
     "embla-carousel": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
+    "graphql": "^16.14.2",
+    "graphql-request": "^7.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^6.30.3",

@@ -28,6 +28,9 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 	// Search
 	huma.Register(api, huma.Operation{OperationID: "search-media", Method: "GET", Path: "/api/search", Security: secured, Tags: []string{"search"}, Summary: "Search media"}, handlers.Search(mc))
 
+	// Resolve
+	huma.Register(api, huma.Operation{OperationID: "resolve-anilist", Method: "GET", Path: "/api/resolve/anilist/{id}", Security: secured, Tags: []string{"search"}, Summary: "Resolve AniList ID to AniDB ID"}, handlers.ResolveAniList(mc))
+
 	// Library
 	huma.Register(api, huma.Operation{OperationID: "list-media", Method: "GET", Path: "/api/library", Security: secured, Tags: []string{"library"}, Summary: "List library"}, handlers.GetMediaList())
 	huma.Register(api, huma.Operation{OperationID: "add-media", Method: "POST", Path: "/api/library", Security: secured, Tags: []string{"library"}, Summary: "Add media", DefaultStatus: 201}, handlers.AddMedia(mc))

@@ -2,13 +2,14 @@ import { useEffect, useState } from "react"
 import { Navigate, Route, Routes, Link, useLocation } from "react-router-dom"
 import { AppShell, Burger, Group, NavLink, Text, ActionIcon, useMantineColorScheme, useComputedColorScheme } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
-import { IconLibraryPhoto, IconSearch, IconListCheck, IconActivity, IconSettings, IconDatabase, IconPlug, IconDownload, IconCloudDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
+import { IconLibraryPhoto, IconSearch, IconCompass, IconListCheck, IconActivity, IconSettings, IconDatabase, IconPlug, IconDownload, IconCloudDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, getToken } from "@/utils"
 import { LibraryPage } from "@/pages/LibraryPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { MediaDetailPage } from "@/pages/MediaDetailPage"
 import { MonitorPage } from "@/pages/MonitorPage"
 import { SearchPage } from "@/pages/SearchPage"
+import { ExplorePage } from "@/pages/ExplorePage"
 import { DownloadsPage } from "@/pages/DownloadsPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { LogsPage } from "@/pages/LogsPage"
@@ -16,6 +17,7 @@ import { LogsPage } from "@/pages/LogsPage"
 const navigation = [
     {
         group: "Media", items: [
+            { label: "Explore", to: "/explore", icon: <IconCompass size={18} /> },
             { label: "Search", to: "/search", icon: <IconSearch size={18} /> },
             { label: "Library", to: "/", icon: <IconLibraryPhoto size={18} />, match: (p: string) => p === "/" || p.startsWith("/media") },
         ]
@@ -155,6 +157,7 @@ export default function App() {
                     <PageShell>
                         <Routes>
                             <Route path="/" element={<LibraryPage />} />
+                            <Route path="/explore" element={<ExplorePage />} />
                             <Route path="/search" element={<SearchPage />} />
                             <Route path="/settings/*" element={<SettingsPage />} />
                             <Route path="/media/:id" element={<MediaDetailPage />} />

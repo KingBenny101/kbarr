@@ -64,6 +64,24 @@ func (h *Handler) GetAnimeDetails(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(details)
 }
 
+func (h *Handler) ResolveAniList(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("anilistID")
+	anilistID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid anilistID", http.StatusBadRequest)
+		return
+	}
+
+	aid, ok := h.svc.LookupAniDBByAniList(anilistID)
+	if !ok {
+		http.Error(w, "no AniDB mapping for AniList ID", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]uint{"aid": aid})
+}
+
 func (h *Handler) Prepare(w http.ResponseWriter, r *http.Request) {
 	var req PrepareRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

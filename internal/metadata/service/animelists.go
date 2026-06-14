@@ -84,15 +84,20 @@ func (s *AniDBService) parseAnimeLists(listsFile string) error {
 	}
 
 	index := make(map[uint]ExternalIDs, len(entries))
+	reverse := make(map[int]uint, len(entries))
 	for _, e := range entries {
 		if e.AniDBID == 0 {
 			continue
 		}
 		index[e.AniDBID] = externalIDsFromEntry(e)
+		if e.AniListID != nil {
+			reverse[*e.AniListID] = e.AniDBID
+		}
 	}
 
 	s.alMu.Lock()
 	s.animeLists = index
+	s.aniListByID = reverse
 	s.alMu.Unlock()
 
 	slog.Info("Anime-lists mapping loaded", "entries", len(index))
@@ -105,6 +110,17 @@ func (s *AniDBService) LookupExternalIDs(aid uint) ExternalIDs {
 	s.alMu.RLock()
 	defer s.alMu.RUnlock()
 	return s.animeLists[aid]
+}
+
+// LookupAniDBByAniList resolves an AniList ID back to its AniDB ID using the
+// reverse Fribb index. The bool is false when no mapping exists (e.g. AniList
+// titles with no AniDB entry, such as Chinese/Korean content) or the mapping
+// has not loaded yet.
+func (s *AniDBService) LookupAniDBByAniList(anilistID int) (uint, bool) {
+	s.alMu.RLock()
+	defer s.alMu.RUnlock()
+	aid, ok := s.aniListByID[anilistID]
+	return aid, ok
 }
 
 func externalIDsFromEntry(e mdmodels.AnimeListEntry) ExternalIDs {

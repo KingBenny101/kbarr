@@ -68,6 +68,39 @@ func (c *MetadataClient) SearchTitles(ctx context.Context, query string) ([]mode
 	return results, nil
 }
 
+// ResolveAniListID resolves an AniList ID to its AniDB ID via the metadata
+// service's Fribb reverse index. The bool is false (with a nil error) when no
+// mapping exists, e.g. AniList titles with no AniDB entry.
+func (c *MetadataClient) ResolveAniListID(ctx context.Context, anilistID int) (uint, bool, error) {
+	endpoint := fmt.Sprintf("%s/resolve/anilist/%d", c.baseURL, anilistID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to call metadata service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return 0, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return 0, false, errorFromResponse(resp)
+	}
+
+	var body struct {
+		AID uint `json:"aid"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return 0, false, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return body.AID, true, nil
+}
+
 func (c *MetadataClient) Prepare(ctx context.Context, source, sourceID, title string, libraryID uint, force bool) (*models.AnimeMetadata, error) {
 	body := map[string]any{
 		"source":     source,
