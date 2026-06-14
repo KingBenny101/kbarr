@@ -65,12 +65,14 @@ func ApplyRefresh(libraryID uint, prepared *models.AnimeMetadata) (newEpisodes i
 			return fmt.Errorf("detailed row not found: %w", err)
 		}
 
-		// Update only the fields that change over a show's life. Title and external
-		// IDs are intentionally left alone — they are set once at add time and the
-		// folder/library identity is built from them.
+		// Refresh the fields that change over a show's life, plus genres and the
+		// cross-database IDs so they backfill on existing entries (the IDs are stable,
+		// but rows added before they were tracked still need them filled in). Title is
+		// left alone — the folder/library identity is built from it.
 		if _, err := tx.NewUpdate().Model((*models.Detailed)(nil)).
-			Set("description = ?, release_date = ?, end_date = ?, total_episodes = ?, poster_url = ?, alternate_titles = ?, updated_at = now()",
-				prepared.Description, prepared.ReleaseDate, prepared.EndDate, prepared.TotalEpisodes, prepared.PosterURL, prepared.AlternateTitles).
+			Set("description = ?, release_date = ?, end_date = ?, total_episodes = ?, poster_url = ?, alternate_titles = ?, genres = ?, tvdb_id = ?, anilist_id = ?, imdb_id = ?, tmdb_id = ?, mal_id = ?, kitsu_id = ?, animeplanet_id = ?, anisearch_id = ?, updated_at = now()",
+				prepared.Description, prepared.ReleaseDate, prepared.EndDate, prepared.TotalEpisodes, prepared.PosterURL, prepared.AlternateTitles, prepared.Genres,
+				prepared.TVDBID, prepared.AniListID, prepared.IMDBID, prepared.TMDBID, prepared.MALID, prepared.KitsuID, prepared.AnimePlanetID, prepared.AniSearchID).
 			Where("id = ?", detailed.ID).Exec(ctx); err != nil {
 			return fmt.Errorf("failed to update detailed: %w", err)
 		}
