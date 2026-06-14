@@ -6,9 +6,7 @@
 
 ---
 
-A self-hosted application for monitoring and automatically downloading anime.
+Self-hosted automatic anime torrent downloader.
 
-**Metadata:** AniDB · **Torrent search:** [kbdex](https://github.com/KingBenny101/kbdex) or Prowlarr · **Downloads:** qBittorrent
-
-[Installation](https://kingbenny101.github.io/kbarr/docs/installation) · [API Reference](https://kingbenny101.github.io/kbarr/docs/api/kbarr-api) · [Development](https://kingbenny101.github.io/kbarr/docs/development)
+[Website](https://kingbenny101.github.io/kbarr/) · [Installation](https://kingbenny101.github.io/kbarr/docs/installation) · [API Reference](https://kingbenny101.github.io/kbarr/docs/api/kbarr-api) · [Development](https://kingbenny101.github.io/kbarr/docs/development) · [Acknowledgements](https://kingbenny101.github.io/kbarr/docs/acknowledgements)
 
