@@ -39,6 +39,10 @@ type AnimeMetadata struct {
 	AniListID       string            `json:"anilist_id"`
 	IMDBID          string            `json:"imdb_id"`
 	TMDBID          string            `json:"tmdb_id"`
+	MALID           string            `json:"mal_id"`
+	KitsuID         string            `json:"kitsu_id"`
+	AnimePlanetID   string            `json:"animeplanet_id"`
+	AniSearchID     string            `json:"anisearch_id"`
 	IsNSFW          bool              `json:"is_nsfw"`
 	Episodes        []EpisodeMetadata `json:"episodes"`
 }

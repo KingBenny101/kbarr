@@ -38,6 +38,10 @@ func runMigrations(ctx context.Context) error {
 		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS anilist_id TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS imdb_id TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS tmdb_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS mal_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS kitsu_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS animeplanet_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE detaileds ADD COLUMN IF NOT EXISTS anisearch_id TEXT NOT NULL DEFAULT ''`,
 
 		// episodes
 		`ALTER TABLE episodes ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'anidb'`,

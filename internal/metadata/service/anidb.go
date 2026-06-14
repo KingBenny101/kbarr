@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -249,6 +250,8 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint, f
 	}
 	metadata.AlternateTitles = strings.Join(altTitles, "|")
 
+	metadata.Genres = genresFromTags(details.Tags)
+
 	for _, ep := range details.Episodes {
 		title := ""
 		for _, t := range ep.Titles {
@@ -276,6 +279,10 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint, f
 	metadata.AniListID = ids.AniList
 	metadata.IMDBID = ids.IMDB
 	metadata.TMDBID = ids.TMDB
+	metadata.MALID = ids.MAL
+	metadata.KitsuID = ids.Kitsu
+	metadata.AnimePlanetID = ids.AnimePlanet
+	metadata.AniSearchID = ids.AniSearch
 	metadata.IsNSFW = details.Restricted == "true"
 
 	if details.Picture != "" {
@@ -291,6 +298,42 @@ func (s *AniDBService) PrepareDetailed(aid uint, title string, libraryID uint, f
 	}
 
 	return metadata, nil
+}
+
+// genresFromTags turns AniDB's weighted tag list into a short, comma-joined genre
+// string: the highest-weighted, non-spoiler tags first, capped at maxGenres.
+func genresFromTags(tags []mdmodels.Tag) string {
+	const maxGenres = 6
+
+	type weighted struct {
+		name   string
+		weight int
+	}
+	picked := make([]weighted, 0, len(tags))
+	for _, t := range tags {
+		if t.GlobalSpoiler == "true" || t.LocalSpoiler == "true" {
+			continue
+		}
+		name := strings.TrimSpace(t.Name)
+		if name == "" {
+			continue
+		}
+		w, _ := strconv.Atoi(strings.TrimSpace(t.Weight))
+		picked = append(picked, weighted{name: name, weight: w})
+	}
+
+	sort.SliceStable(picked, func(i, j int) bool {
+		return picked[i].weight > picked[j].weight
+	})
+
+	names := make([]string, 0, maxGenres)
+	for _, p := range picked {
+		if len(names) >= maxGenres {
+			break
+		}
+		names = append(names, p.name)
+	}
+	return strings.Join(names, ", ")
 }
 
 func (s *AniDBService) shouldDownloadTitles(titlesFile string, ttl time.Duration) bool {

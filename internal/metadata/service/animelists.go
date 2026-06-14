@@ -23,10 +23,14 @@ const animeListsURL = "https://raw.githubusercontent.com/Fribb/anime-lists/maste
 // ExternalIDs holds the cross-database IDs we surface for an anime. Each field is
 // empty when the mapping has no value for it.
 type ExternalIDs struct {
-	TVDB    string
-	AniList string
-	IMDB    string
-	TMDB    string
+	TVDB        string
+	AniList     string
+	IMDB        string
+	TMDB        string
+	MAL         string
+	Kitsu       string
+	AnimePlanet string
+	AniSearch   string
 }
 
 // LoadAnimeListsMapping downloads (when stale) and parses the Fribb anime-lists
@@ -171,6 +175,18 @@ func externalIDsFromEntry(e mdmodels.AnimeListEntry) ExternalIDs {
 		case e.TMDBID.Movie != nil:
 			ids.TMDB = strconv.Itoa(*e.TMDBID.Movie)
 		}
+	}
+	if e.MALID != nil {
+		ids.MAL = strconv.Itoa(*e.MALID)
+	}
+	if e.KitsuID != nil {
+		ids.Kitsu = strconv.Itoa(*e.KitsuID)
+	}
+	if ap := strings.TrimSpace(e.AnimePlanetID); ap != "" {
+		ids.AnimePlanet = ap
+	}
+	if e.AniSearchID != nil {
+		ids.AniSearch = strconv.Itoa(*e.AniSearchID)
 	}
 	return ids
 }

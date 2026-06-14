@@ -34,6 +34,14 @@ export interface MediaDetails {
     poster_url: string
     total_episodes: number
     total_seasons: number
+    tvdb_id: string
+    anilist_id: string
+    imdb_id: string
+    tmdb_id: string
+    mal_id: string
+    kitsu_id: string
+    animeplanet_id: string
+    anisearch_id: string
     episodes: Episode[]
     is_nsfw: boolean
 }

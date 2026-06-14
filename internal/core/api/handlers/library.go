@@ -303,6 +303,10 @@ func toDetailedModel(d *models.AnimeMetadata, libraryID uint) models.Detailed {
 		AniListID:       d.AniListID,
 		IMDBID:          d.IMDBID,
 		TMDBID:          d.TMDBID,
+		MALID:           d.MALID,
+		KitsuID:         d.KitsuID,
+		AnimePlanetID:   d.AnimePlanetID,
+		AniSearchID:     d.AniSearchID,
 	}
 	if len(d.Episodes) > 0 {
 		result.Episodes = make([]models.Episode, 0, len(d.Episodes))

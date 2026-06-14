@@ -443,25 +443,38 @@ export function MediaDetailPage() {
                         <Card withBorder radius="xl">
                             <Stack gap="sm">
                                 <Title order={3}>Information</Title>
-                                <SimpleKeyValue label="Source" value={media.source} />
-                                <SimpleKeyValue label="Source ID" value={media.source_id} />
-                                {sourceUrl(media.source, media.source_id) && (
-                                    <Button
-                                        component="a"
-                                        href={sourceUrl(media.source, media.source_id)!}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        variant="light"
-                                        color="gray"
-                                        leftSection={<IconExternalLink size={16} />}
-                                        size="xs"
-                                        mt={4}
-                                    >
-                                        View Source
-                                    </Button>
-                                )}
                                 {media.total_episodes > 0 ? <SimpleKeyValue label="Episodes" value={String(media.total_episodes)} /> : null}
                                 {media.total_seasons > 0 ? <SimpleKeyValue label="Seasons" value={String(media.total_seasons)} /> : null}
+                                {media.genres ? <SimpleKeyValue label="Genres" value={media.genres} /> : null}
+                                {media.release_date ? <SimpleKeyValue label="Released" value={media.release_date} /> : null}
+                                <SimpleKeyValue label={media.end_date ? "Ended" : "Status"} value={media.end_date || airingStatus(media)} />
+                                <Group justify="space-between" align="center" mt={4}>
+                                    <Text c="dimmed" size="sm">NSFW</Text>
+                                    <Switch
+                                        checked={media.is_nsfw}
+                                        onChange={(e) => handleNSFWToggle(e.currentTarget.checked)}
+                                        color="red"
+                                    />
+                                </Group>
+                                {externalLinks(media).length > 0 && (
+                                    <Group gap="xs" mt="xs">
+                                        {externalLinks(media).map((link) => (
+                                            <Button
+                                                key={link.label}
+                                                component="a"
+                                                href={link.href}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                variant="outline"
+                                                color="gray"
+                                                leftSection={<IconExternalLink size={14} />}
+                                                size="xs"
+                                            >
+                                                {link.label}
+                                            </Button>
+                                        ))}
+                                    </Group>
+                                )}
                             </Stack>
                         </Card>
 
@@ -584,19 +597,10 @@ export function MediaDetailPage() {
                         <Card withBorder radius="xl">
                             <Stack gap={6}>
                                 <Text size="sm" c="dimmed" tt="uppercase" fw={700}>Metadata</Text>
+                                <SimpleKeyValue label="Source" value={media.source} />
+                                <SimpleKeyValue label="Source ID" value={media.source_id} />
                                 <SimpleKeyValue label="Created" value={media.CreatedAt ? new Date(media.CreatedAt).toLocaleString() : "Unknown"} />
                                 <SimpleKeyValue label="Updated" value={media.UpdatedAt ? new Date(media.UpdatedAt).toLocaleString() : "Unknown"} />
-                                <SimpleKeyValue label="Genres" value={media.genres || "Unknown"} />
-                                <SimpleKeyValue label="Released" value={media.release_date || "Unknown"} />
-                                <SimpleKeyValue label="Ended" value={media.end_date || "Not Ended"} />
-                                <Group justify="space-between" align="center" mt={4}>
-                                    <Text c="dimmed" size="sm">NSFW</Text>
-                                    <Switch
-                                        checked={media.is_nsfw}
-                                        onChange={(e) => handleNSFWToggle(e.currentTarget.checked)}
-                                        color="red"
-                                    />
-                                </Group>
                             </Stack>
                         </Card>
                     </Stack>
@@ -606,9 +610,30 @@ export function MediaDetailPage() {
     )
 }
 
-function sourceUrl(source: string, sourceID: string): string | null {
-    if (source === "anidb") return `https://anidb.net/anime/${sourceID}`
-    return null
+// airingStatus describes a show with no end date: it has either started airing
+// (Airing) or its start date is still in the future (Not yet aired). When there
+// is no usable start date we can only say it has not ended.
+function airingStatus(media: MediaDetails): string {
+    if (!media.release_date) return "Ongoing"
+    const start = new Date(media.release_date)
+    if (isNaN(start.getTime())) return "Ongoing"
+    return start.getTime() > Date.now() ? "Not yet aired" : "Airing"
+}
+
+function externalLinks(media: MediaDetails): { label: string; href: string }[] {
+    const links: { label: string; href: string }[] = []
+    if (media.source === "anidb" && media.source_id) {
+        links.push({ label: "AniDB", href: `https://anidb.net/anime/${media.source_id}` })
+    }
+    if (media.anilist_id) links.push({ label: "AniList", href: `https://anilist.co/anime/${media.anilist_id}` })
+    if (media.mal_id) links.push({ label: "MyAnimeList", href: `https://myanimelist.net/anime/${media.mal_id}` })
+    if (media.kitsu_id) links.push({ label: "Kitsu", href: `https://kitsu.io/anime/${media.kitsu_id}` })
+    if (media.animeplanet_id) links.push({ label: "Anime-Planet", href: `https://anime-planet.com/anime/${media.animeplanet_id}` })
+    if (media.anisearch_id) links.push({ label: "aniSearch", href: `https://anisearch.com/anime/${media.anisearch_id}` })
+    if (media.tvdb_id) links.push({ label: "TheTVDB", href: `https://thetvdb.com/dereferrer/series/${media.tvdb_id}` })
+    if (media.tmdb_id) links.push({ label: "TMDB", href: `https://www.themoviedb.org/tv/${media.tmdb_id}` })
+    if (media.imdb_id) links.push({ label: "IMDb", href: `https://www.imdb.com/title/${media.imdb_id}` })
+    return links
 }
 
 function SimpleKeyValue({ label, value }: { label: string; value: string }) {

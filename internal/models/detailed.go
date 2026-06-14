@@ -35,6 +35,10 @@ type Detailed struct {
 	AniListID       string    `bun:"anilist_id" json:"anilist_id"`
 	IMDBID          string    `bun:"imdb_id" json:"imdb_id"`
 	TMDBID          string    `bun:"tmdb_id" json:"tmdb_id"`
+	MALID           string    `bun:"mal_id" json:"mal_id"`
+	KitsuID         string    `bun:"kitsu_id" json:"kitsu_id"`
+	AnimePlanetID   string    `bun:"animeplanet_id" json:"animeplanet_id"`
+	AniSearchID     string    `bun:"anisearch_id" json:"anisearch_id"`
 	Episodes        []Episode `bun:"rel:has-many,join:id=detailed_id" json:"episodes"`
 	IsNSFW          bool      `json:"is_nsfw" bun:"-"` // set from media, not stored in detaileds table
 }
