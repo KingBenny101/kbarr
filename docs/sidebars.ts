@@ -13,6 +13,7 @@ const sidebars: SidebarsConfig = {
   docs: [
     'installation',
     'development',
+    'acknowledgements',
     {
       type: 'category',
       label: 'Architecture',

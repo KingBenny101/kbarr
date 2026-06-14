@@ -1,3 +1,15 @@
+:root {
+  --ifm-color-primary: #d08a00;
+  --ifm-color-primary-dark: #b87a00;
+  --ifm-color-primary-darker: #ab7200;
+  --ifm-color-primary-darkest: #8a5a00;
+  --ifm-color-primary-light: #dd9a00;
+  --ifm-color-primary-lighter: #e5a300;
+  --ifm-color-primary-lightest: #f0b820;
+
+  --ifm-color-warning: #d08a00;
+}
+
 [data-theme='dark'] {
   --ifm-color-primary: #f0a500;
   --ifm-color-primary-dark: #d89400;
@@ -13,4 +25,22 @@
   --ifm-footer-background-color: #111009;
 
   --ifm-color-warning: #f0a500;
+}
+
+.section {
+  padding: 4rem 1.5rem;
+}
+
+.sectionTitle {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.sectionSubtitle {
+  text-align: center;
+  color: var(--ifm-color-emphasis-600);
+  max-width: 560px;
+  margin: 0 auto 2.5rem;
 }

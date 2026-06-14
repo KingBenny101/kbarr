@@ -5,7 +5,7 @@ import type * as OpenApiPlugin from 'docusaurus-plugin-openapi-docs';
 
 const config: Config = {
   title: 'kbarr',
-  tagline: 'A self-hosted anime management application.',
+  tagline: 'Self-hosted automatic anime torrent downloader.',
   favicon: 'img/favicon.ico',
 
   url: 'https://kingbenny101.github.io',
@@ -16,6 +16,7 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
   markdown: {
+    mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: 'warn',
     },
@@ -62,9 +63,17 @@ const config: Config = {
         },
       },
     ],
+    [
+      '@cmfcmf/docusaurus-search-local',
+      {
+        indexDocs: true,
+        indexBlog: false,
+        indexPages: true,
+      },
+    ],
   ],
 
-  themes: ['docusaurus-theme-openapi-docs'],
+  themes: ['docusaurus-theme-openapi-docs', '@docusaurus/theme-mermaid'],
 
   themeConfig: {
     navbar: {
@@ -113,8 +122,8 @@ const config: Config = {
     },
     colorMode: {
       defaultMode: 'dark',
-      disableSwitch: true,
-      respectPrefersColorScheme: false,
+      disableSwitch: false,
+      respectPrefersColorScheme: true,
     },
     prism: {
       theme: prismThemes.github,
