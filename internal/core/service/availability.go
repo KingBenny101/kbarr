@@ -222,6 +222,14 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 	c.scanCount++
 	filesByFolder, changedFolders := c.scanDisk(mediaPath, allowedExts, c.scanCount%10 == 0)
 
+	// foundByLibEp records every (library, episode) whose file was located on disk
+	// this cycle, using the same folder→library resolution Phase 1 marks available
+	// with. Phase 2 consults it instead of re-deriving a folder string per monitor,
+	// so the two phases can never disagree (a media_folder that doesn't match the
+	// on-disk directory name previously made Phase 1 mark available while Phase 2
+	// marked the same episode missing, flip-flopping every cycle).
+	foundByLibEp := map[libEpKey]bool{}
+
 	// ── Phase 1: mark episodes available ────────────────────────────────────
 	for folder, episodes := range filesByFolder {
 		if ambiguous[folder] {
@@ -234,6 +242,7 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 			continue
 		}
 		for ep, path := range episodes {
+			foundByLibEp[libEpKey{int64(libID), ep}] = true
 			mon, ok := monitorsByLibEp[libEpKey{int64(libID), ep}]
 			if !ok {
 				slog.Debug("availability: no monitor for episode", "folder", folder, "episode", ep)
@@ -275,11 +284,8 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 		if !mon.Available || mon.EpisodeNumber == 0 {
 			continue
 		}
-		folder := monitorFolder(mon)
-		if eps, ok := filesByFolder[folder]; ok {
-			if _, present := eps[int64(mon.EpisodeNumber)]; present {
-				continue
-			}
+		if foundByLibEp[libEpKey{int64(mon.LibraryID), int64(mon.EpisodeNumber)}] {
+			continue
 		}
 		if mon.Status == "downloaded" {
 			// kbarr's own download vanished — re-search, but throttled: 'missing'
@@ -479,15 +485,6 @@ func (c *AvailabilityChecker) syncSeasonMonitors(ctx context.Context) {
 			slog.Info("availability: season incomplete, reset to missing", "monitor_id", sm.ID, "title", sm.Title, "available", available, "total", total)
 		}
 	}
-}
-
-// monitorFolder returns the sanitized folder key for an episode monitor.
-func monitorFolder(m *monitorRow) string {
-	folder := m.MediaFolder
-	if folder == "" {
-		folder = m.Title
-	}
-	return naming.SanitizeFilename(folder)
 }
 
 // parseEpisodeNumber extracts an episode number from a filename, returning false
