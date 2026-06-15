@@ -104,6 +104,9 @@ export function ExploreDetailModal({ media, opened, onClose }: Props) {
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, sm: 8 }}>
                     <Stack gap="sm">
+                        {media.title.romaji && media.title.romaji !== title && (
+                            <Text size="sm" c="dimmed" fs="italic">{media.title.romaji}</Text>
+                        )}
                         <Group gap="xs">
                             {media.format && <Badge variant="light" color="gray">{media.format}</Badge>}
                             {media.status && <Badge variant="light" color="blue">{media.status.replace(/_/g, " ")}</Badge>}
@@ -157,6 +160,24 @@ export function ExploreDetailModal({ media, opened, onClose }: Props) {
                 <Group justify="center" py="lg"><Loader size="sm" /></Group>
             ) : (
                 <Stack gap="md">
+                    {details?.tags?.length ? (() => {
+                        const visible = details.tags
+                            .filter((t) => !t.isAdult || media.isAdult)
+                            .sort((a, b) => b.rank - a.rank)
+                        return visible.length ? (
+                            <Stack gap={6}>
+                                <Title order={5}>Tags</Title>
+                                <Group gap={6}>
+                                    {visible.map((t) => (
+                                        <Badge key={t.name} variant="dot" color="gray" radius="sm" title={`${t.rank}% match`}>
+                                            {t.name}
+                                        </Badge>
+                                    ))}
+                                </Group>
+                            </Stack>
+                        ) : null
+                    })() : null}
+
                     {description ? (
                         <Stack gap={4}>
                             <Title order={5}>Synopsis</Title>
