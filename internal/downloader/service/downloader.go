@@ -501,6 +501,13 @@ func (s *DownloaderService) onComplete(ctx context.Context, entry models.Downloa
 	episodeHint := 0
 	if mon != nil && mon.IsEpisode && mon.EpisodeNumber > 0 {
 		episodeHint = mon.EpisodeNumber
+	} else if mon != nil && mon.LibraryID != 0 {
+		// Single-file OVAs/movies often have no episode number in the release name.
+		// When the library has exactly one episode monitor, the lone video must be
+		// that episode — supply its number as the hint so the hardlinker stamps a
+		// SxxExx name the availability check can match (without it the file lands as
+		// a movie-style name with no episode marker and never reconciles).
+		episodeHint = s.soleEpisodeNumber(ctx, mon.LibraryID)
 	}
 
 	var walked, hasVideo, placed bool
@@ -928,6 +935,21 @@ func (s *DownloaderService) resolveMonitor(ctx context.Context, monitorID int64)
 		return nil
 	}
 	return &mon
+}
+
+// soleEpisodeNumber returns the episode number of a library's only episode
+// monitor, or 0 when the library has zero or more than one. It lets onComplete
+// stamp the correct SxxExx name on a single-file release whose name carries no
+// episode number.
+func (s *DownloaderService) soleEpisodeNumber(ctx context.Context, libraryID uint) int {
+	var eps []models.Monitor
+	if err := s.db.NewSelect().Model(&eps).
+		Column("episode_number").
+		Where("library_id = ? AND is_episode = true AND deleted_at IS NULL", libraryID).
+		Scan(ctx); err != nil || len(eps) != 1 {
+		return 0
+	}
+	return eps[0].EpisodeNumber
 }
 
 // writeTVShowNFO writes a Jellyfin-compatible tvshow.nfo into the show's media
