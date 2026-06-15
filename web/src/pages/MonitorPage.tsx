@@ -210,16 +210,18 @@ export function MonitorPage() {
                                 ) : (
                                     currentMonitors.map((entry) => (
                                         <Table.Tr key={entry.ID}>
-                                            <Table.Td fw={700}>
-                                                <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700}>
+                                            <Table.Td fw={700} style={{ maxWidth: 200 }}>
+                                                <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate>
                                                     {entry.title}
                                                 </Text>
                                             </Table.Td>
                                             <Table.Td>
                                                 <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
                                             </Table.Td>
-                                            <Table.Td c="dimmed">
-                                                {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
+                                            <Table.Td c="dimmed" style={{ maxWidth: 240 }}>
+                                                <Text truncate>
+                                                    {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
+                                                </Text>
                                             </Table.Td>
                                             <Table.Td>
                                                 <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
