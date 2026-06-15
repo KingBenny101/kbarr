@@ -102,7 +102,10 @@ type SearchInput struct {
 
 type ResolveAniListInput struct {
 	ID     int      `path:"id" doc:"AniList ID"`
-	Titles []string `query:"title" doc:"Optional title hints used for fuzzy fallback when no direct mapping exists"`
+	// explode: titles arrive as repeated ?title= params (not comma-joined), and a
+	// title may itself contain a comma — huma defaults query slices to non-explode
+	// (first value, comma-split), which would silently drop all but the first title.
+	Titles []string `query:"title,explode" doc:"Optional title hints used for fuzzy fallback when no direct mapping exists"`
 }
 
 type ResolveAniListOutput struct {
