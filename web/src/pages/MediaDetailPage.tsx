@@ -597,8 +597,6 @@ export function MediaDetailPage() {
                         <Card withBorder radius="xl">
                             <Stack gap={6}>
                                 <Text size="sm" c="dimmed" tt="uppercase" fw={700}>Metadata</Text>
-                                <SimpleKeyValue label="Source" value={media.source} />
-                                <SimpleKeyValue label="Source ID" value={media.source_id} />
                                 <SimpleKeyValue label="Created" value={media.CreatedAt ? new Date(media.CreatedAt).toLocaleString() : "Unknown"} />
                                 <SimpleKeyValue label="Updated" value={media.UpdatedAt ? new Date(media.UpdatedAt).toLocaleString() : "Unknown"} />
                             </Stack>
