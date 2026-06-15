@@ -46,6 +46,25 @@ func NewDownloaderService(db *bun.DB) *DownloaderService {
 // mounts — so a copy is the only way to honour the user's layout. Any other
 // error (permissions, dest exists, disk full) is returned unchanged rather than
 // silently masked by a copy. Returns copied=true when the fallback ran.
+// hqRank ranks a parsed resolution label (higher is better) so the hardlinker can
+// keep the best copy when a release bundles the same episode at several qualities.
+// Mirrors the indexer's qualityRank ladder. Unknown labels rank lowest.
+func hqRank(screenSize string) int {
+	switch strings.ToLower(screenSize) {
+	case "4k", "2160p", "uhd":
+		return 5
+	case "1080p":
+		return 4
+	case "720p":
+		return 3
+	case "576p":
+		return 2
+	case "480p":
+		return 1
+	}
+	return 0
+}
+
 func linkOrCopy(src, dst string) (copied bool, err error) {
 	if err := os.Link(src, dst); err == nil {
 		return false, nil
@@ -729,6 +748,18 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 	}
 	var subFiles []subFile
 
+	// bestByDest keeps, per destination episode, the single highest-quality source
+	// found. A release that bundles the same episode several times (e.g. one folder
+	// per distributor/quality) thus produces one library file instead of duplicate
+	// SxxExx entries that differ only by a [quality] tag. Placement is deferred to
+	// after the walk so we can compare every candidate first; the torrent's own
+	// files are never touched — lesser copies are simply not linked.
+	type videoCand struct {
+		src, linkName, linkPath, destDir, quality, ext string
+		episode                                        int
+	}
+	bestByDest := map[string]videoCand{}
+
 	walked = true
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -801,63 +832,76 @@ func (s *DownloaderService) CreateHardlinks(savePath, entryTitle, mediaFolder st
 		if releaseGroup != "" {
 			tags += " [" + releaseGroup + "]"
 		}
-		var linkName string
+		// Season precedence: per-file > folder-name > default to 1.
+		season := g.Season
+		if season == 0 {
+			season = folderCtx.Season
+		}
+		if season == 0 {
+			season = 1
+		}
+		var linkName, dedupKey string
 		if episode > 0 {
-			// Season precedence: per-file > folder-name > default to 1.
-			season := g.Season
-			if season == 0 {
-				season = folderCtx.Season
-			}
-			if season == 0 {
-				season = 1
-			}
 			linkName = fmt.Sprintf("%s - S%02dE%02d%s%s", resolvedTitle, season, episode, tags, ext)
+			// Group by title+season+episode so the same episode at different
+			// qualities collapses to one entry, while distinct episodes (or
+			// distinct shows in the same pack) stay separate.
+			dedupKey = fmt.Sprintf("%s|S%02dE%02d", resolvedTitle, season, episode)
 		} else {
 			// No episode number: a movie or single-file OVA. Name it after the
 			// resolved series/title and preserve the real extension, rather than
 			// scrubbing the raw release string (which strips the dot before the
 			// extension and mangles the name).
 			linkName = fmt.Sprintf("%s%s%s", resolvedTitle, tags, ext)
+			dedupKey = resolvedTitle
 		}
 		linkPath := filepath.Join(mediaPath, resolvedTitle, linkName)
+
+		// Defer placement: keep only the highest-quality source per destination.
+		if cur, ok := bestByDest[dedupKey]; ok && hqRank(cur.quality) >= hqRank(quality) {
+			slog.Info("createHardlinks: duplicate episode at lower/equal quality, skipping", "src", path, "kept", cur.src, "quality", quality, "kept_quality", cur.quality)
+			return nil
+		}
+		bestByDest[dedupKey] = videoCand{
+			src: path, linkName: linkName, linkPath: linkPath,
+			destDir: filepath.Dir(linkPath), quality: quality, ext: ext, episode: episode,
+		}
 		slog.Info("createHardlinks: planned hardlink", "src", path, "dst", linkPath)
-
-		destDir := filepath.Dir(linkPath)
-		// Record the target so subtitles can be placed beside this video. Done
-		// before the collision check below because the destination exists either
-		// way; later videos for the same episode simply overwrite the entry.
-		videoTargets[episode] = videoTarget{stem: strings.TrimSuffix(linkName, ext), dir: destDir}
-		if err := os.MkdirAll(destDir, 0755); err != nil {
-			slog.Warn("createHardlinks: failed to create directory", "path", destDir, "error", err)
-			return nil
-		}
-
-		if dstInfo, err := os.Stat(linkPath); err == nil {
-			srcInfo, _ := os.Stat(path)
-			if srcInfo != nil && os.SameFile(srcInfo, dstInfo) {
-				placed = true
-				slog.Info("createHardlinks: already linked, skipping", "dst", linkPath)
-			} else {
-				slog.Info("createHardlinks: destination exists with different content, skipping", "dst", linkPath)
-			}
-			return nil
-		}
-
-		copied, err := linkOrCopy(path, linkPath)
-		if err != nil {
-			slog.Error("createHardlinks: failed to place file", "src", path, "dst", linkPath, "error", err)
-		} else {
-			placed = true
-			if copied {
-				slog.Info("createHardlinks: copied (cross-device, downloads and media are on different filesystems — this uses extra disk space)", "src", path, "dst", linkPath)
-			} else {
-				slog.Info("createHardlinks: created", "src", path, "dst", linkPath)
-			}
-		}
 		return nil
 	})
 	if err != nil {
 		slog.Warn("createHardlinks: walk failed", "path", savePath, "error", err)
+	}
+
+	// ── Place the chosen best-quality video for each destination episode ──────
+	for _, cand := range bestByDest {
+		// Record the target so subtitles can be placed beside this video.
+		videoTargets[cand.episode] = videoTarget{stem: strings.TrimSuffix(cand.linkName, cand.ext), dir: cand.destDir}
+		if err := os.MkdirAll(cand.destDir, 0755); err != nil {
+			slog.Warn("createHardlinks: failed to create directory", "path", cand.destDir, "error", err)
+			continue
+		}
+		if dstInfo, statErr := os.Stat(cand.linkPath); statErr == nil {
+			srcInfo, _ := os.Stat(cand.src)
+			if srcInfo != nil && os.SameFile(srcInfo, dstInfo) {
+				placed = true
+				slog.Info("createHardlinks: already linked, skipping", "dst", cand.linkPath)
+			} else {
+				slog.Info("createHardlinks: destination exists with different content, skipping", "dst", cand.linkPath)
+			}
+			continue
+		}
+		copied, linkErr := linkOrCopy(cand.src, cand.linkPath)
+		if linkErr != nil {
+			slog.Error("createHardlinks: failed to place file", "src", cand.src, "dst", cand.linkPath, "error", linkErr)
+			continue
+		}
+		placed = true
+		if copied {
+			slog.Info("createHardlinks: copied (cross-device, downloads and media are on different filesystems — this uses extra disk space)", "src", cand.src, "dst", cand.linkPath)
+		} else {
+			slog.Info("createHardlinks: created", "src", cand.src, "dst", cand.linkPath)
+		}
 	}
 
 	// ── Second pass: place subtitles as sidecars next to their video ──────────
