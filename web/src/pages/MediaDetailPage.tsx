@@ -698,7 +698,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         return (
                             <Table.Tr key={episode.ID}>
                                 <Table.Td fw={700} style={{ textAlign: "center" }}>{episode.ep_no}</Table.Td>
-                                <Table.Td style={{ minWidth: 420, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{episode.title}</Table.Td>
+                                <Table.Td style={{ maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{episode.title}</Table.Td>
                                 <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
                                     <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
                                 </Table.Td>
