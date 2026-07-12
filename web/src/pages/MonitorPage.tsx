@@ -174,27 +174,27 @@ export function MonitorPage() {
                     </Group>
 
                     <ScrollArea type="auto">
-                        <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
+                        <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md" style={{ tableLayout: "fixed" }}>
                             <Table.Thead>
                                 <Table.Tr>
-                                    <Table.Th>
+                                    <Table.Th w="30%">
                                         <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                             Anime <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
                                         </UnstyledButton>
                                     </Table.Th>
-                                    <Table.Th>
+                                    <Table.Th w={80}>
                                         <UnstyledButton onClick={() => toggleSort("type")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                             Type <SortIcon field="type" sortField={sortField} sortDir={sortDir} />
                                         </UnstyledButton>
                                     </Table.Th>
-                                    <Table.Th>Details</Table.Th>
-                                    <Table.Th>
+                                    <Table.Th w="30%">Details</Table.Th>
+                                    <Table.Th w={100}>
                                         <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                             Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                         </UnstyledButton>
                                     </Table.Th>
-                                    <Table.Th>Quality</Table.Th>
-                                    <Table.Th>Subtitles</Table.Th>
+                                    <Table.Th w={100}>Quality</Table.Th>
+                                    <Table.Th w={120}>Subtitles</Table.Th>
                                     <Table.Th w={72} />
                                 </Table.Tr>
                             </Table.Thead>
@@ -210,7 +210,7 @@ export function MonitorPage() {
                                 ) : (
                                     currentMonitors.map((entry) => (
                                         <Table.Tr key={entry.ID}>
-                                            <Table.Td fw={700} style={{ maxWidth: 200 }}>
+                                            <Table.Td fw={700}>
                                                 <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate>
                                                     {entry.title}
                                                 </Text>
@@ -218,7 +218,7 @@ export function MonitorPage() {
                                             <Table.Td>
                                                 <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
                                             </Table.Td>
-                                            <Table.Td c="dimmed" style={{ maxWidth: 240 }}>
+                                            <Table.Td c="dimmed">
                                                 <Text truncate>
                                                     {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
                                                 </Text>
@@ -227,10 +227,14 @@ export function MonitorPage() {
                                                 <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
                                             </Table.Td>
                                             <Table.Td c={entry.quality ? undefined : "dimmed"}>
-                                                {entry.quality ? entry.quality.toUpperCase() : "—"}
+                                                <Text truncate>
+                                                    {entry.quality ? entry.quality.toUpperCase() : "—"}
+                                                </Text>
                                             </Table.Td>
                                             <Table.Td c={entry.subtitles ? undefined : "dimmed"}>
-                                                {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
+                                                <Text truncate>
+                                                    {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
+                                                </Text>
                                             </Table.Td>
                                             <Table.Td ta="right">
                                                 <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
