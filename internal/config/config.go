@@ -176,6 +176,12 @@ func ValidateSetting(key, value string) (known bool, err error) {
 		}
 		return true, fmt.Errorf("%q must be one of %s", def.Key, strings.Join(def.Options, ", "))
 	}
+	if def.Key == "releaseGroupPreferenceOrder" {
+		_, err := ValidateReleaseGroupOrder(value)
+		if err != nil {
+			return true, err
+		}
+	}
 	return true, nil
 }
 
@@ -187,6 +193,64 @@ var schemaByKey = func() map[string]SettingDef {
 	}
 	return m
 }()
+
+// ReleaseGroupsAllowlist is the predefined set of canonical release group names.
+var ReleaseGroupsAllowlist = []string{
+	"SubsPlease", "Erai-raws", "ASW", "Judas", "EMBER",
+	"Yameii", "Golumpa", "Nekomoe kissaten", "ToxicRUS", "Baws", "HorribleSubs",
+}
+
+// releaseGroupAliases maps display/non-canonical names to their canonical form.
+var releaseGroupAliases = map[string]string{
+	"anime time": "ASW",
+}
+
+// NormalizeReleaseGroup normalizes a release group name for comparison.
+func NormalizeReleaseGroup(group string) string {
+	return strings.ToLower(strings.TrimSpace(group))
+}
+
+// ValidateReleaseGroupOrder validates a comma-separated release group order string.
+// It returns the validated canonical order (deduplicated, first occurrence preserved).
+// Aliases are resolved to their canonical form. Empty input returns an empty slice
+// with no error (no group preference = normal ranking).
+func ValidateReleaseGroupOrder(order string) ([]string, error) {
+	order = strings.TrimSpace(order)
+	if order == "" {
+		return nil, nil
+	}
+
+	allowlist := make(map[string]string, len(ReleaseGroupsAllowlist))
+	for _, g := range ReleaseGroupsAllowlist {
+		allowlist[NormalizeReleaseGroup(g)] = g
+	}
+	for alias, canonical := range releaseGroupAliases {
+		allowlist[NormalizeReleaseGroup(alias)] = canonical
+	}
+
+	seen := make(map[string]bool)
+	var result []string
+	for _, part := range strings.Split(order, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		canonical, ok := allowlist[NormalizeReleaseGroup(part)]
+		if !ok {
+			return nil, fmt.Errorf("%q is not a valid release group", part)
+		}
+		key := NormalizeReleaseGroup(canonical)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		result = append(result, canonical)
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return result, nil
+}
 
 func GetSettingsMap(db *bun.DB) (map[string]string, error) {
 	if db == nil {

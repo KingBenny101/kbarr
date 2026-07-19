@@ -159,14 +159,60 @@ func preferredQualityRank(preferred string) int {
 	return qualityRank(preferred)
 }
 
+// ── release group helpers ─────────────────────────────────────────────────────
+
+// releaseGroupConfig holds the parsed release group ranking configuration.
+type releaseGroupConfig struct {
+	order []string // canonical order; empty means no preference
+	mode  string   // "tie-break" or "strong"
+}
+
+// loadReleaseGroupConfig reads and parses release group settings from the DB.
+func (s *IndexerService) loadReleaseGroupConfig() releaseGroupConfig {
+	raw := config.Get(s.db, "releaseGroupPreferenceOrder", "Erai-raws,SubsPlease,EMBER,Judas,ASW,Yameii,Golumpa,Nekomoe kissaten,ToxicRUS,Baws,HorribleSubs")
+	order, _ := config.ValidateReleaseGroupOrder(raw)
+	if order == nil {
+		order = []string{}
+	}
+	mode := config.Get(s.db, "releaseGroupPriorityMode", "tie-break")
+	return releaseGroupConfig{order: order, mode: mode}
+}
+
+// releaseGroupRank returns the index of group within the preference order.
+// Groups not in the list (or empty/unknown) return len(order), sorting after
+// all preferred groups.  When order is empty every group returns 0 (no effect).
+func releaseGroupRank(group string, order []string) int {
+	if len(order) == 0 {
+		return 0
+	}
+	if group == "" {
+		return len(order)
+	}
+	normalized := config.NormalizeReleaseGroup(group)
+	for i, g := range order {
+		if config.NormalizeReleaseGroup(g) == normalized {
+			return i
+		}
+	}
+	return len(order)
+}
+
+// ── pickBest ───────────────────────────────────────────────────────────────────
+
 // pickBest selects the best candidate from already title/season/episode-filtered results.
 func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentResult) *models.TorrentResult {
 	preferred := config.Get(s.db, "preferredQuality", "any")
 	cap := preferredQualityRank(preferred)
 	preferredSub := strings.ToLower(config.Get(s.db, "preferredSubtitleLanguage", "eng"))
 	minSeeders := s.minSeeders()
+	rgCfg := s.loadReleaseGroupConfig()
 
-	var candidates []models.TorrentResult
+	type cand struct {
+		result models.TorrentResult
+		parsed parser.ParseResult
+	}
+
+	var candidates []cand
 	for i := range results {
 		if s.isBlacklisted(ctx, results[i].Title) {
 			continue
@@ -175,30 +221,24 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 			slog.Debug("Skipping torrent below minimum seeders", "torrent", results[i].Title, "seeds", results[i].Seeds, "min", minSeeders)
 			continue
 		}
-		candidates = append(candidates, results[i])
+		fn := results[i].FileName
+		if fn == "" {
+			fn = results[i].Title
+		}
+		candidates = append(candidates, cand{result: results[i], parsed: parseFilename(fn)})
 	}
 
 	if len(candidates) == 0 {
 		return nil
 	}
 
-	parseOf := func(r models.TorrentResult) parser.ParseResult {
-		fn := r.FileName
-		if fn == "" {
-			fn = r.Title
-		}
-		return parseFilename(fn)
-	}
-	rankOf := func(r models.TorrentResult) int {
-		return qualityRank(parseOf(r).ScreenSize)
-	}
 	// subMatch reports whether a release's name advertises the preferred subtitle
 	// language. Always true when no preference is set, so it has no effect then.
-	subMatch := func(r models.TorrentResult) bool {
+	subMatch := func(p parser.ParseResult) bool {
 		if preferredSub == "" || preferredSub == "any" {
 			return true
 		}
-		for _, l := range parseOf(r).SubtitleLangs {
+		for _, l := range p.SubtitleLangs {
 			if l == preferredSub {
 				return true
 			}
@@ -211,27 +251,44 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 	// fall back to the closest release above the cap, so a show with only
 	// higher-than-preferred releases still downloads instead of being stuck missing.
 	sort.Slice(candidates, func(i, j int) bool {
-		ri, rj := rankOf(candidates[i]), rankOf(candidates[j])
+		ri, rj := qualityRank(candidates[i].parsed.ScreenSize), qualityRank(candidates[j].parsed.ScreenSize)
 		wi, wj := ri <= cap, rj <= cap
 		if wi != wj {
 			return wi // within-cap sorts ahead of above-cap
 		}
+
+		if rgCfg.mode == "strong" {
+			rgi, rgj := releaseGroupRank(candidates[i].parsed.ReleaseGroup, rgCfg.order), releaseGroupRank(candidates[j].parsed.ReleaseGroup, rgCfg.order)
+			if rgi != rgj {
+				return rgi < rgj
+			}
+		}
+
 		if ri != rj {
 			if wi {
 				return ri > rj // within cap: higher quality is better
 			}
 			return ri < rj // above cap: closer to the cap is better
 		}
+
 		// Soft subtitle-language preference: at equal quality, a release that
 		// advertises the preferred language sorts ahead. Never excludes anything.
-		si, sj := subMatch(candidates[i]), subMatch(candidates[j])
+		si, sj := subMatch(candidates[i].parsed), subMatch(candidates[j].parsed)
 		if si != sj {
 			return si
 		}
-		return candidates[i].Seeds > candidates[j].Seeds
+
+		if rgCfg.mode == "tie-break" {
+			rgi, rgj := releaseGroupRank(candidates[i].parsed.ReleaseGroup, rgCfg.order), releaseGroupRank(candidates[j].parsed.ReleaseGroup, rgCfg.order)
+			if rgi != rgj {
+				return rgi < rgj
+			}
+		}
+
+		return candidates[i].result.Seeds > candidates[j].result.Seeds
 	})
 
-	return &candidates[0]
+	return &candidates[0].result
 }
 
 func (s *IndexerService) matchThreshold() float64 {

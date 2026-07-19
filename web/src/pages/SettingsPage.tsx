@@ -28,6 +28,106 @@ interface CredentialForm {
     confirmPassword: string
 }
 
+const RELEASE_GROUPS = [
+    "SubsPlease", "Erai-raws", "ASW", "Judas", "EMBER",
+    "Yameii", "Golumpa", "Nekomoe kissaten", "ToxicRUS", "Baws", "HorribleSubs",
+]
+
+function ReleaseGroupReorder({
+    value,
+    onChange,
+}: {
+    value: string
+    onChange: (v: string) => void
+}) {
+    const order = useMemo(() => {
+        return value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []
+    }, [value])
+
+    const available = useMemo(() => RELEASE_GROUPS.filter((g) => !order.includes(g)), [order])
+
+    const moveUp = (index: number) => {
+        if (index === 0) return
+        const next = [...order]
+        ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+        onChange(next.join(","))
+    }
+
+    const moveDown = (index: number) => {
+        if (index === order.length - 1) return
+        const next = [...order]
+        ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+        onChange(next.join(","))
+    }
+
+    const remove = (index: number) => {
+        const next = [...order]
+        next.splice(index, 1)
+        onChange(next.join(","))
+    }
+
+    const add = (group: string) => {
+        onChange([...order, group].join(","))
+    }
+
+    return (
+        <div>
+            {order.length === 0 && (
+                <Text size="sm" c="dimmed" fs="italic" mb={8}>
+                    No preferred groups configured. Normal ranking applies.
+                </Text>
+            )}
+            <Stack gap={4}>
+                {order.map((group, i) => (
+                    <Group
+                        key={group}
+                        justify="space-between"
+                        p="xs"
+                        style={{ borderRadius: 4, border: "1px solid var(--mantine-color-gray-3)" }}
+                    >
+                        <Group gap="xs">
+                            <Text size="sm" c="dimmed" w={20}>
+                                {i + 1}.
+                            </Text>
+                            <Text size="sm">{group}</Text>
+                        </Group>
+                        <Group gap={4}>
+                            <Button size="compact-xs" variant="subtle" disabled={i === 0} onClick={() => moveUp(i)}>
+                                ▲
+                            </Button>
+                            <Button size="compact-xs" variant="subtle" disabled={i === order.length - 1} onClick={() => moveDown(i)}>
+                                ▼
+                            </Button>
+                            <Button size="compact-xs" variant="subtle" color="red" onClick={() => remove(i)}>
+                                ✕
+                            </Button>
+                        </Group>
+                    </Group>
+                ))}
+            </Stack>
+            {available.length > 0 && (
+                <>
+                    <Text size="xs" c="dimmed" mt={8} mb={4}>
+                        Add group:
+                    </Text>
+                    <Group gap={4}>
+                        {available.map((group) => (
+                            <Badge
+                                key={group}
+                                variant="outline"
+                                style={{ cursor: "pointer" }}
+                                onClick={() => add(group)}
+                            >
+                                + {group}
+                            </Badge>
+                        ))}
+                    </Group>
+                </>
+            )}
+        </div>
+    )
+}
+
 const SECTION_DESCRIPTIONS: Record<string, string> = {
     "General settings": "Configure the application-wide behavior.",
     "Developer options": "These options are intended for development and testing only.",
@@ -50,6 +150,22 @@ function SettingField({
     initialValue: string
     onChange: (v: string) => void
 }) {
+    if (def.widget === "reorder") {
+        return (
+            <div>
+                <Text size="sm" fw={500} mb={4}>
+                    {def.label}
+                </Text>
+                {def.description && (
+                    <Text size="sm" c="dimmed" mb={8}>
+                        {def.description}
+                    </Text>
+                )}
+                <ReleaseGroupReorder value={value} onChange={onChange} />
+            </div>
+        )
+    }
+
     switch (def.type) {
         case "bool":
             return (

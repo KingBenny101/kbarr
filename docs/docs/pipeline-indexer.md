@@ -104,8 +104,23 @@ After the provider returns results, `buildMatchLog` and `pickBest` apply a secon
 **pickBest** — from passing results:
 1. Removes blacklisted torrents
 2. Drops results above the `preferredQuality` cap (e.g. drops 4K if preference is 1080p)
-3. Sorts by quality rank descending, then seeder count descending
+3. Sorts by quality rank, subtitle language, release-group preference, and seeder count (order depends on `releaseGroupPriorityMode`)
 4. Returns the top entry
+
+### Release group preference ranking
+
+Two settings control release-group-based ordering:
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `releaseGroupPreferenceOrder` | comma-separated string | All 11 canonical groups | Ordered list of preferred release groups. First = most preferred. `Anime Time` is accepted as an alias for `ASW`. |
+| `releaseGroupPriorityMode` | enum | `tie-break` | How strongly the group preference is applied. |
+
+**Tie-break mode** (default): The configured group order is compared only when quality rank and subtitle language are equal, acting as a tiebreaker before seeders. Releases from preferred groups are favoured but never outrank a higher-quality release or one with a matching subtitle.
+
+**Strong mode**: The configured group order is compared immediately after the quality-cap gate, before quality rank itself. A preferred-group release can outrank a higher-quality release from a non-preferred group. The quality cap still applies (e.g. 4K is excluded if preference is `1080p`).
+
+**Fallback**: When no candidate matches any configured group, or the preference list is empty, the existing quality → subtitle → seeders ordering applies unchanged. Unknown/missing release groups are always placed after all preferred groups.
 
 ## Key packages
 
