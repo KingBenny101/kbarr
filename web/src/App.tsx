@@ -77,7 +77,9 @@ function PageShell({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <AppShell
+        <>
+            <style>{`@keyframes kb-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+            <AppShell
             header={{ height: 56 }}
             navbar={{ width: 260, breakpoint: "sm", collapsed: { mobile: !opened } }}
             padding="md"
@@ -117,7 +119,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
                                     : to
                                 const active = match ? match(pathname) : pathname === to
                                 return (
-                                    <NavLink key={to} component={Link} to={resolvedTo} label={label} leftSection={icon} active={active} variant={active ? "filled" : "subtle"} color="gray" styles={{ root: { borderRadius: 'var(--mantine-radius-xl)' } }} onClick={close} />
+                                    <NavLink key={to} component={Link} to={resolvedTo} label={label} leftSection={icon} active={active} variant={active ? "filled" : "subtle"} color="yellow" styles={{ root: { borderRadius: 'var(--mantine-radius-xl)' } }} onClick={close} />
                                 )
                             })}
                         </div>
@@ -130,8 +132,13 @@ function PageShell({ children }: { children: React.ReactNode }) {
                 </AppShell.Section>
             </AppShell.Navbar>
 
-            <AppShell.Main>{children}</AppShell.Main>
+            <AppShell.Main>
+                <div key={pathname} style={{ animation: "kb-fade-in 0.15s ease-out" }}>
+                    {children}
+                </div>
+            </AppShell.Main>
         </AppShell>
+        </>
     )
 }
 
