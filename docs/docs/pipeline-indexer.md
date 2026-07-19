@@ -116,11 +116,11 @@ Two settings control release-group-based ordering:
 | `releaseGroupPreferenceOrder` | comma-separated string | All 11 canonical groups | Ordered list of preferred release groups. First = most preferred. `Anime Time` is accepted as an alias for `ASW`. |
 | `releaseGroupPriorityMode` | enum | `tie-break` | How strongly the group preference is applied. |
 
-**Tie-break mode** (default): The configured group order is compared only when quality rank and subtitle language are equal, acting as a tiebreaker before seeders. Releases from preferred groups are favoured but never outrank a higher-quality release or one with a matching subtitle.
+**Tie-break mode** (default): Compares the configured group order only when quality rank and subtitle language are equal, acting as a tiebreaker before seeders. Releases from preferred groups are favoured but do not outrank a higher-quality release or one with a matching subtitle.
 
-**Strong mode**: The configured group order is compared immediately after the quality-cap gate, before quality rank itself. A preferred-group release can outrank a higher-quality release from a non-preferred group. The quality cap still applies (e.g. 4K is excluded if preference is `1080p`).
+**Strong mode**: Compares the configured group order immediately after the quality-cap gate, before quality rank itself. A preferred-group release can outrank a higher-quality release from a non-preferred group. The quality cap still applies (e.g. 4K excluded if preference is `1080p`).
 
-**Fallback**: When no candidate matches any configured group, or the preference list is empty, the existing quality → subtitle → seeders ordering applies unchanged. Unknown/missing release groups are always placed after all preferred groups.
+**Fallback**: When no candidate matches any configured group or the preference list is empty, the existing quality → subtitle → seeders ordering applies unchanged. Unknown or missing release groups sit after all preferred groups.
 
 ## Key packages
 

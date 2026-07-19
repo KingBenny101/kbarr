@@ -4,7 +4,7 @@
   <img src="docs/static/img/logo.svg" alt="kbarr" width="96" />
 </p>
 
-> **Disclaimer:** This is a hobby project built entirely using AI (Claude) without human-written code. It works for personal use but is not actively maintained as an open-source project. Use at your own risk — issues may or may not be addressed.
+> **Disclaimer:** A hobby project built with AI (Claude), no human-written code. Works for personal use, not actively maintained. Use at your own risk. Issues might go unaddressed.
 
 ---
 

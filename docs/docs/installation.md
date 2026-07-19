@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # Installation
 
-This guide walks through setting up kbarr from scratch. No prior Docker experience is assumed.
+Setting up kbarr from scratch. No Docker experience required.
 
 ---
 
@@ -49,11 +49,11 @@ Open `.env` in a text editor. The only value you **must** set is `LIBRARY_DIR_HO
 LIBRARY_DIR_HOST=/path/to/your/library
 ```
 
-Everything else has sensible defaults and can be left alone to get started.
+Everything else has defaults you can leave alone.
 
 ### Library path explained
 
-kbarr uses **hardlinks** to organise finished downloads without duplicating files. Hardlinks only work when the source and destination are on the same filesystem — this is why everything lives under one shared folder:
+kbarr organises finished downloads with **hardlinks**, avoiding file duplication. Hardlinks only work when source and destination share a filesystem, so everything lives under one folder:
 
 ```
 /your/library/
@@ -61,10 +61,10 @@ kbarr uses **hardlinks** to organise finished downloads without duplicating file
 └── media/        ← kbarr writes organised files here
 ```
 
-Both paths must be on the **same disk**. If they are on different disks, kbarr will fall back to copying files instead.
+Both paths must be on the **same disk**. On different disks, kbarr copies files instead.
 
 :::tip
-If you are running on a NAS or mounting an external drive, make sure `LIBRARY_DIR_HOST` points to a path on that drive. Don't split `downloads/` and `media/` across different mounts.
+Running on a NAS or external drive? Point `LIBRARY_DIR_HOST` to a path on that drive. Don't split `downloads/` and `media/` across mounts.
 :::
 
 ---
@@ -97,7 +97,7 @@ AniDB rate-limits API access strictly. kbarr handles this automatically with pac
 
 ## 6. Set up a torrent indexer
 
-kbarr currently supports **kbdex** and **Prowlarr** as torrent indexers. Support for additional indexers can be added in the future. You can use **kbdex**, **Prowlarr**, or both.
+kbarr supports **kbdex** and **Prowlarr** as torrent indexers. Use either or both.
 
 ### Option A — kbdex (recommended)
 
@@ -123,7 +123,7 @@ You can enable both at the same time — kbarr merges results from all active pr
 
 ## 7. Set up a download client
 
-kbarr currently supports **qBittorrent** as a download client. Support for additional clients can be added in the future.
+kbarr supports **qBittorrent** as a download client.
 
 ### qBittorrent
 

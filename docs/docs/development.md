@@ -5,7 +5,7 @@ sidebar_position: 2
 
 # Development Setup
 
-This page is for contributors and anyone who wants to run kbarr from source.
+For contributors and anyone running kbarr from source.
 
 ---
 

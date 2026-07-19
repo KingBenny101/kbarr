@@ -104,7 +104,7 @@ Update monitor: status = 'downloaded'
 
 ## Stall detection
 
-For each downloading entry, the downloader records `progress_updated_at` whenever progress changes. If `stallTimeout` seconds pass with no progress change, the torrent is considered stalled:
+For each downloading entry, the downloader records `progress_updated_at` on progress change. After `stallTimeout` seconds with no change, the torrent is considered stalled:
 
 1. Torrent hash added to `torrent_blacklist`
 2. Torrent deleted from qBittorrent
@@ -115,10 +115,10 @@ Set `stallTimeout = 0` to disable stall detection entirely.
 
 ## Hardlink vs copy
 
-Files are organised with `os.Link` (hardlinks), not copies or symlinks. This means:
-- Zero extra disk space used
-- The original torrent file in the download directory and the organised file in the media directory are the same inode
-- **Source and destination must be on the same filesystem** — if `downloadPath` and `mediaPath` are on different volumes this will fail silently
+kbarr organises files with `os.Link` (hardlinks), not copies or symlinks. This means:
+- Zero extra disk space
+- The original torrent file and the organised file share the same inode
+- **Source and destination must be on the same filesystem**: if `downloadPath` and `mediaPath` are on different volumes this fails silently
 
 ## Key packages
 

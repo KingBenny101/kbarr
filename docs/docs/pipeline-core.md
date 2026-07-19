@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # Core service pipeline
 
-The core service is the central hub. It owns the database, exposes the REST API consumed by the frontend, and runs the availability scanner.
+The core service owns the database, exposes the REST API consumed by the frontend, and runs the availability scanner.
 
 ## Startup
 
@@ -37,19 +37,19 @@ The core service does not talk to qBittorrent or torrent indexers directly — t
 
 ## Availability scanner
 
-Runs continuously in the background every `availabilityCheckInterval` seconds (default 60 s). To stay cheap on large libraries it caches each show folder's directory listing keyed by mtime, so a cycle where nothing changed on disk re-reads no directories. Each cycle has three phases:
+Runs every `availabilityCheckInterval` seconds (default 60 s). Caches each show folder's directory listing keyed by mtime, so a cycle with no disk changes reads no directories. Each cycle has three phases:
 
 **Phase 1 — mark available**
 
-Indexes `media` rows by sanitized `media_folder` (and title, as a fallback) to a `library_id`, then walks `mediaPath` one level deep. Each subdirectory is resolved to a single library; files inside are parsed for an episode number (the `SxxExx` pattern, then the anitogo parser for absolute numbering). Matching is **season-agnostic** — the folder already scopes the show, so a monitor resolves via `{library_id, episode}` and sets `available = true`. Because each anime season is its own `media` row and folder, the season digit in the filename (often an unreliable `S01` for sequels) is intentionally ignored. Folder names that map to two libraries are flagged ambiguous and skipped.
+Indexes `media` rows by sanitized `media_folder` (and title, as a fallback) to a `library_id`, then walks `mediaPath` one level deep. Each subdirectory is resolved to a single library; files inside are parsed for an episode number (the `SxxExx` pattern, then the anitogo parser for absolute numbering). Matching is **season-agnostic**: the folder already scopes the show, so a monitor resolves via `{library_id, episode}` and sets `available = true`. Because each anime season is its own `media` row and folder, the season digit in the filename (often an unreliable `S01` for sequels) is intentionally ignored. Folder names mapping to two libraries are flagged ambiguous and skipped.
 
 **Phase 2 — clear stale available flags**
 
-For every monitor currently marked `available = true`, checks whether its file is still present. If gone and the status was `downloaded` (kbarr placed it there), the status resets to `missing` — not `pending` — so the indexer's `missingRetryInterval` throttles the re-search instead of re-queuing every cycle. Otherwise it is simply marked unavailable.
+For every monitor marked `available = true`, checks whether its file is still present. If gone and the status was `downloaded` (kbarr placed it there), the status resets to `missing`, not `pending` — so the indexer's `missingRetryInterval` throttles re-search instead of re-queuing every cycle. Otherwise it is marked unavailable.
 
 **Phase 3 — sync season monitors**
 
-Counts total vs. available episode monitors per `library_id`. If all episodes are available, the season monitor is marked `downloaded`. If incomplete, it is reset to `missing` (again, to avoid an immediate re-queue loop).
+Counts total vs. available episode monitors per `library_id`. If all episodes are available, the season monitor marks `downloaded`. If incomplete, it resets to `missing` (avoiding an immediate re-queue loop).
 
 ## Key packages
 

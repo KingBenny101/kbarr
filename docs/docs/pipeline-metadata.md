@@ -5,7 +5,7 @@ sidebar_position: 2
 
 # Metadata service pipeline
 
-The metadata service is the only component that talks to AniDB. It resolves anime titles, fetches episode lists, and caches everything locally so the rest of the stack never hits AniDB directly.
+The metadata service is the only component that talks to AniDB. It resolves anime titles, fetches episode lists, and caches locally so the rest of the stack avoids direct AniDB calls.
 
 ## Startup
 
@@ -49,7 +49,7 @@ Fetch full anime details from AniDB HTTP API
   └── Response cached to disk (KBARR_DATA_DIR/metadata/details/)
       │
       ▼
-Fetch poster image → cached to disk (metadata/images/)
+Fetch poster image, cached to disk (metadata/images/)
       │
       ▼
 Return PreparedMedia {title, poster_url, episodes[], alternate_titles[]}
@@ -60,7 +60,7 @@ Core inserts media + detailed + episodes rows into PostgreSQL
 
 ## Search flow (`GET /search?q=`)
 
-Used by the frontend search bar — searches the local title index, never AniDB live.
+Used by the frontend search bar. Searches the local title index, not AniDB live.
 
 ```
 GET /search?q=steins gate

@@ -5,9 +5,7 @@ sidebar_position: 3
 
 # Acknowledgements
 
-kbarr is built on top of a lot of generous third-party work — public APIs, shared
-data sets, service integrations, and open-source libraries. This page credits
-them.
+Credits the third-party work kbarr depends on: public APIs, shared data sets, service integrations, and open-source libraries.
 
 ---
 
