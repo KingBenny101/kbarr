@@ -170,23 +170,19 @@ function ReleaseGroupReorder({
     value: string
     onChange: (v: string) => void
 }) {
+    const [dragIndex, setDragIndex] = useState<number | null>(null)
+    const [overIndex, setOverIndex] = useState<number | null>(null)
+
     const order = useMemo(() => {
         return value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []
     }, [value])
 
     const available = useMemo(() => RELEASE_GROUPS.filter((g) => !order.includes(g)), [order])
 
-    const moveUp = (index: number) => {
-        if (index === 0) return
+    const moveItem = (from: number, to: number) => {
         const next = [...order]
-        ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
-        onChange(next.join(","))
-    }
-
-    const moveDown = (index: number) => {
-        if (index === order.length - 1) return
-        const next = [...order]
-        ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+        const [moved] = next.splice(from, 1)
+        next.splice(to, 0, moved)
         onChange(next.join(","))
     }
 
@@ -211,9 +207,24 @@ function ReleaseGroupReorder({
                 {order.map((group, i) => (
                     <Group
                         key={group}
+                        draggable
                         justify="space-between"
                         p="xs"
-                        style={{ borderRadius: 4, border: "1px solid var(--mantine-color-gray-3)" }}
+                        style={{
+                            borderRadius: 4,
+                            border: "1px solid var(--mantine-color-gray-3)",
+                            cursor: "grab",
+                            opacity: dragIndex === i ? 0.4 : 1,
+                            borderColor: overIndex === i ? "var(--mantine-color-blue-5)" : "var(--mantine-color-gray-3)",
+                            transition: "border-color 0.15s",
+                        }}
+                        onDragStart={() => setDragIndex(i)}
+                        onDragOver={(e) => { e.preventDefault(); setOverIndex(i) }}
+                        onDrop={() => {
+                            if (dragIndex !== null && dragIndex !== i) moveItem(dragIndex, i)
+                            setDragIndex(null); setOverIndex(null)
+                        }}
+                        onDragEnd={() => { setDragIndex(null); setOverIndex(null) }}
                     >
                         <Group gap="xs">
                             <Text size="sm" c="dimmed" w={20}>
@@ -221,17 +232,9 @@ function ReleaseGroupReorder({
                             </Text>
                             <Text size="sm">{group}</Text>
                         </Group>
-                        <Group gap={4}>
-                            <Button size="compact-xs" variant="subtle" disabled={i === 0} onClick={() => moveUp(i)}>
-                                ▲
-                            </Button>
-                            <Button size="compact-xs" variant="subtle" disabled={i === order.length - 1} onClick={() => moveDown(i)}>
-                                ▼
-                            </Button>
-                            <Button size="compact-xs" variant="subtle" color="red" onClick={() => remove(i)}>
-                                ✕
-                            </Button>
-                        </Group>
+                        <Button size="compact-xs" variant="subtle" color="red" onClick={() => remove(i)}>
+                            ✕
+                        </Button>
                     </Group>
                 ))}
             </Stack>
