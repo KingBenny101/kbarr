@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core"
+import { useMediaQuery } from "@mantine/hooks"
 import { IconChevronDown, IconChevronUp, IconSelector, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 import { API_URL, apiFetch, showToast } from "@/utils"
@@ -64,6 +65,7 @@ export function MonitorPage() {
     const [sortField, setSortField] = useState<SortField>("status")
     const [sortDir, setSortDir] = useState<SortDir>("asc")
     const [activeStatus, setActiveStatus] = useState<StatusFilter>("active")
+    const isMobile = useMediaQuery("(max-width: 768px)")
     const itemsPerPage = 9
 
     const fetchMonitors = async () => {
@@ -173,80 +175,120 @@ export function MonitorPage() {
                         </Group>
                     </Group>
 
-                    <ScrollArea type="auto">
-                        <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md" style={{ tableLayout: "fixed" }}>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th w="30%">
-                                        <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Anime <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th w={80}>
-                                        <UnstyledButton onClick={() => toggleSort("type")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Type <SortIcon field="type" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th w="30%">Details</Table.Th>
-                                    <Table.Th w={100}>
-                                        <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th w={100}>Quality</Table.Th>
-                                    <Table.Th w={120}>Subtitles</Table.Th>
-                                    <Table.Th w={72} />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {loading ? (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={7}><Text ta="center" py="md">Loading...</Text></Table.Td>
-                                    </Table.Tr>
-                                ) : filtered.length === 0 ? (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={7}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
-                                    </Table.Tr>
-                                ) : (
-                                    currentMonitors.map((entry) => (
-                                        <Table.Tr key={entry.ID}>
-                                            <Table.Td fw={700}>
-                                                <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate>
+                    {isMobile ? (
+                        <Stack gap="xs">
+                            {loading ? (
+                                <Text ta="center" py="md">Loading...</Text>
+                            ) : filtered.length === 0 ? (
+                                <Text ta="center" py="md" c="dimmed">No items match the current filter.</Text>
+                            ) : (
+                                currentMonitors.map((entry) => (
+                                    <Card withBorder radius="md" p="sm" key={entry.ID}>
+                                        <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                            <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                                                <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
+                                                <Text component={Link} to={`/media/${entry.library_id}`} fw={700} size="sm" lineClamp={1}>
                                                     {entry.title}
                                                 </Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
-                                            </Table.Td>
-                                            <Table.Td c="dimmed">
-                                                <Text truncate>
-                                                    {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
+                                            </Group>
+                                            <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
+                                                <IconTrash size={16} />
+                                            </ActionIcon>
+                                        </Group>
+                                        {!entry.is_season && (
+                                            <Text size="xs" c="dimmed" mt={2}>
+                                                E{entry.episode_number}: {entry.episode_title}
+                                            </Text>
+                                        )}
+                                        <Group gap="xs" mt={4}>
+                                            <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
+                                            {entry.quality && <Text size="xs" c="dimmed">{entry.quality.toUpperCase()}</Text>}
+                                            {entry.subtitles && (
+                                                <Text size="xs" c="dimmed">
+                                                    {entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ")}
                                                 </Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
-                                            </Table.Td>
-                                            <Table.Td c={entry.quality ? undefined : "dimmed"}>
-                                                <Text truncate>
-                                                    {entry.quality ? entry.quality.toUpperCase() : "—"}
-                                                </Text>
-                                            </Table.Td>
-                                            <Table.Td c={entry.subtitles ? undefined : "dimmed"}>
-                                                <Text truncate>
-                                                    {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
-                                                </Text>
-                                            </Table.Td>
-                                            <Table.Td ta="right">
-                                                <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
-                                                    <IconTrash size={18} />
-                                                </ActionIcon>
-                                            </Table.Td>
+                                            )}
+                                        </Group>
+                                    </Card>
+                                ))
+                            )}
+                        </Stack>
+                    ) : (
+                        <ScrollArea type="auto">
+                            <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md" style={{ tableLayout: "fixed" }}>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th w="30%">
+                                            <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Anime <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th w={80}>
+                                            <UnstyledButton onClick={() => toggleSort("type")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Type <SortIcon field="type" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th w="30%">Details</Table.Th>
+                                        <Table.Th w={100}>
+                                            <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th w={100}>Quality</Table.Th>
+                                        <Table.Th w={120}>Subtitles</Table.Th>
+                                        <Table.Th w={72} />
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {loading ? (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={7}><Text ta="center" py="md">Loading...</Text></Table.Td>
                                         </Table.Tr>
-                                    ))
-                                )}
-                            </Table.Tbody>
-                        </Table>
-                    </ScrollArea>
+                                    ) : filtered.length === 0 ? (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={7}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
+                                        </Table.Tr>
+                                    ) : (
+                                        currentMonitors.map((entry) => (
+                                            <Table.Tr key={entry.ID}>
+                                                <Table.Td fw={700}>
+                                                    <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate>
+                                                        {entry.title}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
+                                                </Table.Td>
+                                                <Table.Td c="dimmed">
+                                                    <Text truncate>
+                                                        {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
+                                                </Table.Td>
+                                                <Table.Td c={entry.quality ? undefined : "dimmed"}>
+                                                    <Text truncate>
+                                                        {entry.quality ? entry.quality.toUpperCase() : "—"}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td c={entry.subtitles ? undefined : "dimmed"}>
+                                                    <Text truncate>
+                                                        {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td ta="right">
+                                                    <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
+                                                        <IconTrash size={18} />
+                                                    </ActionIcon>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))
+                                    )}
+                                </Table.Tbody>
+                            </Table>
+                        </ScrollArea>
+                    )}
 
                     {totalPages > 1 && (
                         <Group justify="space-between" align="center">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useMediaQuery } from "@mantine/hooks"
 import { useNavigate, useParams } from "react-router-dom"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
@@ -662,10 +663,57 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
     onUnmonitor: (episode: Episode) => void
 }) {
     const hasLinks = episodes.some((e) => episodeSourceUrl(e) !== null)
+    const isMobile = useMediaQuery("(max-width: 768px)")
 
     const SortIndicator = ({ field }: { field: SortField }) => {
         if (sortField !== field) return <Text span c="dimmed" size="xs"> ↕</Text>
         return <Text span size="xs"> {sortDir === "asc" ? "↑" : "↓"}</Text>
+    }
+
+    if (isMobile) {
+        return (
+            <Stack gap="xs">
+                {episodes.length === 0 ? (
+                    <Text ta="center" py="md" c="dimmed">No episodes found.</Text>
+                ) : (
+                    episodes.map((episode) => {
+                        const monitorEntry = monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
+                        const available = monitorEntry?.available === true
+                        const monitored = monitorEntry?.monitored === true
+                        const quality = monitorEntry?.quality?.toUpperCase() || ""
+                        const subtitles = (monitorEntry?.subtitles || "").split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ")
+                        const link = episodeSourceUrl(episode)
+                        return (
+                            <Card withBorder radius="md" p="sm" key={episode.ID}>
+                                <Group justify="space-between" align="center" wrap="nowrap">
+                                    <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                                        <Text fw={700} size="sm">{episode.ep_no}</Text>
+                                        <Text size="sm" truncate>{episode.title}</Text>
+                                    </Group>
+                                    <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
+                                </Group>
+                                <Group gap="xs" mt={4}>
+                                    <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
+                                    {quality && <Text size="xs" c="dimmed">{quality}</Text>}
+                                    {subtitles && <Text size="xs" c="dimmed">{subtitles}</Text>}
+                                    <div style={{ flex: 1 }} />
+                                    <StatusPill
+                                        label={monitored ? "Monitored" : "Not monitored"}
+                                        tone={monitored ? "green" : "gray"}
+                                        onClick={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                    />
+                                    {link && (
+                                        <Anchor href={link} target="_blank" rel="noreferrer" c="gray">
+                                            <IconExternalLink size={14} />
+                                        </Anchor>
+                                    )}
+                                </Group>
+                            </Card>
+                        )
+                    })
+                )}
+            </Stack>
+        )
     }
 
     return (

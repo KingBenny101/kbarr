@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Group, Modal, Pagination, Progress, ScrollArea, Stack, Table, Text, TextInput, Title, Tooltip, UnstyledButton } from "@mantine/core"
+import { useMediaQuery } from "@mantine/hooks"
 import { IconChevronDown, IconChevronUp, IconExternalLink, IconLink, IconSearch, IconSelector, IconTrash } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { usePolling } from "@/hooks"
@@ -72,6 +73,7 @@ export function DownloadsPage() {
     const [sortDir, setSortDir] = useState<SortDir>("desc")
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 15
+    const isMobile = useMediaQuery("(max-width: 768px)")
 
     const handleTrigger = async () => {
         setTriggering(true)
@@ -283,121 +285,171 @@ export function DownloadsPage() {
                         onChange={(e) => { setSearch(e.currentTarget.value); setCurrentPage(1) }}
                     />
 
-                    <ScrollArea type="auto">
-                        <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>
-                                        <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Media <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th>Torrent name</Table.Th>
-                                    <Table.Th>Indexer</Table.Th>
-                                    <Table.Th>
-                                        <UnstyledButton onClick={() => toggleSort("size")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Size <SortIcon field="size" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th>
-                                        <UnstyledButton onClick={() => toggleSort("seeders")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Seeders <SortIcon field="seeders" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th>Hash</Table.Th>
-                                    <Table.Th>
-                                        <UnstyledButton onClick={() => toggleSort("added")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Added <SortIcon field="added" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th>
-                                        <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                            Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
-                                        </UnstyledButton>
-                                    </Table.Th>
-                                    <Table.Th w={72} />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {loading ? (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={9}>
-                                            <Text ta="center" py="md">Loading queue...</Text>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ) : filtered.length === 0 ? (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={9}>
-                                            <Text ta="center" py="md" c="dimmed">
-                                                {queue.length === 0 ? "Download queue is empty." : "No items match the current filter."}
-                                            </Text>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ) : (
-                                    visible.map((item) => (
-                                        <Table.Tr key={item.id}>
-                                            <Table.Td fw={700} style={{ maxWidth: 220 }}>
-                                                <Tooltip label={item.title ?? "—"} disabled={!item.title} openDelay={400}>
-                                                    <Text size="sm" fw={700} truncate="end">{item.title ?? "—"}</Text>
-                                                </Tooltip>
-                                            </Table.Td>
-                                            <Table.Td style={{ maxWidth: 320 }}>
-                                                <Tooltip label={item.torrent_name ?? "—"} multiline maw={420} disabled={!item.torrent_name} openDelay={400}>
-                                                    {item.torrent_url ? (
-                                                        <Anchor href={item.torrent_url} target="_blank" rel="noreferrer" c="gray">
-                                                            <Group gap={4} wrap="nowrap">
-                                                                <IconExternalLink size={14} style={{ flexShrink: 0 }} />
-                                                                <Text size="sm" truncate="end">{item.torrent_name ?? "Link"}</Text>
-                                                            </Group>
-                                                        </Anchor>
-                                                    ) : <Text c="dimmed" size="sm" truncate="end">{item.torrent_name ?? "—"}</Text>}
-                                                </Tooltip>
-                                            </Table.Td>
-                                            <Table.Td style={{ whiteSpace: "nowrap" }}>
-                                                <Text size="sm">{item.indexer ?? "—"}</Text>
-                                            </Table.Td>
-                                            <Table.Td style={{ whiteSpace: "nowrap" }}>
-                                                <Text size="sm" c="dimmed">{item.size ? formatBytes(item.size) : "—"}</Text>
-                                            </Table.Td>
-                                            <Table.Td ta="center">
-                                                <Text size="sm">{item.seeders ?? "—"}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="sm" c="dimmed" style={{ fontFamily: "monospace" }}>
-                                                    {item.torrent_hash ? item.torrent_hash.slice(0, 12) + "…" : "—"}
-                                                </Text>
-                                            </Table.Td>
-                                            <Table.Td c="dimmed" style={{ whiteSpace: "nowrap" }}>
-                                                {new Date(item.created_at).toLocaleString()}
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Stack gap={4}>
-                                                    <StatusPill label={item.status ?? "unknown"} tone={statusTone(item.status)} />
-                                                    {item.status === "downloading" && (
-                                                        <Progress value={(item.progress ?? 0) * 100} size="xs" color="blue" />
-                                                    )}
-                                                </Stack>
-                                            </Table.Td>
-                                            <Table.Td ta="right">
-                                                <Group gap={4} justify="flex-end" wrap="nowrap">
-                                                    {item.status === "completed" && (
-                                                        <Tooltip label="Retry hardlink creation">
-                                                            <ActionIcon variant="subtle" color="blue" onClick={() => handleRetryHardlinks(item)} aria-label="Retry hardlinks">
-                                                                <IconLink size={18} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
-                                                    )}
-                                                    <ActionIcon variant="subtle" color="red" onClick={() => openDeleteModal(item)} aria-label="Remove from queue">
-                                                        <IconTrash size={18} />
+                    {isMobile ? (
+                        <Stack gap="xs">
+                            {loading ? (
+                                <Text ta="center" py="md">Loading queue...</Text>
+                            ) : filtered.length === 0 ? (
+                                <Text ta="center" py="md" c="dimmed">
+                                    {queue.length === 0 ? "Download queue is empty." : "No items match the current filter."}
+                                </Text>
+                            ) : (
+                                visible.map((item) => (
+                                    <Card withBorder radius="md" p="sm" key={item.id}>
+                                        <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                            <Text fw={700} size="sm" lineClamp={1} style={{ flex: 1 }}>{item.title ?? "—"}</Text>
+                                            <Group gap={4} wrap="nowrap">
+                                                {item.status === "completed" && (
+                                                    <ActionIcon variant="subtle" color="blue" size="sm" onClick={() => handleRetryHardlinks(item)} aria-label="Retry hardlinks">
+                                                        <IconLink size={16} />
                                                     </ActionIcon>
+                                                )}
+                                                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => openDeleteModal(item)} aria-label="Remove from queue">
+                                                    <IconTrash size={16} />
+                                                </ActionIcon>
+                                            </Group>
+                                        </Group>
+                                        {item.torrent_url ? (
+                                            <Anchor href={item.torrent_url} target="_blank" rel="noreferrer" c="gray" size="xs">
+                                                <Group gap={4} wrap="nowrap">
+                                                    <IconExternalLink size={12} />
+                                                    <Text size="xs" truncate>{item.torrent_name ?? "Link"}</Text>
                                                 </Group>
+                                            </Anchor>
+                                        ) : (
+                                            <Text size="xs" c="dimmed" truncate>{item.torrent_name ?? "—"}</Text>
+                                        )}
+                                        {item.status === "downloading" && (
+                                            <Progress value={(item.progress ?? 0) * 100} size="sm" color="blue" mt={4} />
+                                        )}
+                                        <Group gap="xs" mt={4}>
+                                            <StatusPill label={item.status ?? "unknown"} tone={statusTone(item.status)} />
+                                            {item.size != null && <Text size="xs" c="dimmed">{formatBytes(item.size)}</Text>}
+                                            {item.seeders != null && <Text size="xs" c="dimmed">{item.seeders} seeders</Text>}
+                                            {item.indexer && <Text size="xs" c="dimmed">{item.indexer}</Text>}
+                                        </Group>
+                                        <Text size="xs" c="dimmed" mt={2}>{new Date(item.created_at).toLocaleString()}</Text>
+                                    </Card>
+                                ))
+                            )}
+                        </Stack>
+                    ) : (
+                        <ScrollArea type="auto">
+                            <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>
+                                            <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Media <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th>Torrent name</Table.Th>
+                                        <Table.Th>Indexer</Table.Th>
+                                        <Table.Th>
+                                            <UnstyledButton onClick={() => toggleSort("size")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Size <SortIcon field="size" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th>
+                                            <UnstyledButton onClick={() => toggleSort("seeders")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Seeders <SortIcon field="seeders" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th>Hash</Table.Th>
+                                        <Table.Th>
+                                            <UnstyledButton onClick={() => toggleSort("added")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Added <SortIcon field="added" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th>
+                                            <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
+                                            </UnstyledButton>
+                                        </Table.Th>
+                                        <Table.Th w={72} />
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {loading ? (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={9}>
+                                                <Text ta="center" py="md">Loading queue...</Text>
                                             </Table.Td>
                                         </Table.Tr>
-                                    ))
-                                )}
-                            </Table.Tbody>
-                        </Table>
-                    </ScrollArea>
+                                    ) : filtered.length === 0 ? (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={9}>
+                                                <Text ta="center" py="md" c="dimmed">
+                                                    {queue.length === 0 ? "Download queue is empty." : "No items match the current filter."}
+                                                </Text>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ) : (
+                                        visible.map((item) => (
+                                            <Table.Tr key={item.id}>
+                                                <Table.Td fw={700} style={{ maxWidth: 220 }}>
+                                                    <Tooltip label={item.title ?? "—"} disabled={!item.title} openDelay={400}>
+                                                        <Text size="sm" fw={700} truncate="end">{item.title ?? "—"}</Text>
+                                                    </Tooltip>
+                                                </Table.Td>
+                                                <Table.Td style={{ maxWidth: 320 }}>
+                                                    <Tooltip label={item.torrent_name ?? "—"} multiline maw={420} disabled={!item.torrent_name} openDelay={400}>
+                                                        {item.torrent_url ? (
+                                                            <Anchor href={item.torrent_url} target="_blank" rel="noreferrer" c="gray">
+                                                                <Group gap={4} wrap="nowrap">
+                                                                    <IconExternalLink size={14} style={{ flexShrink: 0 }} />
+                                                                    <Text size="sm" truncate="end">{item.torrent_name ?? "Link"}</Text>
+                                                                </Group>
+                                                            </Anchor>
+                                                        ) : <Text c="dimmed" size="sm" truncate="end">{item.torrent_name ?? "—"}</Text>}
+                                                    </Tooltip>
+                                                </Table.Td>
+                                                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                                                    <Text size="sm">{item.indexer ?? "—"}</Text>
+                                                </Table.Td>
+                                                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                                                    <Text size="sm" c="dimmed">{item.size ? formatBytes(item.size) : "—"}</Text>
+                                                </Table.Td>
+                                                <Table.Td ta="center">
+                                                    <Text size="sm">{item.seeders ?? "—"}</Text>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Text size="sm" c="dimmed" style={{ fontFamily: "monospace" }}>
+                                                        {item.torrent_hash ? item.torrent_hash.slice(0, 12) + "…" : "—"}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td c="dimmed" style={{ whiteSpace: "nowrap" }}>
+                                                    {new Date(item.created_at).toLocaleString()}
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Stack gap={4}>
+                                                        <StatusPill label={item.status ?? "unknown"} tone={statusTone(item.status)} />
+                                                        {item.status === "downloading" && (
+                                                            <Progress value={(item.progress ?? 0) * 100} size="xs" color="blue" />
+                                                        )}
+                                                    </Stack>
+                                                </Table.Td>
+                                                <Table.Td ta="right">
+                                                    <Group gap={4} justify="flex-end" wrap="nowrap">
+                                                        {item.status === "completed" && (
+                                                            <Tooltip label="Retry hardlink creation">
+                                                                <ActionIcon variant="subtle" color="blue" onClick={() => handleRetryHardlinks(item)} aria-label="Retry hardlinks">
+                                                                    <IconLink size={18} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        )}
+                                                        <ActionIcon variant="subtle" color="red" onClick={() => openDeleteModal(item)} aria-label="Remove from queue">
+                                                            <IconTrash size={18} />
+                                                        </ActionIcon>
+                                                    </Group>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))
+                                    )}
+                                </Table.Tbody>
+                            </Table>
+                        </ScrollArea>
+                    )}
 
                     {totalPages > 1 && (
                         <Group justify="space-between" align="center">
