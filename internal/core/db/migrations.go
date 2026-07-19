@@ -122,6 +122,14 @@ func runMigrations(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_download_queue_status ON download_queue (status) WHERE deleted_at IS NULL`,
 		// download_queue(torrent_hash): per-torrent lookups during progress updates.
 		`CREATE INDEX IF NOT EXISTS idx_download_queue_hash ON download_queue (torrent_hash)`,
+
+		// sessions: DB-persisted auth tokens surviving restarts
+		`CREATE TABLE IF NOT EXISTS sessions (
+			token_hash   TEXT PRIMARY KEY,
+			username     TEXT NOT NULL,
+			created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+			last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
 	}
 
 	for _, stmt := range stmts {

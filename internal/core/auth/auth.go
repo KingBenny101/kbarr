@@ -1,13 +1,15 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
@@ -15,20 +17,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const tokenTTL = 30 * 24 * time.Hour
-
-type session struct {
-	username string
-	expiry   time.Time
-}
+const (
+	tokenTTL       = 30 * 24 * time.Hour
+	absMaxTTL      = 90 * 24 * time.Hour
+	cleanupInterval = 1 * time.Hour
+)
 
 type Store struct {
-	mu       sync.Mutex
-	sessions map[string]session
+	db *bun.DB
 }
 
-func NewStore() *Store {
-	return &Store{sessions: make(map[string]session)}
+func NewStore(db *bun.DB) *Store {
+	return &Store{db: db}
 }
 
 func (s *Store) Issue(username string) (string, error) {
@@ -37,28 +37,62 @@ func (s *Store) Issue(username string) (string, error) {
 		return "", err
 	}
 	token := hex.EncodeToString(b)
-	s.mu.Lock()
-	s.sessions[token] = session{username: username, expiry: time.Now().Add(tokenTTL)}
-	s.mu.Unlock()
+	hash := hashToken(token)
+	now := time.Now()
+	if _, err := s.db.ExecContext(
+		context.Background(),
+		`INSERT INTO sessions (token_hash, username, created_at, last_seen_at) VALUES (?, ?, ?, ?)`,
+		hash, username, now, now,
+	); err != nil {
+		return "", fmt.Errorf("insert session: %w", err)
+	}
 	return token, nil
 }
 
 func (s *Store) Validate(token string) (username string, ok bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	sess, ok := s.sessions[token]
-	if !ok || time.Now().After(sess.expiry) {
-		delete(s.sessions, token)
+	hash := hashToken(token)
+	var sess struct {
+		Username   string    `bun:"username"`
+		CreatedAt  time.Time `bun:"created_at"`
+		LastSeenAt time.Time `bun:"last_seen_at"`
+	}
+	err := s.db.NewSelect().TableExpr("sessions").Column("username", "created_at", "last_seen_at").Where("token_hash = ?", hash).Scan(context.Background(), &sess)
+	if err != nil {
 		return "", false
 	}
-	s.sessions[token] = session{username: sess.username, expiry: time.Now().Add(tokenTTL)}
-	return sess.username, true
+
+	now := time.Now()
+	if now.After(sess.CreatedAt.Add(absMaxTTL)) || now.After(sess.LastSeenAt.Add(tokenTTL)) {
+		s.Revoke(token)
+		return "", false
+	}
+
+	if _, err := s.db.ExecContext(context.Background(), `UPDATE sessions SET last_seen_at = ? WHERE token_hash = ?`, now, hash); err != nil {
+		return "", false
+	}
+	return sess.Username, true
 }
 
 func (s *Store) Revoke(token string) {
-	s.mu.Lock()
-	delete(s.sessions, token)
-	s.mu.Unlock()
+	hash := hashToken(token)
+	s.db.ExecContext(context.Background(), `DELETE FROM sessions WHERE token_hash = ?`, hash)
+}
+
+func (s *Store) CleanupExpired(ctx context.Context) {
+	ticker := time.NewTicker(cleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			s.db.ExecContext(ctx,
+				`DELETE FROM sessions WHERE last_seen_at < ? OR created_at < ?`,
+				now.Add(-tokenTTL), now.Add(-absMaxTTL),
+			)
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (s *Store) Middleware(next http.Handler) http.Handler {
@@ -83,13 +117,11 @@ func (s *Store) UsernameFromRequest(r *http.Request) string {
 	return username
 }
 
-// EnvAuth returns the credentials configured via environment and whether the
-// environment override is active. When KBARR_AUTH_PASSWORD is set, kbarr
-// authenticates solely against these values and the stored credentials are
-// ignored — this is the declarative-config / lockout-recovery path: a forgotten
-// password is fixed by editing the environment and restarting, never an
-// unrecoverable state. The username defaults to "admin" when only the password
-// is supplied, so a half-configured environment can't lock the user out.
+func hashToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
 func EnvAuth() (username, password string, active bool) {
 	password = os.Getenv("KBARR_AUTH_PASSWORD")
 	if password == "" {
@@ -117,9 +149,6 @@ func EnsureDefaults(db *bun.DB) error {
 }
 
 func ValidateCredentials(db *bun.DB, username, password string) bool {
-	// Environment override wins outright: the stored hash is never consulted while
-	// it is active. A plaintext compare is fine (and constant-time here) because
-	// the env value is itself the secret — there is nothing to slow-hash.
 	if envUser, envPass, active := EnvAuth(); active {
 		return strings.EqualFold(username, envUser) &&
 			subtle.ConstantTimeCompare([]byte(password), []byte(envPass)) == 1
@@ -133,8 +162,6 @@ func ValidateCredentials(db *bun.DB, username, password string) bool {
 }
 
 func UpdateCredentials(db *bun.DB, currentPassword, newUsername, newPassword string) error {
-	// While the environment override is active the stored credentials are inert,
-	// so changing them from the UI would be misleading — reject it outright.
 	if _, _, active := EnvAuth(); active {
 		return &ErrEnvManaged{}
 	}
@@ -163,8 +190,6 @@ type ErrUnauthorized struct{}
 
 func (e *ErrUnauthorized) Error() string { return "invalid current password" }
 
-// ErrEnvManaged signals that credentials are pinned by the environment and
-// cannot be changed through the API.
 type ErrEnvManaged struct{}
 
 func (e *ErrEnvManaged) Error() string { return "credentials are managed via environment variables" }

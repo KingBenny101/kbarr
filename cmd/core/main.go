@@ -28,7 +28,7 @@ func main() {
 	}
 	slog.Info("Initialization complete.")
 
-	authStore := auth.NewStore()
+	authStore := auth.NewStore(db.DB)
 	if err := auth.EnsureDefaults(db.DB); err != nil {
 		slog.Error("Failed to seed auth defaults", "error", err)
 		os.Exit(1)
@@ -58,6 +58,7 @@ func main() {
 
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 	defer bgCancel()
+	go authStore.CleanupExpired(bgCtx)
 	go coreservice.PollAvailability(bgCtx, db.DB)
 	go coreservice.PollMetadataRefresh(bgCtx, metadataClient)
 
