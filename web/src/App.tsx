@@ -88,9 +88,17 @@ function PageShell({ children }: { children: React.ReactNode }) {
                 <Group h="100%" px="md" justify="space-between">
                     <Group gap="sm">
                         <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                        <Text fw={700} size="lg" style={{ lineHeight: 1 }}>
-                            kbarr <Text component="span" size="xs" c="dimmed">v{version}</Text>
-                        </Text>
+                        <Group gap="xs">
+                            <svg width={22} height={22} viewBox="0 0 32 32" fill="none">
+                                <rect width="32" height="32" rx="7" fill="var(--mantine-color-yellow-6)"/>
+                                <polygon points="16,3 26.2,7.9 28.7,18.9 21.6,27.7 10.4,27.7 3.3,18.9 5.8,7.9" fill="none" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+                                <polygon points="21.3,8.7 24.6,18.8 16,25 7.4,18.8 10.7,8.7" fill="none" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+                                <polygon points="16,11 20.3,18.5 11.7,18.5" fill="none" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+                            </svg>
+                            <Text fw={700} size="lg" style={{ lineHeight: 1 }}>
+                                kbarr <Text component="span" size="xs" c="dimmed">v{version}</Text>
+                            </Text>
+                        </Group>
                     </Group>
                     <Group gap="xs">
                         {username && <Text size="sm" c="dimmed">{username}</Text>}
