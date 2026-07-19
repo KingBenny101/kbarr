@@ -6,7 +6,7 @@ import type * as OpenApiPlugin from 'docusaurus-plugin-openapi-docs';
 const config: Config = {
   title: 'kbarr',
   tagline: 'Self-hosted automatic anime torrent downloader.',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo.svg',
 
   url: 'https://kingbenny101.github.io',
   baseUrl: '/kbarr/',
@@ -78,6 +78,10 @@ const config: Config = {
   themeConfig: {
     navbar: {
       title: 'kbarr',
+      logo: {
+        alt: 'kbarr',
+        src: 'img/logo.svg',
+      },
       items: [
         {
           type: 'docSidebar',

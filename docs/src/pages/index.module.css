@@ -8,7 +8,7 @@
   padding: 4rem 1.5rem;
   background: radial-gradient(
     ellipse 80% 60% at 50% 0%,
-    rgba(240, 165, 0, 0.12) 0%,
+    rgba(245, 211, 2, 0.12) 0%,
     transparent 60%
   );
 }
@@ -18,11 +18,15 @@
   max-width: 800px;
 }
 
+.heroLogo {
+  margin-bottom: 1.5rem;
+}
+
 .heroTitle {
   font-size: clamp(3rem, 8vw, 6rem);
   font-weight: 900;
   margin: 0 0 1rem 0;
-  background: linear-gradient(135deg, #f0a500, #fff8e7);
+  background: linear-gradient(135deg, var(--ifm-color-primary), #fff8e7);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
@@ -72,7 +76,7 @@
 }
 
 .buttonPrimary {
-  background: #f0a500;
+  background: var(--ifm-color-primary);
   color: #161410;
 }
 
@@ -83,8 +87,8 @@
 
 .buttonSecondary {
   background: transparent;
-  color: #f0a500;
-  border: 2px solid #f0a500;
+  color: var(--ifm-color-primary);
+  border: 2px solid var(--ifm-color-primary);
 }
 
 .buttonSecondary:hover {
@@ -106,7 +110,7 @@
   padding: 2rem;
   background: var(--ifm-color-emphasis-100);
   border-radius: 12px;
-  border-top: 3px solid #f0a500;
+  border-top: 3px solid var(--ifm-color-primary);
   transition: all 0.3s ease;
 }
 
@@ -119,7 +123,7 @@
   width: 48px;
   height: 48px;
   margin-bottom: 1rem;
-  color: #f0a500;
+  color: var(--ifm-color-primary);
 }
 
 .featureTitle {
@@ -169,7 +173,7 @@
   height: 2px;
   background: linear-gradient(
     to right,
-    #f0a500,
+    var(--ifm-color-primary),
     rgba(240, 165, 0, 0)
   );
   display: none;
@@ -191,7 +195,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #f0a500;
+  background: var(--ifm-color-primary);
   color: #161410;
   display: flex;
   align-items: center;
@@ -248,14 +252,14 @@
   padding: 0.75rem 1.25rem;
   border-radius: 9999px;
   border: 1px solid rgba(240, 165, 0, 0.5);
-  color: #f0a500;
+  color: var(--ifm-color-primary);
   background: rgba(240, 165, 0, 0.08);
   font-weight: 600;
   transition: all 0.3s ease;
 }
 
 .integrationChip:hover {
-  border-color: #f0a500;
+  border-color: var(--ifm-color-primary);
   background: rgba(240, 165, 0, 0.15);
   box-shadow: 0 0 12px rgba(240, 165, 0, 0.2);
 }
@@ -268,7 +272,7 @@
   margin-left: auto;
   margin-right: auto;
   background: var(--ifm-color-emphasis-100);
-  border-left: 4px solid #f0a500;
+  border-left: 4px solid var(--ifm-color-primary);
   border-radius: 8px;
   opacity: 0.8;
 }
