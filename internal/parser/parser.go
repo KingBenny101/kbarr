@@ -23,6 +23,11 @@ type ParseResult struct {
 	SubtitleLangs []string // subtitle/language hints from the release name (lower-cased)
 }
 
+// multiSubRe catches multi-subtitle indicators that anitogo misses or
+// normalizes to a single "multi" token so the subtitle language preference
+// works with any common variant (MultiSub, Multi-Subs, Multiple Subtitles, …).
+var multiSubRe = regexp.MustCompile(`(?i)\bmulti(?:[- ]?subs?|ple\s*sub(?:s|titles)?)\b`)
+
 // episodeFallbackRe catches patterns anitogo misses:
 //   - #1 / ＃1 (hash-prefixed, common in adult/doujin releases)
 //   - 第1話 / 第01話 (Japanese episode notation)
@@ -77,6 +82,12 @@ func Parse(filename string) ParseResult {
 			seenLang[l] = true
 			r.SubtitleLangs = append(r.SubtitleLangs, l)
 		}
+	}
+	// Normalise multi-subtitle indicators (MultiSub, Multi-Subs, Multiple Subtitles, …)
+	// to "multi" for the subtitle language preference.
+	if !seenLang["multi"] && (seenLang["multisub"] || multiSubRe.MatchString(filename)) {
+		seenLang["multi"] = true
+		r.SubtitleLangs = append(r.SubtitleLangs, "multi")
 	}
 	if r.Episode == 0 {
 		if m := seasonEpisodeRe.FindStringSubmatch(filename); m != nil {

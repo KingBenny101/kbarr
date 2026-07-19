@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type DragEvent } from "react"
 import type { ReactNode } from "react"
 import { Navigate, useLocation } from "react-router-dom"
 import { Alert, Badge, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, TextInput, Title } from "@mantine/core"
@@ -32,6 +32,136 @@ const RELEASE_GROUPS = [
     "SubsPlease", "Erai-raws", "ASW", "Judas", "EMBER",
     "Yameii", "Golumpa", "Nekomoe kissaten", "ToxicRUS", "Baws", "HorribleSubs",
 ]
+
+const SUBTITLE_LANGUAGES = ["multi", "eng", "jpn", "spa", "por", "ara", "fre", "ger"]
+
+const SUBTITLE_LABELS: Record<string, string> = {
+    multi: "Multiple subtitles",
+    eng: "English",
+    jpn: "Japanese",
+    spa: "Spanish",
+    por: "Portuguese",
+    ara: "Arabic",
+    fre: "French",
+    ger: "German",
+}
+
+function SubtitleReorder({
+    value,
+    onChange,
+}: {
+    value: string
+    onChange: (v: string) => void
+}) {
+    const [dragIndex, setDragIndex] = useState<number | null>(null)
+    const [overIndex, setOverIndex] = useState<number | null>(null)
+
+    const order = useMemo(() => {
+        return value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []
+    }, [value])
+
+    const available = useMemo(() => SUBTITLE_LANGUAGES.filter((g) => !order.includes(g)), [order])
+
+    const moveItem = (from: number, to: number) => {
+        const next = [...order]
+        const [moved] = next.splice(from, 1)
+        next.splice(to, 0, moved)
+        onChange(next.join(","))
+    }
+
+    const remove = (index: number) => {
+        const next = [...order]
+        next.splice(index, 1)
+        onChange(next.join(","))
+    }
+
+    const add = (lang: string) => {
+        onChange([...order, lang].join(","))
+    }
+
+    const handleDragStart = (index: number) => {
+        setDragIndex(index)
+    }
+
+    const handleDragOver = (e: DragEvent, index: number) => {
+        e.preventDefault()
+        setOverIndex(index)
+    }
+
+    const handleDrop = (index: number) => {
+        if (dragIndex !== null && dragIndex !== index) {
+            moveItem(dragIndex, index)
+        }
+        setDragIndex(null)
+        setOverIndex(null)
+    }
+
+    const handleDragEnd = () => {
+        setDragIndex(null)
+        setOverIndex(null)
+    }
+
+    return (
+        <div>
+            {order.length === 0 && (
+                <Text size="sm" c="dimmed" fs="italic" mb={8}>
+                    No preferred languages configured. Normal ranking applies.
+                </Text>
+            )}
+            <Stack gap={4}>
+                {order.map((lang, i) => (
+                    <Group
+                        key={lang}
+                        draggable
+                        justify="space-between"
+                        p="xs"
+                        style={{
+                            borderRadius: 4,
+                            border: "1px solid var(--mantine-color-gray-3)",
+                            cursor: "grab",
+                            opacity: dragIndex === i ? 0.4 : 1,
+                            borderColor: overIndex === i ? "var(--mantine-color-blue-5)" : "var(--mantine-color-gray-3)",
+                            transition: "border-color 0.15s",
+                        }}
+                        onDragStart={() => handleDragStart(i)}
+                        onDragOver={(e) => handleDragOver(e, i)}
+                        onDrop={() => handleDrop(i)}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <Group gap="xs">
+                            <Text size="sm" c="dimmed" w={20}>
+                                {i + 1}.
+                            </Text>
+                            <Text size="sm">{SUBTITLE_LABELS[lang] ?? lang}</Text>
+                        </Group>
+                        <Button size="compact-xs" variant="subtle" color="red" onClick={() => remove(i)}>
+                            ✕
+                        </Button>
+                    </Group>
+                ))}
+            </Stack>
+            {available.length > 0 && (
+                <>
+                    <Text size="xs" c="dimmed" mt={8} mb={4}>
+                        Add language:
+                    </Text>
+                    <Group gap={4}>
+                        {available.map((lang) => (
+                            <Badge
+                                key={lang}
+                                variant="outline"
+                                style={{ cursor: "pointer" }}
+                                onClick={() => add(lang)}
+                            >
+                                + {SUBTITLE_LABELS[lang] ?? lang}
+                            </Badge>
+                        ))}
+                    </Group>
+                </>
+            )}
+        </div>
+    )
+}
 
 function ReleaseGroupReorder({
     value,
@@ -161,7 +291,11 @@ function SettingField({
                         {def.description}
                     </Text>
                 )}
-                <ReleaseGroupReorder value={value} onChange={onChange} />
+                {def.key === "preferredSubtitleLanguage" ? (
+                    <SubtitleReorder value={value} onChange={onChange} />
+                ) : (
+                    <ReleaseGroupReorder value={value} onChange={onChange} />
+                )}
             </div>
         )
     }

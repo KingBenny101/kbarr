@@ -182,6 +182,12 @@ func ValidateSetting(key, value string) (known bool, err error) {
 			return true, err
 		}
 	}
+	if def.Key == "preferredSubtitleLanguage" {
+		_, err := ValidateSubtitleLanguageOrder(value)
+		if err != nil {
+			return true, err
+		}
+	}
 	return true, nil
 }
 
@@ -245,6 +251,53 @@ func ValidateReleaseGroupOrder(order string) ([]string, error) {
 		}
 		seen[key] = true
 		result = append(result, canonical)
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return result, nil
+}
+
+// SubtitleLanguagesAllowlist is the set of valid subtitle language tokens.
+var SubtitleLanguagesAllowlist = []string{
+	"multi", "eng", "jpn", "spa", "por", "ara", "fre", "ger",
+}
+
+// NormalizeSubtitleLanguage normalizes a subtitle language token for comparison.
+func NormalizeSubtitleLanguage(lang string) string {
+	return strings.ToLower(strings.TrimSpace(lang))
+}
+
+// ValidateSubtitleLanguageOrder validates a comma-separated subtitle language order string.
+// It returns the validated canonical order (deduplicated, first occurrence preserved).
+// The legacy value "any" is treated as an empty list (no preference).
+func ValidateSubtitleLanguageOrder(order string) ([]string, error) {
+	order = strings.TrimSpace(order)
+	if order == "" || strings.EqualFold(order, "any") {
+		return nil, nil
+	}
+
+	allowlist := make(map[string]bool, len(SubtitleLanguagesAllowlist))
+	for _, l := range SubtitleLanguagesAllowlist {
+		allowlist[NormalizeSubtitleLanguage(l)] = true
+	}
+
+	seen := make(map[string]bool)
+	var result []string
+	for _, part := range strings.Split(order, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		normalized := NormalizeSubtitleLanguage(part)
+		if !allowlist[normalized] {
+			return nil, fmt.Errorf("%q is not a valid subtitle language", part)
+		}
+		if seen[normalized] {
+			continue
+		}
+		seen[normalized] = true
+		result = append(result, normalized)
 	}
 	if len(result) == 0 {
 		return nil, nil

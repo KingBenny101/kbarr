@@ -197,13 +197,38 @@ func releaseGroupRank(group string, order []string) int {
 	return len(order)
 }
 
+// subtitleRank returns the best (lowest) index of any subtitle language in p
+// that appears in order.  When no language matches or order is empty it returns
+// len(order), sorting after all preferred languages (or equal when no preference).
+func subtitleRank(p parser.ParseResult, order []string) int {
+	if len(order) == 0 {
+		return 0
+	}
+	best := len(order)
+	for _, lang := range p.SubtitleLangs {
+		for i, preferred := range order {
+			if strings.EqualFold(lang, preferred) {
+				if i < best {
+					best = i
+				}
+				break
+			}
+		}
+	}
+	return best
+}
+
 // ── pickBest ───────────────────────────────────────────────────────────────────
 
 // pickBest selects the best candidate from already title/season/episode-filtered results.
 func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentResult) *models.TorrentResult {
 	preferred := config.Get(s.db, "preferredQuality", "any")
 	cap := preferredQualityRank(preferred)
-	preferredSub := strings.ToLower(config.Get(s.db, "preferredSubtitleLanguage", "eng"))
+	subRaw := config.Get(s.db, "preferredSubtitleLanguage", "multi,eng,jpn,spa,por,ara,fre,ger")
+	subOrder, _ := config.ValidateSubtitleLanguageOrder(subRaw)
+	if subOrder == nil {
+		subOrder = []string{}
+	}
 	minSeeders := s.minSeeders()
 	rgCfg := s.loadReleaseGroupConfig()
 
@@ -232,20 +257,6 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 		return nil
 	}
 
-	// subMatch reports whether a release's name advertises the preferred subtitle
-	// language. Always true when no preference is set, so it has no effect then.
-	subMatch := func(p parser.ParseResult) bool {
-		if preferredSub == "" || preferredSub == "any" {
-			return true
-		}
-		for _, l := range p.SubtitleLangs {
-			if l == preferredSub {
-				return true
-			}
-		}
-		return false
-	}
-
 	// preferredQuality is a preference, not a hard ceiling. Releases at or below the
 	// cap are chosen first (best quality within budget); only when none exist do we
 	// fall back to the closest release above the cap, so a show with only
@@ -271,11 +282,11 @@ func (s *IndexerService) pickBest(ctx context.Context, results []models.TorrentR
 			return ri < rj // above cap: closer to the cap is better
 		}
 
-		// Soft subtitle-language preference: at equal quality, a release that
-		// advertises the preferred language sorts ahead. Never excludes anything.
-		si, sj := subMatch(candidates[i].parsed), subMatch(candidates[j].parsed)
+		// Ordered subtitle-language preference: at equal quality, a release whose
+		// subtitle language ranks higher in the configured order sorts ahead.
+		si, sj := subtitleRank(candidates[i].parsed, subOrder), subtitleRank(candidates[j].parsed, subOrder)
 		if si != sj {
-			return si
+			return si < sj
 		}
 
 		if rgCfg.mode == "tie-break" {
