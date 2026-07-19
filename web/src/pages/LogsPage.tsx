@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Badge, Card, Code, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core"
+import { Badge, Button, Card, Code, Group, Paper, ScrollArea, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
 import { IconCircleCheck, IconCircleX } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
@@ -161,6 +161,7 @@ function ServiceListItem({ service, selected, onClick }: { service: ServiceHealt
 export function LogsPage() {
     const [services, setServices] = useState<ServiceHealth[]>([])
     const [selected, setSelected] = useState<string>(() => sessionStorage.getItem("workers-selected") ?? "core")
+    const [exporting, setExporting] = useState(false)
 
     const selectService = (name: string) => {
         sessionStorage.setItem("workers-selected", name)
@@ -168,6 +169,27 @@ export function LogsPage() {
     }
     const [loading, setLoading] = useState(true)
     const isMobile = useMediaQuery("(max-width: 768px)")
+
+    const handleExportLogs = async () => {
+        setExporting(true)
+        try {
+            const res = await apiFetch(`${API_URL}/api/workers/logs/export`)
+            if (!res.ok) throw new Error()
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = "kbarr-logs.txt"
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+        } catch {
+            showToast("Failed to export logs", "error")
+        } finally {
+            setExporting(false)
+        }
+    }
 
     const fetchWorkers = async (): Promise<boolean> => {
         try {
@@ -195,10 +217,15 @@ export function LogsPage() {
     if (isMobile) {
         return (
             <Stack gap="md" h="calc(100vh - 56px - 32px)">
-                <div>
-                    <Title order={1}>Logs</Title>
-                    <Text c="dimmed">Status and logs of background services</Text>
-                </div>
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                    <div>
+                        <Title order={1}>Logs</Title>
+                        <Text c="dimmed">Status and logs of background services</Text>
+                    </div>
+                    <Button size="xs" variant="light" loading={exporting} onClick={handleExportLogs}>
+                        Export All
+                    </Button>
+                </Group>
 
                 {/* Horizontal pill row on mobile */}
                 <ScrollArea type="never">
@@ -231,11 +258,16 @@ export function LogsPage() {
     }
 
     return (
-        <Stack gap="lg" h="calc(100vh - 56px - 32px)">
-            <div>
-                <Title order={1}>Logs</Title>
-                <Text c="dimmed">Status and logs of background services</Text>
-            </div>
+            <Stack gap="lg" h="calc(100vh - 56px - 32px)">
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                    <div>
+                        <Title order={1}>Logs</Title>
+                        <Text c="dimmed">Status and logs of background services</Text>
+                    </div>
+                    <Button size="xs" variant="light" loading={exporting} onClick={handleExportLogs}>
+                        Export All
+                    </Button>
+                </Group>
 
             <Group align="flex-start" gap="md" style={{ flex: 1, minHeight: 0 }}>
                 {/* Service list sidebar */}

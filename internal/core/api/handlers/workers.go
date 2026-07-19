@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +13,42 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/logger"
 )
+
+func ExportAllLogs(w http.ResponseWriter, r *http.Request) {
+	var buf bytes.Buffer
+
+	writeServiceLogs(&buf, "core", logger.GetAll())
+
+	for _, svc := range sidecarServices {
+		resp, err := httpProbe.Get(SvcAddr(svc.envKey, svc.fallback) + "/logs")
+		if err != nil {
+			fmt.Fprintf(&buf, "[%-10s] --- unreachable: %v ---\n", svc.name, err)
+			continue
+		}
+		var entries []logger.LogEntry
+		if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
+			fmt.Fprintf(&buf, "[%-10s] --- decode error: %v ---\n", svc.name, err)
+			resp.Body.Close()
+			continue
+		}
+		resp.Body.Close()
+		writeServiceLogs(&buf, svc.name, entries)
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=kbarr-logs.txt")
+	w.Write(buf.Bytes())
+}
+
+func writeServiceLogs(buf *bytes.Buffer, service string, entries []logger.LogEntry) {
+	if len(entries) == 0 {
+		fmt.Fprintf(buf, "[%-10s] --- no entries ---\n", service)
+		return
+	}
+	for _, e := range entries {
+		fmt.Fprintf(buf, "[%-10s] %s  %-5s  %s%s\n", service, e.Time, e.Level, e.Message, e.Attrs)
+	}
+}
 
 var httpProbe = &http.Client{Timeout: 2 * time.Second}
 

@@ -238,14 +238,14 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 		}
 		libID, ok := folderToLib[folder]
 		if !ok {
-			slog.Debug("availability: folder maps to no library, skipping", "folder", folder)
+			slog.Warn("availability: folder maps to no library", "folder", folder)
 			continue
 		}
 		for ep, path := range episodes {
 			foundByLibEp[libEpKey{int64(libID), ep}] = true
 			mon, ok := monitorsByLibEp[libEpKey{int64(libID), ep}]
 			if !ok {
-				slog.Debug("availability: no monitor for episode", "folder", folder, "episode", ep)
+				slog.Warn("availability: no monitor for parsed episode", "folder", folder, "episode", ep)
 				continue
 			}
 
@@ -293,12 +293,12 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 			c.db.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("available = false, status = 'missing', quality = '', subtitles = '', updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx)
-			slog.Info("availability: episode file gone, reset to missing", "monitor_id", mon.ID, "title", mon.Title)
+			slog.Info("availability: episode file gone, reset to missing", "monitor_id", mon.ID, "library_id", mon.LibraryID, "episode_number", mon.EpisodeNumber, "title", mon.Title)
 		} else {
 			c.db.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("available = false, quality = '', subtitles = '', updated_at = now()").
 				Where("id = ?", mon.ID).Exec(ctx)
-			slog.Info("availability: episode marked unavailable (manual file removed)", "monitor_id", mon.ID, "title", mon.Title)
+			slog.Info("availability: episode marked unavailable (manual file removed)", "monitor_id", mon.ID, "library_id", mon.LibraryID, "episode_number", mon.EpisodeNumber, "title", mon.Title)
 		}
 	}
 

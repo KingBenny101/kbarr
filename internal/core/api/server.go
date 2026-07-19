@@ -38,6 +38,9 @@ func NewRouter(metadataClient *clients.MetadataClient, version string, authStore
 
 	RegisterRoutes(api, metadataClient, authStore, version)
 
+	// Export all logs as plain text — uses chi directly for text/plain response
+	r.Get("/api/workers/logs/export", handlers.ExportAllLogs)
+
 	r.NotFound(staticHandler().ServeHTTP)
 	return r
 }
