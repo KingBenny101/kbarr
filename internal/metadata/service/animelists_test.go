@@ -9,9 +9,9 @@ import (
 
 func TestExternalIDsFromEntry(t *testing.T) {
 	sample := `[
-	  {"type":"TV","anidb_id":1,"anilist_id":290,"imdb_id":"tt0286390","tvdb_id":72025,"themoviedb_id":{"tv":26209}},
-	  {"type":"MOVIE","anidb_id":7,"imdb_id":"","themoviedb_id":{"movie":128}},
-	  {"type":"TV","anidb_id":205,"imdb_id":"tt1, tt2","themoviedb_id":null},
+	  {"type":"TV","anidb_id":1,"anilist_id":290,"imdb_id":["tt0286390"],"tvdb_id":72025,"themoviedb_id":{"tv":26209}},
+	  {"type":"MOVIE","anidb_id":7,"imdb_id":[],"themoviedb_id":{"movie":[128]}},
+	  {"type":"TV","anidb_id":205,"imdb_id":["tt1","tt2"],"themoviedb_id":null},
 	  {"type":"OVA","anidb_id":999}
 	]`
 
@@ -28,7 +28,7 @@ func TestExternalIDsFromEntry(t *testing.T) {
 	want := map[uint]ExternalIDs{
 		1:   {TVDB: "72025", AniList: "290", IMDB: "tt0286390", TMDB: "26209"},
 		7:   {TMDB: "128"}, // movie sub-key, empty imdb
-		205: {IMDB: "tt1"}, // comma-joined -> first, null tmdb
+		205: {IMDB: "tt1"}, // first in array, null tmdb
 		999: {},            // only anidb id present
 	}
 

@@ -6,7 +6,7 @@ type AnimeListEntry struct {
 	AniDBID       uint     `json:"anidb_id"`
 	AniListID     *int     `json:"anilist_id"`
 	TVDBID        *int     `json:"tvdb_id"`
-	IMDBID        string   `json:"imdb_id"`
+	IMDBID        []string `json:"imdb_id"`
 	TMDBID        *TMDBRef `json:"themoviedb_id"`
 	MALID         *int     `json:"mal_id"`
 	KitsuID       *int     `json:"kitsu_id"`
@@ -15,7 +15,8 @@ type AnimeListEntry struct {
 }
 
 // TMDBRef holds the themoviedb_id object, which carries either a tv or a movie ID.
+// The movie field can be a single integer or an array of integers in the source JSON.
 type TMDBRef struct {
-	TV    *int `json:"tv"`
-	Movie *int `json:"movie"`
+	TV    *int  `json:"tv"`
+	Movie []int `json:"movie"`
 }

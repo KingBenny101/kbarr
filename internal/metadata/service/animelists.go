@@ -164,16 +164,15 @@ func externalIDsFromEntry(e mdmodels.AnimeListEntry) ExternalIDs {
 	if e.AniListID != nil {
 		ids.AniList = strconv.Itoa(*e.AniListID)
 	}
-	// imdb_id may be empty or a comma-joined list; take the first value.
-	if imdb := strings.TrimSpace(e.IMDBID); imdb != "" {
-		ids.IMDB = strings.TrimSpace(strings.Split(imdb, ",")[0])
+	if len(e.IMDBID) > 0 {
+		ids.IMDB = strings.TrimSpace(e.IMDBID[0])
 	}
 	if e.TMDBID != nil {
 		switch {
 		case e.TMDBID.TV != nil:
 			ids.TMDB = strconv.Itoa(*e.TMDBID.TV)
-		case e.TMDBID.Movie != nil:
-			ids.TMDB = strconv.Itoa(*e.TMDBID.Movie)
+		case len(e.TMDBID.Movie) > 0:
+			ids.TMDB = strconv.Itoa(e.TMDBID.Movie[0])
 		}
 	}
 	if e.MALID != nil {
