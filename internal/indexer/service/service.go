@@ -465,7 +465,7 @@ func (s *IndexerService) runSearch(ctx context.Context, mon models.Monitor, req 
 	providers := iprovider.GetEnabled(s.db)
 	if len(providers) == 0 {
 		slog.Warn("No indexer providers enabled", "monitor_id", mon.ID)
-		s.markMissing(ctx, mon.ID)
+		s.markMissing(ctx, mon)
 		return
 	}
 
@@ -529,13 +529,37 @@ func (s *IndexerService) runSearch(ctx context.Context, mon models.Monitor, req 
 	}
 
 	slog.Info("No qualifying torrent found, marking missing", "monitor_id", mon.ID, "title", req.Title)
-	s.markMissing(ctx, mon.ID)
+	s.markMissing(ctx, mon)
 }
 
-func (s *IndexerService) markMissing(ctx context.Context, monitorID uint) {
+// canMarkMissing reports whether the indexer may still mark a monitor missing
+// after a search concludes. It must be false when the monitor's file became
+// available while the search was in flight (the availability scanner found it
+// on disk) or when the monitor is no longer waiting on the indexer — otherwise
+// the stale search result clobbers a newer state and the UI shows "missing"
+// for episodes that are on disk.
+func canMarkMissing(status string, available bool) bool {
+	if available {
+		return false
+	}
+	switch status {
+	case "pending", "searching", "missing":
+		return true
+	}
+	return false
+}
+
+func (s *IndexerService) markMissing(ctx context.Context, mon models.Monitor) {
+	if !canMarkMissing(mon.Status, mon.Available) {
+		slog.Info("Skipping mark missing — monitor no longer waiting or already available", "monitor_id", mon.ID)
+		return
+	}
+	// The in-memory snapshot can be stale (a long search lets the scanner mark
+	// the file available mid-flight), so the update re-checks available in SQL.
 	s.db.NewUpdate().Model((*models.Monitor)(nil)).
 		Set("status = 'missing', updated_at = now()").
-		Where("id = ?", monitorID).Exec(ctx)
+		Where("id = ? AND available = false", mon.ID).
+		Exec(ctx)
 }
 
 // effectiveSeason returns the season number for a monitor.

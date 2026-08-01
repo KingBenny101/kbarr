@@ -259,12 +259,20 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 				setQuality, setSubs = c.detectQualityAndSubs(path)
 			}
 
-			if mon.Available && !doProbe {
+			// Only skip the update when the row is already fully healed: file
+			// recorded and status promoted. A stale status (e.g. 'missing' left
+			// by the indexer) must be repaired even when nothing changed on
+			// disk, so episodes never show missing once their file is present.
+			if mon.Available && mon.Status == "downloaded" && !doProbe {
 				continue
 			}
 
+			newStatus := statusForFoundFile(mon.Status)
 			q := c.db.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("available = true, updated_at = now()")
+			if newStatus != mon.Status {
+				q = q.Set("status = ?", newStatus)
+			}
 			if doProbe {
 				q = q.Set("quality = ?, subtitles = ?", setQuality, setSubs)
 			}
@@ -484,6 +492,19 @@ func (c *AvailabilityChecker) syncSeasonMonitors(ctx context.Context) {
 				Where("id = ?", sm.ID).Exec(ctx)
 			slog.Info("availability: season incomplete, reset to missing", "monitor_id", sm.ID, "title", sm.Title, "available", available, "total", total)
 		}
+	}
+}
+
+// statusForFoundFile returns the status a monitor should move to when its file
+// is found on disk. Stale statuses left by the indexer or by monitor creation
+// are promoted to downloaded; statuses owned by other actors (an in-flight
+// download, an explicit unmonitor) are left untouched.
+func statusForFoundFile(status string) string {
+	switch status {
+	case "pending", "searching", "missing", "monitored":
+		return "downloaded"
+	default:
+		return status
 	}
 }
 
