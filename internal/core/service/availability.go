@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/cycle"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
 	"github.com/kingbenny101/kbarr/internal/parser"
@@ -156,16 +157,28 @@ func resolveShowDir(mediaPath, mediaFolder, title string) string {
 }
 
 func (c *AvailabilityChecker) Poll(ctx context.Context) {
-	c.Check(ctx)
+	rec := cycle.NewRecorder(c.db)
+	avCycle := cycle.Cycle{Service: "core", Cycle: "availability", DisplayName: "Availability check"}
+	c.recordedCheck(ctx, rec, avCycle, config.GetSeconds(c.db, "availabilityCheckInterval", 60*time.Second, 10*time.Second))
 	for {
+		// Interval is re-read every tick so config changes apply immediately.
 		interval := config.GetSeconds(c.db, "availabilityCheckInterval", 60*time.Second, 10*time.Second)
 		select {
 		case <-time.After(interval):
-			c.Check(ctx)
+			c.recordedCheck(ctx, rec, avCycle, interval)
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+// recordedCheck runs one availability pass, recording its start/end and the
+// next scheduled run. Status-write failures are logged by the recorder and
+// never interrupt the scan itself.
+func (c *AvailabilityChecker) recordedCheck(ctx context.Context, rec *cycle.Recorder, avCycle cycle.Cycle, interval time.Duration) {
+	_ = rec.Start(ctx, avCycle)
+	c.Check(ctx)
+	_ = rec.End(ctx, avCycle, time.Now().Add(interval))
 }
 
 type monitorRow struct {
