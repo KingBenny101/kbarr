@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/cycle"
 	iprovider "github.com/kingbenny101/kbarr/internal/indexer/provider"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
@@ -77,8 +78,17 @@ func (s *IndexerService) getSearchTitles(ctx context.Context, libraryID int64, m
 // ── poll loop ─────────────────────────────────────────────────────────────────
 
 func (s *IndexerService) PollAndQueue(ctx context.Context) {
+	rec := cycle.NewRecorder(s.db)
+	pollCycle := cycle.Cycle{Service: "indexer", Cycle: "monitor_poll", DisplayName: "Monitor poll"}
 	for {
+		_ = rec.Start(ctx, pollCycle)
 		didWork := s.processMonitors(ctx)
+		next := time.Now().Add(s.currentMonitorInterval())
+		if didWork {
+			// Work is available immediately; the next pass starts right away.
+			next = time.Now()
+		}
+		_ = rec.End(ctx, pollCycle, next)
 		if didWork {
 			select {
 			case <-ctx.Done():

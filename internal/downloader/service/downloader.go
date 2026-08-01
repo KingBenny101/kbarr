@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/cycle"
 	dlprovider "github.com/kingbenny101/kbarr/internal/downloader/provider"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
@@ -110,19 +111,26 @@ func (s *DownloaderService) pollInterval() time.Duration {
 }
 
 func (s *DownloaderService) PollAndDownload(ctx context.Context) {
-	s.ProcessPending(ctx)
-	s.UpdateDownloading(ctx)
+	rec := cycle.NewRecorder(s.db)
+	dlCycle := cycle.Cycle{Service: "downloader", Cycle: "downloader_poll", DisplayName: "Downloader poll"}
+	s.recordedPoll(ctx, rec, dlCycle)
 
 	for {
 		interval := s.pollInterval()
 		select {
 		case <-time.After(interval):
-			s.ProcessPending(ctx)
-			s.UpdateDownloading(ctx)
+			s.recordedPoll(ctx, rec, dlCycle)
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (s *DownloaderService) recordedPoll(ctx context.Context, rec *cycle.Recorder, dlCycle cycle.Cycle) {
+	_ = rec.Start(ctx, dlCycle)
+	s.ProcessPending(ctx)
+	s.UpdateDownloading(ctx)
+	_ = rec.End(ctx, dlCycle, time.Now().Add(s.pollInterval()))
 }
 
 func (s *DownloaderService) ProcessPending(ctx context.Context) {

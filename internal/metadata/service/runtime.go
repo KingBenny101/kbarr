@@ -1,12 +1,14 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/cycle"
 )
 
 func DataRootDir() string {
@@ -27,12 +29,16 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 		slog.Warn("Initial anime-lists sync failed", "error", err)
 	}
 
+	rec := cycle.NewRecorder(s.db)
+	syncCycle := cycle.Cycle{Service: "metadata", Cycle: "anidb_sync", DisplayName: "AniDB title sync"}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
+			_ = rec.Start(context.Background(), syncCycle)
 			if err := s.LoadTitlesDump(); err != nil {
 				slog.Warn("Scheduled titles sync failed", "error", err)
 			}
@@ -45,6 +51,7 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 				interval = nextInterval
 				ticker.Reset(interval)
 			}
+			_ = rec.End(context.Background(), syncCycle, time.Now().Add(interval))
 		case <-stop:
 			slog.Info("Titles sync loop stopped")
 			return
