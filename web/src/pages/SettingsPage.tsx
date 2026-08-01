@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type DragEvent } from "react"
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react"
 import type { ReactNode } from "react"
-import { Navigate, useLocation } from "react-router-dom"
+import { Navigate, useLocation } from "react-router"
 import { Alert, Badge, Button, Card, Checkbox, Divider, Group, Loader, Modal, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, TextInput, Title } from "@mantine/core"
 import { IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, showToast } from "@/utils"
@@ -494,8 +494,6 @@ export function SettingsPage() {
     const [savingCreds, setSavingCreds] = useState(false)
     const [credsEnvManaged, setCredsEnvManaged] = useState(false)
 
-    useEffect(() => { fetchSettings() }, [])
-
     useEffect(() => {
         apiFetch(`${API_URL}/api/auth/me`)
             .then((res) => (res.ok ? res.json() : null))
@@ -503,33 +501,51 @@ export function SettingsPage() {
             .catch(() => {})
     }, [])
 
-    const fetchSettings = async () => {
-        setLoading(true)
-        try {
-            const [schemaRes, valuesRes] = await Promise.all([
-                apiFetch(`${API_URL}/api/settings/schema`),
-                apiFetch(`${API_URL}/api/settings`),
-            ])
-            if (!schemaRes.ok || !valuesRes.ok) throw new Error("Failed to load settings")
-            const schemaDefs: SettingDef[] = await schemaRes.json()
-            const data: Record<string, string> = await valuesRes.json()
+    const fetchSettings = useCallback(async () => {
+        const [schemaRes, valuesRes] = await Promise.all([
+            apiFetch(`${API_URL}/api/settings/schema`),
+            apiFetch(`${API_URL}/api/settings`),
+        ])
+        if (!schemaRes.ok || !valuesRes.ok) throw new Error("Failed to load settings")
+        const schemaDefs: SettingDef[] = await schemaRes.json()
+        const data: Record<string, string> = await valuesRes.json()
 
-            // Seed all keys with schema defaults, then overwrite with actual DB values.
-            const next: Record<string, string> = {}
-            for (const def of schemaDefs) {
-                next[def.key] = data[def.key] ?? def.default
-            }
-
-            setSchema(schemaDefs)
-            setSettings(next)
-            setInitialSettings(next)
-        } catch (error) {
-            console.error("Fetch settings error:", error)
-            showToast("Failed to load settings", "error")
-        } finally {
-            setLoading(false)
+        // Seed all keys with schema defaults, then overwrite with actual DB values.
+        const next: Record<string, string> = {}
+        for (const def of schemaDefs) {
+            next[def.key] = data[def.key] ?? def.default
         }
-    }
+
+        setSchema(schemaDefs)
+        setSettings(next)
+        setInitialSettings(next)
+    }, [])
+
+    useEffect(() => {
+        Promise.all([
+            apiFetch(`${API_URL}/api/settings/schema`),
+            apiFetch(`${API_URL}/api/settings`),
+        ])
+            .then(async ([schemaRes, valuesRes]) => {
+                if (!schemaRes.ok || !valuesRes.ok) throw new Error("Failed to load settings")
+                return [await schemaRes.json(), await valuesRes.json()] as const
+            })
+            .then(([schemaDefs, data]: readonly [SettingDef[], Record<string, string>]) => {
+                // Seed all keys with schema defaults, then overwrite with actual DB values.
+                const next: Record<string, string> = {}
+                for (const def of schemaDefs) {
+                    next[def.key] = data[def.key] ?? def.default
+                }
+                setSchema(schemaDefs)
+                setSettings(next)
+                setInitialSettings(next)
+            })
+            .catch((error) => {
+                console.error("Fetch settings error:", error)
+                showToast("Failed to load settings", "error")
+            })
+            .finally(() => setLoading(false))
+    }, [])
 
     const isDirty = useMemo(
         () => Boolean(initialSettings && settings && JSON.stringify(initialSettings) !== JSON.stringify(settings)),
@@ -555,7 +571,10 @@ export function SettingsPage() {
             })
             if (response.ok) {
                 showToast("Settings saved", "success")
-                await fetchSettings()
+                fetchSettings().catch((error) => {
+                    console.error("Fetch settings error:", error)
+                    showToast("Failed to load settings", "error")
+                })
             } else {
                 showToast("Save failed", "error")
             }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Navigate, Route, Routes, Link, useLocation } from "react-router-dom"
+import { Navigate, Route, Routes, Link, useLocation } from "react-router"
 import { AppShell, Burger, Group, NavLink, Text, ActionIcon, useMantineColorScheme, useComputedColorScheme } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
 import { IconLibraryPhoto, IconSearch, IconCompass, IconListCheck, IconActivity, IconSettings, IconDatabase, IconPlug, IconDownload, IconCloudDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
@@ -45,14 +45,27 @@ function PageShell({ children }: { children: React.ReactNode }) {
     const [version, setVersion] = useState("0.0.0")
     const [username, setUsername] = useState("")
     const [lastMediaPath, setLastMediaPath] = useState<string>(() => sessionStorage.getItem("last-media-path") ?? "/")
+    const [prevPathname, setPrevPathname] = useState(pathname)
 
+    // Adjust state during render (React's "adjusting state when props change"
+    // pattern) so the sidebar link updates in the same pass as the navigation,
+    // instead of round-tripping through an effect.
+    if (prevPathname !== pathname) {
+        setPrevPathname(pathname)
+        if (pathname.startsWith("/media/")) {
+            setLastMediaPath(pathname)
+        } else if (pathname === "/") {
+            setLastMediaPath("/")
+        }
+    }
+
+    // sessionStorage is the external system — keeping it in sync is a real
+    // effect, not render work.
     useEffect(() => {
         if (pathname.startsWith("/media/")) {
             sessionStorage.setItem("last-media-path", pathname)
-            setLastMediaPath(pathname)
         } else if (pathname === "/") {
             sessionStorage.removeItem("last-media-path")
-            setLastMediaPath("/")
         }
     }, [pathname])
 

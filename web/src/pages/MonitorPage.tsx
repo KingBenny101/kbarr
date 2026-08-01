@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
 import { IconChevronDown, IconChevronUp, IconSelector, IconTrash } from "@tabler/icons-react"
-import { Link } from "react-router-dom"
+import { Link } from "react-router"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
 
@@ -68,21 +68,19 @@ export function MonitorPage() {
     const isMobile = useMediaQuery("(max-width: 768px)")
     const itemsPerPage = 9
 
-    const fetchMonitors = async () => {
-        try {
-            const response = await apiFetch(`${API_URL}/api/monitor`)
-            if (!response.ok) throw new Error("Failed to fetch monitored items")
-            const data = await response.json()
-            setMonitors(data || [])
-        } catch (error) {
-            console.error(error)
-            showToast("Failed to load monitored items", "error")
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    useEffect(() => { fetchMonitors() }, [])
+    useEffect(() => {
+        apiFetch(`${API_URL}/api/monitor`)
+            .then((response) => {
+                if (!response.ok) throw new Error("Failed to fetch monitored items")
+                return response.json()
+            })
+            .then((data) => setMonitors(data || []))
+            .catch((error) => {
+                console.error(error)
+                showToast("Failed to load monitored items", "error")
+            })
+            .finally(() => setLoading(false))
+    }, [])
 
     const handleDelete = async (id: number) => {
         try {
