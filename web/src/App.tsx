@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Navigate, Route, Routes, Link, useLocation } from "react-router"
 import { AppShell, Burger, Group, NavLink, Text, ActionIcon, useMantineColorScheme, useComputedColorScheme } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
-import { IconLibraryPhoto, IconSearch, IconCompass, IconListCheck, IconActivity, IconSettings, IconDatabase, IconPlug, IconDownload, IconCloudDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
+import { IconLibraryPhoto, IconSearch, IconCompass, IconListCheck, IconActivity, IconGauge, IconSettings, IconDatabase, IconPlug, IconDownload, IconCloudDownload, IconMoonFilled, IconSunFilled } from "@tabler/icons-react"
 import { API_URL, apiFetch, clearToken, getToken } from "@/utils"
 import { LibraryPage } from "@/pages/LibraryPage"
 import { LoginPage } from "@/pages/LoginPage"
@@ -13,6 +13,7 @@ import { ExplorePage } from "@/pages/ExplorePage"
 import { DownloadsPage } from "@/pages/DownloadsPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { LogsPage } from "@/pages/LogsPage"
+import { SystemPage } from "@/pages/SystemPage"
 
 const navigation = [
     {
@@ -27,6 +28,7 @@ const navigation = [
             { label: "Monitored", to: "/monitored", icon: <IconListCheck size={18} /> },
             { label: "Downloads", to: "/downloads", icon: <IconCloudDownload size={18} /> },
             { label: "Logs", to: "/logs", icon: <IconActivity size={18} /> },
+            { label: "System", to: "/system", icon: <IconGauge size={18} /> },
         ]
     },
     {
@@ -191,6 +193,7 @@ export default function App() {
                             <Route path="/media/:id" element={<MediaDetailPage />} />
                             <Route path="/monitored" element={<MonitorPage />} />
                             <Route path="/logs" element={<LogsPage />} />
+                            <Route path="/system" element={<SystemPage />} />
                             <Route path="/downloads" element={<DownloadsPage />} />
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
