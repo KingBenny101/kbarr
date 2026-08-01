@@ -1,10 +1,22 @@
-import { GraphQLClient, gql } from "graphql-request"
-
 // AniList public GraphQL API. No auth required; rate limited to ~90 req/min, so
 // we serialize requests through a small queue with a minimum spacing.
 const ANILIST_ENDPOINT = "https://graphql.anilist.co"
 
-const client = new GraphQLClient(ANILIST_ENDPOINT)
+async function request<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+    const response = await fetch(ANILIST_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ query, variables }),
+    })
+    if (!response.ok) {
+        throw new Error(`AniList request failed with status ${response.status}`)
+    }
+    const body = (await response.json()) as { data?: T; errors?: { message?: string }[] }
+    if (!body.data) {
+        throw new Error(body.errors?.[0]?.message ?? "AniList request failed")
+    }
+    return body.data
+}
 
 // Minimum spacing between requests (~90/min => 1 per 700ms leaves headroom).
 const MIN_REQUEST_SPACING_MS = 700
@@ -79,7 +91,7 @@ export type BrowseResult = {
     media: AniListMedia[]
 }
 
-const MEDIA_FIELDS = gql`
+const MEDIA_FIELDS = `
     id
     title { romaji english native }
     coverImage { large extraLarge color }
@@ -95,7 +107,7 @@ const MEDIA_FIELDS = gql`
     isAdult
 `
 
-const BROWSE_QUERY = gql`
+const BROWSE_QUERY = `
     query Browse(
         $page: Int
         $perPage: Int
@@ -131,7 +143,7 @@ const BROWSE_QUERY = gql`
     }
 `
 
-const DETAILS_QUERY = gql`
+const DETAILS_QUERY = `
     query Details($id: Int) {
         Media(id: $id, type: ANIME) {
             ${MEDIA_FIELDS}
@@ -145,7 +157,7 @@ const DETAILS_QUERY = gql`
     }
 `
 
-const FILTER_OPTIONS_QUERY = gql`
+const FILTER_OPTIONS_QUERY = `
     query FilterOptions {
         GenreCollection
         MediaTagCollection { name isAdult }
@@ -172,12 +184,12 @@ export async function fetchBrowse(filters: BrowseFilters, page: number): Promise
         // leaving it unset returns everything (SFW + NSFW mixed).
         isAdult: filters.adultMode === "show" ? undefined : filters.adultMode === "only",
     }
-    const data = await throttle(() => client.request<{ Page: BrowseResult }>(BROWSE_QUERY, variables))
+    const data = await throttle(() => request<{ Page: BrowseResult }>(BROWSE_QUERY, variables))
     return data.Page
 }
 
 export async function fetchMediaDetails(id: number): Promise<AniListMediaDetails> {
-    const data = await throttle(() => client.request<{ Media: AniListMediaDetails }>(DETAILS_QUERY, { id }))
+    const data = await throttle(() => request<{ Media: AniListMediaDetails }>(DETAILS_QUERY, { id }))
     return data.Media
 }
 
@@ -194,7 +206,7 @@ export async function fetchFilterOptions(): Promise<FilterOptions> {
     }
 
     const data = await throttle(() =>
-        client.request<{ GenreCollection: string[]; MediaTagCollection: { name: string; isAdult: boolean }[] }>(FILTER_OPTIONS_QUERY),
+        request<{ GenreCollection: string[]; MediaTagCollection: { name: string; isAdult: boolean }[] }>(FILTER_OPTIONS_QUERY),
     )
     const options: FilterOptions = {
         genres: data.GenreCollection.filter(Boolean),
