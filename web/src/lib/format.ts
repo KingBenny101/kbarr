@@ -26,3 +26,11 @@ export function formatDuration(ms: number): string {
     if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, "0")}s`
     return `${seconds}s`
 }
+
+export function ringProgress(now: Date, lastFinished: string | null, nextRun: string | null): number | null {
+    if (!lastFinished || !nextRun) return null
+    const start = new Date(lastFinished).getTime()
+    const end = new Date(nextRun).getTime()
+    if (end <= start) return null
+    return Math.min(1, Math.max(0, (now.getTime() - start) / (end - start)))
+}
