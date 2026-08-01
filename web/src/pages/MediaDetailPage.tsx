@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useMediaQuery } from "@mantine/hooks"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
 import { IconArrowLeft, IconBell, IconExternalLink, IconInfoCircle, IconRefresh, IconTrash } from "@tabler/icons-react"
@@ -71,9 +71,16 @@ export function MediaDetailPage() {
     const [refreshNonce, setRefreshNonce] = useState(0)
     const deleteFilesRef = useRef(false)
 
-    const fetchDetails = (withSpinner = true) => {
+    // Show the spinner when navigating between media in the same component
+    // instance; the initial value already starts at true for first mount.
+    const [prevId, setPrevId] = useState(id)
+    if (prevId !== id) {
+        setPrevId(id)
+        setLoading(true)
+    }
+
+    useEffect(() => {
         if (!id) return
-        if (withSpinner) setLoading(true)
         apiFetch(`${API_URL}/api/library/${id}`)
             .then(async (response) => {
                 if (!response.ok) throw new Error("Failed to fetch media details")
@@ -84,10 +91,22 @@ export function MediaDetailPage() {
                 console.error(error)
                 showToast("Error loading media details", "error")
             })
-            .finally(() => { if (withSpinner) setLoading(false) })
-    }
+            .finally(() => { setLoading(false) })
+    }, [id])
 
-    useEffect(() => { fetchDetails() }, [id])
+    const refreshDetails = () => {
+        if (!id) return
+        apiFetch(`${API_URL}/api/library/${id}`)
+            .then(async (response) => {
+                if (!response.ok) throw new Error("Failed to fetch media details")
+                return response.json()
+            })
+            .then((data: MediaDetails) => setMedia(data))
+            .catch((error) => {
+                console.error(error)
+                showToast("Error loading media details", "error")
+            })
+    }
 
     const handleRefresh = async () => {
         if (!id) return
@@ -97,7 +116,7 @@ export function MediaDetailPage() {
             if (!res.ok) throw new Error(res.statusText)
             const data = await res.json() as { message?: string; newEpisodes?: number }
             showToast(data.message || "Refreshed", "success")
-            fetchDetails(false)
+            refreshDetails()
             fetchMonitored()
             setRefreshNonce((n) => n + 1)
         } catch (error) {
@@ -108,7 +127,7 @@ export function MediaDetailPage() {
         }
     }
 
-    const fetchMonitored = () => {
+    const fetchMonitored = useCallback(() => {
         if (!id) return
         apiFetch(`${API_URL}/api/library/${id}/monitored`)
             .then((response) => {
@@ -120,12 +139,12 @@ export function MediaDetailPage() {
                 setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1 && item.monitored) ?? false)
             })
             .catch((error) => console.error("Failed to fetch monitored items", error))
-    }
+    }, [id])
 
     useEffect(() => {
         if (!media || !id) return
         fetchMonitored()
-    }, [id, media])
+    }, [id, media, fetchMonitored])
 
     const parseRange = (input: string): number[] => {
         const values = new Set<number>()
@@ -653,6 +672,11 @@ function episodeSourceUrl(episode: Episode): string | null {
     return null
 }
 
+function SortIndicator({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+    if (sortField !== field) return <Text span c="dimmed" size="xs"> ↕</Text>
+    return <Text span size="xs"> {sortDir === "asc" ? "↑" : "↓"}</Text>
+}
+
 function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, onMonitor, onUnmonitor }: {
     episodes: Episode[]
     monitoredItems: MonitoredItem[]
@@ -664,11 +688,6 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
 }) {
     const hasLinks = episodes.some((e) => episodeSourceUrl(e) !== null)
     const isMobile = useMediaQuery("(max-width: 768px)")
-
-    const SortIndicator = ({ field }: { field: SortField }) => {
-        if (sortField !== field) return <Text span c="dimmed" size="xs"> ↕</Text>
-        return <Text span size="xs"> {sortDir === "asc" ? "↑" : "↓"}</Text>
-    }
 
     if (isMobile) {
         return (
@@ -722,10 +741,10 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                 <Table.Thead>
                     <Table.Tr>
                         <Table.Th style={{ cursor: "pointer", textAlign: "center", whiteSpace: "nowrap" }} onClick={() => onSort("ep_no")}>
-                            No.<SortIndicator field="ep_no" />
+                            No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} />
                         </Table.Th>
                         <Table.Th style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
-                            Title<SortIndicator field="title" />
+                            Title<SortIndicator field="title" sortField={sortField} sortDir={sortDir} />
                         </Table.Th>
                         <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Type</Table.Th>
                         <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Availability</Table.Th>

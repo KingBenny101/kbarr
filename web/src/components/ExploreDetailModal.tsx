@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { Anchor, Badge, Button, Divider, Grid, Group, Image, Loader, Modal, ScrollArea, Stack, Text, Title } from "@mantine/core"
 import { IconExternalLink } from "@tabler/icons-react"
 import { API_URL, apiFetch, showToast } from "@/utils"
@@ -27,11 +27,19 @@ export function ExploreDetailModal({ media, opened, onClose }: Props) {
     const [loading, setLoading] = useState(false)
     const [adding, setAdding] = useState(false)
 
+    // Reset the detail view during render whenever a different media is opened,
+    // so no stale details flash and the spinner is up before the fetch lands.
+    const openKey = `${media?.id ?? "none"}:${opened}`
+    const [prevOpenKey, setPrevOpenKey] = useState(openKey)
+    if (prevOpenKey !== openKey) {
+        setPrevOpenKey(openKey)
+        setDetails(null)
+        setLoading(opened && !!media)
+    }
+
     useEffect(() => {
         if (!opened || !media) return
         let cancelled = false
-        setDetails(null)
-        setLoading(true)
         fetchMediaDetails(media.id)
             .then((d) => {
                 if (!cancelled) setDetails(d)

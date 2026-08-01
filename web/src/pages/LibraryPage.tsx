@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Badge, Card, Center, Collapse, Divider, Group, ScrollArea, Select, Stack, Text, TextInput, Title, UnstyledButton } from "@mantine/core"
 import { IconChevronDown, IconChevronRight, IconPlayerPlayFilled, IconSearch } from "@tabler/icons-react"

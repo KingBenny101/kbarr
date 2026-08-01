@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"fmt"
+
+	"github.com/kingbenny101/kbarr/internal/cycle"
 )
 
 // runMigrations applies schema changes that cannot be expressed with CreateTable IfNotExists.
@@ -130,6 +132,9 @@ func runMigrations(ctx context.Context) error {
 			created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
 			last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)`,
+
+		// cycle_status: last/next run times for the background loops
+		cycle.Schema,
 	}
 
 	for _, stmt := range stmts {

@@ -9,6 +9,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/config"
 	"github.com/kingbenny101/kbarr/internal/core/clients"
 	"github.com/kingbenny101/kbarr/internal/core/db"
+	"github.com/kingbenny101/kbarr/internal/cycle"
 )
 
 // RefreshLibrary re-fetches a single show's metadata from the source (bypassing
@@ -40,6 +41,8 @@ func RefreshLibrary(ctx context.Context, mc *clients.MetadataClient, libraryID u
 // bounded by the handful of shows currently airing — and each request still goes
 // through the metadata service's 2s throttle and ban cooldown.
 func PollMetadataRefresh(ctx context.Context, mc *clients.MetadataClient) {
+	rec := cycle.NewRecorder(db.DB)
+	refreshCycle := cycle.Cycle{Service: "core", Cycle: "metadata_refresh", DisplayName: "Metadata refresh"}
 	// First pass is delayed a little so it doesn't pile onto startup work.
 	timer := time.NewTimer(time.Minute)
 	defer timer.Stop()
@@ -49,8 +52,11 @@ func PollMetadataRefresh(ctx context.Context, mc *clients.MetadataClient) {
 			return
 		case <-timer.C:
 		}
+		_ = rec.Start(ctx, refreshCycle)
 		runRefreshPass(ctx, mc)
-		timer.Reset(config.GetMinutes(db.DB, "metadataRefreshInterval", 1440*time.Minute, 60*time.Minute))
+		interval := config.GetMinutes(db.DB, "metadataRefreshInterval", 1440*time.Minute, 60*time.Minute)
+		_ = rec.End(ctx, refreshCycle, time.Now().Add(interval))
+		timer.Reset(interval)
 	}
 }
 

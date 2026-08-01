@@ -37,3 +37,30 @@ func TestEpisodePatternIgnoresSeason(t *testing.T) {
 		t.Fatalf("got (%d, %v); want (5, true)", ep, ok)
 	}
 }
+
+func TestStatusForFoundFile(t *testing.T) {
+	// A monitor whose file is found on disk must have stale statuses promoted
+	// to downloaded, otherwise the UI keeps showing "missing" even though the
+	// episode is available. Statuses owned by other actors (an in-flight
+	// download, an explicit unmonitor) are left untouched.
+	cases := []struct {
+		status string
+		want   string
+	}{
+		{"missing", "downloaded"},
+		{"pending", "downloaded"},
+		{"searching", "downloaded"},
+		{"monitored", "downloaded"},
+		{"downloaded", "downloaded"},
+		{"available", "available"},
+		{"queued", "queued"},
+		{"downloading", "downloading"},
+		{"unmonitored", "unmonitored"},
+		{"", ""},
+	}
+	for _, tc := range cases {
+		if got := statusForFoundFile(tc.status); got != tc.want {
+			t.Fatalf("statusForFoundFile(%q) = %q; want %q", tc.status, got, tc.want)
+		}
+	}
+}

@@ -23,6 +23,7 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 	huma.Register(api, huma.Operation{OperationID: "get-version", Method: "GET", Path: "/api/version", Security: secured, Tags: []string{"system"}, Summary: "Get version"}, handlers.GetVersion(version))
 	huma.Register(api, huma.Operation{OperationID: "check-availability", Method: "POST", Path: "/api/availability/check", Security: secured, Tags: []string{"system"}, Summary: "Trigger availability check", DefaultStatus: 204}, handlers.CheckAvailability())
 	huma.Register(api, huma.Operation{OperationID: "get-workers", Method: "GET", Path: "/api/workers", Security: secured, Tags: []string{"system"}, Summary: "Get service health"}, handlers.GetWorkers())
+	huma.Register(api, huma.Operation{OperationID: "get-cycles", Method: "GET", Path: "/api/cycles", Security: secured, Tags: []string{"system"}, Summary: "Get cycle status"}, handlers.GetCycles())
 	huma.Register(api, huma.Operation{OperationID: "get-svc-logs", Method: "GET", Path: "/api/workers/{name}/logs", Security: secured, Tags: []string{"system"}, Summary: "Get service logs"}, handlers.GetServiceLogs())
 
 	// Search

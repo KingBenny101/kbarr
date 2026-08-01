@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kingbenny101/kbarr/internal/config"
+	"github.com/kingbenny101/kbarr/internal/cycle"
 	"github.com/kingbenny101/kbarr/internal/models"
 	"github.com/kingbenny101/kbarr/internal/naming"
 	"github.com/kingbenny101/kbarr/internal/parser"
@@ -156,16 +157,28 @@ func resolveShowDir(mediaPath, mediaFolder, title string) string {
 }
 
 func (c *AvailabilityChecker) Poll(ctx context.Context) {
-	c.Check(ctx)
+	rec := cycle.NewRecorder(c.db)
+	avCycle := cycle.Cycle{Service: "core", Cycle: "availability", DisplayName: "Availability check"}
+	c.recordedCheck(ctx, rec, avCycle, config.GetSeconds(c.db, "availabilityCheckInterval", 60*time.Second, 10*time.Second))
 	for {
+		// Interval is re-read every tick so config changes apply immediately.
 		interval := config.GetSeconds(c.db, "availabilityCheckInterval", 60*time.Second, 10*time.Second)
 		select {
 		case <-time.After(interval):
-			c.Check(ctx)
+			c.recordedCheck(ctx, rec, avCycle, interval)
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+// recordedCheck runs one availability pass, recording its start/end and the
+// next scheduled run. Status-write failures are logged by the recorder and
+// never interrupt the scan itself.
+func (c *AvailabilityChecker) recordedCheck(ctx context.Context, rec *cycle.Recorder, avCycle cycle.Cycle, interval time.Duration) {
+	_ = rec.Start(ctx, avCycle)
+	c.Check(ctx)
+	_ = rec.End(ctx, avCycle, time.Now().Add(interval))
 }
 
 type monitorRow struct {
@@ -259,12 +272,20 @@ func (c *AvailabilityChecker) Check(ctx context.Context) {
 				setQuality, setSubs = c.detectQualityAndSubs(path)
 			}
 
-			if mon.Available && !doProbe {
+			// Only skip the update when the row is already fully healed: file
+			// recorded and status promoted. A stale status (e.g. 'missing' left
+			// by the indexer) must be repaired even when nothing changed on
+			// disk, so episodes never show missing once their file is present.
+			if mon.Available && mon.Status == "downloaded" && !doProbe {
 				continue
 			}
 
+			newStatus := statusForFoundFile(mon.Status)
 			q := c.db.NewUpdate().Model((*models.Monitor)(nil)).
 				Set("available = true, updated_at = now()")
+			if newStatus != mon.Status {
+				q = q.Set("status = ?", newStatus)
+			}
 			if doProbe {
 				q = q.Set("quality = ?, subtitles = ?", setQuality, setSubs)
 			}
@@ -484,6 +505,19 @@ func (c *AvailabilityChecker) syncSeasonMonitors(ctx context.Context) {
 				Where("id = ?", sm.ID).Exec(ctx)
 			slog.Info("availability: season incomplete, reset to missing", "monitor_id", sm.ID, "title", sm.Title, "available", available, "total", total)
 		}
+	}
+}
+
+// statusForFoundFile returns the status a monitor should move to when its file
+// is found on disk. Stale statuses left by the indexer or by monitor creation
+// are promoted to downloaded; statuses owned by other actors (an in-flight
+// download, an explicit unmonitor) are left untouched.
+func statusForFoundFile(status string) string {
+	switch status {
+	case "pending", "searching", "missing", "monitored":
+		return "downloaded"
+	default:
+		return status
 	}
 }
 
