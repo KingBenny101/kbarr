@@ -61,7 +61,7 @@ export function LoginPage() {
                             value={password}
                             onChange={(e) => setPassword(e.currentTarget.value)}
                         />
-                        <Button type="submit" loading={loading} fullWidth mt="xs">
+                        <Button type="submit" variant="light" loading={loading} fullWidth mt="xs">
                             Sign in
                         </Button>
                     </Stack>

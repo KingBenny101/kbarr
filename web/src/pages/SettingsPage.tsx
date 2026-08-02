@@ -757,7 +757,7 @@ export function SettingsPage() {
                                     />
                                     <Group justify="flex-end">
                                         <Button
-                                            color="gray"
+                                            variant="light"
                                             onClick={handleSaveCreds}
                                             loading={savingCreds}
                                             disabled={!creds.currentPassword || (!creds.newUsername && !creds.newPassword)}
@@ -816,13 +816,13 @@ export function SettingsPage() {
                             extra={
                                 section === "kbdex" ? (
                                     <Group justify="flex-end">
-                                        <Button variant="light" color="gray" loading={testingKbdex} onClick={handleTestKbdex}>
+                                        <Button variant="light" loading={testingKbdex} onClick={handleTestKbdex}>
                                             Test connection
                                         </Button>
                                     </Group>
                                 ) : section === "Prowlarr" ? (
                                     <Group justify="flex-end">
-                                        <Button variant="light" color="gray" loading={testingIndexer} onClick={handleTestIndexer}>
+                                        <Button variant="light" loading={testingIndexer} onClick={handleTestIndexer}>
                                             Test connection
                                         </Button>
                                     </Group>
@@ -847,13 +847,13 @@ export function SettingsPage() {
                             extra={
                                 section === "qBittorrent" ? (
                                     <Group justify="flex-end">
-                                        <Button variant="light" color="gray" loading={testingDownloader} onClick={handleTestDownloader}>
+                                        <Button variant="light" loading={testingDownloader} onClick={handleTestDownloader}>
                                             Test connection
                                         </Button>
                                     </Group>
                                 ) : section === "Jellyfin" ? (
                                     <Group justify="flex-end">
-                                        <Button variant="light" color="gray" loading={testingJellyfin} onClick={handleTestJellyfin}>
+                                        <Button variant="light" loading={testingJellyfin} onClick={handleTestJellyfin}>
                                             Test connection
                                         </Button>
                                     </Group>
@@ -905,7 +905,7 @@ export function SettingsPage() {
                             You have unsaved changes.
                         </Alert>
                     )}
-                    <Button color="gray" onClick={handleSave} disabled={!isDirty || saving} loading={saving}>
+                    <Button variant="light" onClick={handleSave} disabled={!isDirty || saving} loading={saving}>
                         Save changes
                     </Button>
                 </Group>

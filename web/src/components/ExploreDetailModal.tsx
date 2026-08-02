@@ -193,7 +193,7 @@ export function ExploreDetailModal({ media, opened, onClose }: Props) {
                         </Stack>
                     ) : null}
 
-                    <Button onClick={handleAdd} loading={adding} fullWidth color="gray">
+                    <Button variant="light" onClick={handleAdd} loading={adding} fullWidth>
                         Add to Library
                     </Button>
                 </Stack>

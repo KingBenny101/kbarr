@@ -252,11 +252,11 @@ export function DownloadsPage() {
                         </div>
                         <Group gap="xs" wrap="wrap" justify="flex-end">
                             {(statusCounts["completed"] ?? 0) > 0 && (
-                                <Button variant="light" color="gray" size="xs" loading={clearing} onClick={handleClearCompleted}>
+                                <Button variant="light" size="xs" loading={clearing} onClick={handleClearCompleted}>
                                     Clear completed
                                 </Button>
                             )}
-                            <Button variant="light" color="gray" size="xs" loading={triggering} onClick={handleTrigger}>
+                            <Button variant="light" size="xs" loading={triggering} onClick={handleTrigger}>
                                 Process now
                             </Button>
                         </Group>
@@ -456,7 +456,7 @@ export function DownloadsPage() {
                             <Text size="sm" c="dimmed">
                                 Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filtered.length)} of {filtered.length}
                             </Text>
-                            <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} color="gray" />
+                            <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} />
                         </Group>
                     )}
                 </Stack>

@@ -486,7 +486,6 @@ export function MediaDetailPage() {
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 variant="outline"
-                                                color="gray"
                                                 leftSection={<IconExternalLink size={14} />}
                                                 size="xs"
                                             >
@@ -529,7 +528,7 @@ export function MediaDetailPage() {
                                     </Group>
                                 </Stack>
 
-                                <Button color="gray" onClick={handleBulkMonitor}>Apply changes</Button>
+                                <Button variant="light" onClick={handleBulkMonitor}>Apply changes</Button>
                             </Stack>
                         </Card>
 
@@ -545,7 +544,6 @@ export function MediaDetailPage() {
                                                         key={type}
                                                         size="xs"
                                                         variant={activeTypes.has(type) ? "filled" : "light"}
-                                                        color="gray"
                                                         onClick={() => toggleType(type)}
                                                     >
                                                         {TYPE_LABELS[type]}
@@ -568,7 +566,7 @@ export function MediaDetailPage() {
                                             <Text size="sm" c="dimmed">
                                                 {(page - 1) * 10 + 1}–{Math.min(page * 10, episodesData?.total ?? 0)} of {episodesData?.total ?? 0}
                                             </Text>
-                                            <Pagination value={page} onChange={setPage} total={totalPages} color="gray" />
+                                            <Pagination value={page} onChange={setPage} total={totalPages} />
                                         </Group>
                                     ) : null}
                                 </Stack>
@@ -578,7 +576,6 @@ export function MediaDetailPage() {
                         <Group>
                             <Button
                                 variant="light"
-                                color="gray"
                                 leftSection={<IconRefresh size={16} />}
                                 loading={refreshing}
                                 onClick={handleRefresh}

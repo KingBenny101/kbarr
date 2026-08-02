@@ -298,7 +298,7 @@ export function ExplorePage() {
 
                     <Group justify="space-between" align="center">
                         <Text size="sm" c="dimmed">Page {page} of {lastPage}</Text>
-                        <Pagination value={page} onChange={handlePageChange} total={Math.max(lastPage, 1)} color="gray" />
+                        <Pagination value={page} onChange={handlePageChange} total={Math.max(lastPage, 1)} />
                     </Group>
                 </Stack>
             ) : null}

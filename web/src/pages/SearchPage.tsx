@@ -180,7 +180,7 @@ export function SearchPage() {
                                             </Group>
                                         </Stack>
 
-                                        <Button color="gray" variant={result.added ? "light" : "filled"} onClick={() => handleAdd(result)} disabled={adding === key || result.added} loading={adding === key} fullWidth>
+                                        <Button variant="light" onClick={() => handleAdd(result)} disabled={adding === key || result.added} loading={adding === key} fullWidth>
                                             {result.added ? "Added" : "Add to Library"}
                                         </Button>
                                     </Stack>
@@ -193,7 +193,7 @@ export function SearchPage() {
                         <Text size="sm" c="dimmed">
                             Page {totalPages === 0 ? 0 : currentPage} of {totalPages}
                         </Text>
-                        <Pagination value={currentPage} onChange={setCurrentPage} total={Math.max(totalPages, 1)} color="gray" />
+                        <Pagination value={currentPage} onChange={setCurrentPage} total={Math.max(totalPages, 1)} />
                     </Group>
                 </Stack>
             ) : null}

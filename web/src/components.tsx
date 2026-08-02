@@ -36,7 +36,7 @@ export function EmptyState({ icon, title, description, actionLabel, onAction }: 
                 <Text c="dimmed" maw={420}>
                     {description}
                 </Text>
-                {actionLabel ? <Button variant="light" color="gray" onClick={onAction}>{actionLabel}</Button> : null}
+                {actionLabel ? <Button variant="light" onClick={onAction}>{actionLabel}</Button> : null}
             </Stack>
         </Paper>
     )

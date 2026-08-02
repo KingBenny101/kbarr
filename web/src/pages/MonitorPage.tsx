@@ -293,7 +293,7 @@ export function MonitorPage() {
                             <Text size="sm" c="dimmed">
                                 Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filtered.length)} of {filtered.length}
                             </Text>
-                            <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} color="gray" />
+                            <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} />
                         </Group>
                     )}
                 </Stack>
