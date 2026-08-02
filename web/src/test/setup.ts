@@ -4,6 +4,16 @@ import { afterEach } from "vitest"
 
 afterEach(cleanup)
 
+class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+}
+
+if (!("ResizeObserver" in globalThis)) {
+    globalThis.ResizeObserver = ResizeObserverStub
+}
+
 Object.defineProperty(window, "matchMedia", {
     writable: true,
     value: (query: string) => ({

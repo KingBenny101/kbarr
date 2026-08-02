@@ -213,7 +213,7 @@ export function MonitorPage() {
                         </Stack>
                     ) : (
                         <ScrollArea type="auto">
-                            <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md" style={{ tableLayout: "fixed" }}>
+                            <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md" style={{ tableLayout: "fixed", width: "100%" }}>
                                 <Table.Thead>
                                     <Table.Tr>
                                         <Table.Th w="30%">
@@ -250,7 +250,7 @@ export function MonitorPage() {
                                         currentMonitors.map((entry) => (
                                             <Table.Tr key={entry.ID}>
                                                 <Table.Td fw={700}>
-                                                    <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate>
+                                                    <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate style={{ display: "block" }}>
                                                         {entry.title}
                                                     </Text>
                                                 </Table.Td>
