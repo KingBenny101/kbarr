@@ -14,6 +14,10 @@ if (!("ResizeObserver" in globalThis)) {
     globalThis.ResizeObserver = ResizeObserverStub
 }
 
+if (typeof Element.prototype.scrollTo !== "function") {
+    Element.prototype.scrollTo = () => {}
+}
+
 Object.defineProperty(window, "matchMedia", {
     writable: true,
     value: (query: string) => ({

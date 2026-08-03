@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Badge, Card, Center, Group, MultiSelect, Pagination, ScrollArea, Select, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
-import { IconCompass, IconPlayerPlayFilled, IconSearch } from "@tabler/icons-react"
+import { Alert, Badge, Button, Card, Center, Group, MultiSelect, Pagination, ScrollArea, Select, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core"
+import { IconAlertCircle, IconCompass, IconPlayerPlayFilled, IconSearch } from "@tabler/icons-react"
 import { EmptyState } from "@/components"
 import { ExploreDetailModal } from "@/components/ExploreDetailModal"
 import {
@@ -114,6 +114,7 @@ export function ExplorePage() {
     const [lastPage, setLastPage] = useState(() => cached?.lastPage ?? 1)
     const [loading, setLoading] = useState(false)
     const [hasLoaded, setHasLoaded] = useState(() => cached !== null)
+    const [error, setError] = useState<string | null>(null)
     const [selected, setSelected] = useState<AniListMedia | null>(null)
     const [modalOpened, setModalOpened] = useState(false)
     const viewportRef = useRef<HTMLDivElement>(null)
@@ -137,6 +138,7 @@ export function ExplorePage() {
 
     const load = useCallback(async (activeFilters: BrowseFilters, activeSearch: string, activePage: number) => {
         setLoading(true)
+        setError(null)
         try {
             const result = await fetchBrowse({ ...activeFilters, search: activeSearch }, activePage)
             // Snap to the start once the new results render (after this state update).
@@ -146,6 +148,12 @@ export function ExplorePage() {
             setHasLoaded(true)
         } catch (error) {
             console.error("AniList browse failed:", error)
+            const blocked = error instanceof TypeError || (error instanceof Error && error.message.includes("status 403"))
+            setError(
+                blocked
+                    ? "AniList is refusing this connection — this often happens when connected through a VPN or proxy. Disconnect and reload, or try again shortly."
+                    : "Couldn't load anime from AniList. Check your connection and try again.",
+            )
         } finally {
             setLoading(false)
         }
@@ -303,7 +311,20 @@ export function ExplorePage() {
                 </Stack>
             ) : null}
 
-            {!loading && hasLoaded && media.length === 0 ? (
+            {error && media.length === 0 ? (
+                <EmptyState icon={<IconAlertCircle size={28} />} title="Couldn't load anime" description={error} actionLabel="Try again" onAction={() => load(filters, search, page)} />
+            ) : null}
+
+            {error && media.length > 0 ? (
+                <Alert color="red" title="Couldn't load anime">
+                    <Group justify="space-between" align="center" wrap="nowrap">
+                        <Text size="sm">{error}</Text>
+                        <Button variant="light" size="xs" onClick={() => load(filters, search, page)}>Try again</Button>
+                    </Group>
+                </Alert>
+            ) : null}
+
+            {!loading && hasLoaded && media.length === 0 && !error ? (
                 <EmptyState icon={<IconCompass size={28} />} title="No results" description="No anime matched these filters. Try widening your selection." />
             ) : null}
 
