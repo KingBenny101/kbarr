@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
-import { useHover, useMediaQuery } from "@mantine/hooks"
+import { useMediaQuery } from "@mantine/hooks"
 import { useNavigate, useParams } from "react-router"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
@@ -681,17 +681,13 @@ function formatAirDate(airDate: string): string {
     return date.toISOString().slice(0, 10)
 }
 
-// EpisodeIndex is the ledger spine: a fixed-width block with a tiny type code
-// over a large episode number. The number lights up gold when the episode is
-// available and goes off-air gray when it is not, so availability reads as a
-// single vertical scan down the page.
-function EpisodeIndex({ epNo, type, available }: { epNo: string; type: number; available: boolean }) {
-    const code = type === 1 ? "EP" : type === 2 ? "SP" : type === 3 ? "CR" : type === 4 ? "TR" : "PA"
+// EpisodeIndex is the ledger spine: a fixed-width block with the episode
+// number in mono. The number lights up gold when the episode is available and
+// goes off-air gray when it is not, so availability reads as a single vertical
+// scan down the page.
+function EpisodeIndex({ epNo, available }: { epNo: string; available: boolean }) {
     return (
-        <Stack gap={2} align="center" style={{ width: 60, flexShrink: 0, margin: "0 auto" }}>
-            <Text size="xs" c="dimmed" style={{ fontFamily: MONO, letterSpacing: "0.12em", lineHeight: 1 }}>
-                {code}
-            </Text>
+        <Stack gap={0} align="center" style={{ width: 60, flexShrink: 0, margin: "0 auto" }}>
             <Text fw={700} size="lg" c={available ? "yellow" : "dimmed"} style={{ fontFamily: MONO, lineHeight: 1.1 }}>
                 {epNo}
             </Text>
@@ -708,35 +704,6 @@ function LedgerLabel({ children, center = false }: { children: ReactNode; center
 }
 
 const CENTER_CELL: React.CSSProperties = { textAlign: "center" }
-
-// LedgerRow owns the hover/focus state that reveals the row's link, so the
-// link cell fades in only when the row is hovered or the anchor is focused
-// (keyboard users still reach it; opacity is purely visual).
-function LedgerRow({ children, link, showLink }: { children: ReactNode; link?: string | null; showLink?: boolean }) {
-    const { ref, hovered } = useHover<HTMLTableRowElement>()
-    const [focused, setFocused] = useState(false)
-    const revealed = hovered || focused
-    return (
-        <Table.Tr ref={ref} onFocusCapture={() => setFocused(true)} onBlurCapture={() => setFocused(false)}>
-            {children}
-            {showLink && (
-                <Table.Td style={CENTER_CELL}>
-                    {link ? (
-                        <Anchor
-                            href={link}
-                            target="_blank"
-                            rel="noreferrer"
-                            c="gray"
-                            style={{ opacity: revealed ? 1 : 0, transition: "opacity 150ms ease" }}
-                        >
-                            <IconExternalLink size={18} />
-                        </Anchor>
-                    ) : null}
-                </Table.Td>
-            )}
-        </Table.Tr>
-    )
-}
 
 function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, onMonitor, onUnmonitor }: {
     episodes: Episode[]
@@ -767,30 +734,43 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         const link = episodeSourceUrl(episode)
                         return (
                             <Card withBorder radius="md" p="sm" key={episode.ID}>
-                                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                                    <Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-                                        <EpisodeIndex epNo={episode.ep_no} type={episode.type} available={available} />
-                                        <Stack gap={2} style={{ minWidth: 0 }}>
+                                <Group justify="space-between" align="center" wrap="nowrap">
+                                    <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                                        <EpisodeIndex epNo={episode.ep_no} available={available} />
+                                        <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
                                             <Text size="sm" truncate c={available ? undefined : "dimmed"}>{episode.title}</Text>
-                                            <Text size="xs" c="dimmed" style={{ fontFamily: MONO }}>
-                                                {formatAirDate(episode.air_date)}
-                                            </Text>
+                                            <Group gap={6} wrap="nowrap">
+                                                {episode.type !== 1 && (
+                                                    <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
+                                                )}
+                                                <Text size="xs" c="dimmed" style={{ fontFamily: MONO }}>
+                                                    {formatAirDate(episode.air_date)}
+                                                </Text>
+                                            </Group>
                                         </Stack>
                                     </Group>
-                                    {episode.type !== 1 && (
-                                        <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
-                                    )}
+                                    <Switch
+                                        checked={monitored}
+                                        onChange={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                        aria-label={`Monitor episode ${episode.ep_no}`}
+                                        size="sm"
+                                    />
                                 </Group>
-                                <Group gap="xs" mt={8}>
+                                <Group gap="xs" mt={8} wrap="nowrap">
                                     <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
                                     {quality && <Text size="xs" c="dimmed" style={{ fontFamily: MONO }}>{quality}</Text>}
-                                    {subtitles && <Text size="xs" c="dimmed" style={{ fontFamily: MONO }}>{subtitles}</Text>}
+                                    {subtitles && (
+                                        <Text
+                                            size="xs"
+                                            c="dimmed"
+                                            title={subtitles}
+                                            truncate
+                                            style={{ fontFamily: MONO, maxWidth: 110 }}
+                                        >
+                                            {subtitles}
+                                        </Text>
+                                    )}
                                     <div style={{ flex: 1 }} />
-                                    <StatusPill
-                                        label={monitored ? "Monitored" : "Not monitored"}
-                                        tone={monitored ? "green" : "gray"}
-                                        onClick={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
-                                    />
                                     {link && (
                                         <Anchor href={link} target="_blank" rel="noreferrer" c="gray">
                                             <IconExternalLink size={14} />
@@ -842,8 +822,8 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         const subtitles = (monitorEntry?.subtitles || "").split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ")
                         const link = episodeSourceUrl(episode)
                         return (
-                            <LedgerRow key={episode.ID} link={link} showLink={hasLinks}>
-                                <Table.Td style={CENTER_CELL}><EpisodeIndex epNo={episode.ep_no} type={episode.type} available={available} /></Table.Td>
+                            <Table.Tr key={episode.ID}>
+                                <Table.Td style={CENTER_CELL}><EpisodeIndex epNo={episode.ep_no} available={available} /></Table.Td>
                                 <Table.Td style={{ maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                     <Group gap={6} wrap="nowrap" style={{ maxWidth: "100%" }}>
                                         {episode.type !== 1 && (
@@ -876,13 +856,23 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                                     </Text>
                                 </Table.Td>
                                 <Table.Td style={CENTER_CELL}>
-                                    <StatusPill
-                                        label={monitored ? "Monitored" : "Not monitored"}
-                                        tone={monitored ? "green" : "gray"}
-                                        onClick={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                    <Switch
+                                        checked={monitored}
+                                        onChange={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                        aria-label={`Monitor episode ${episode.ep_no}`}
+                                        size="sm"
                                     />
                                 </Table.Td>
-                            </LedgerRow>
+                                {hasLinks && (
+                                    <Table.Td style={CENTER_CELL}>
+                                        {link && (
+                                            <Anchor href={link} target="_blank" rel="noreferrer" c="gray">
+                                                <IconExternalLink size={18} />
+                                            </Anchor>
+                                        )}
+                                    </Table.Td>
+                                )}
+                            </Table.Tr>
                         )
                     })}
                 </Table.Tbody>

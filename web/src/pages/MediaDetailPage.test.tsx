@@ -122,9 +122,33 @@ function seasonCheckbox(): HTMLInputElement {
     return el as HTMLInputElement
 }
 
-async function clickPill(label: string, index = 0) {
-    const pills = await waitFor(() => screen.getAllByText(label))
-    fireEvent.click(pills[index])
+function monitorSwitches(): HTMLInputElement[] {
+    return screen.getAllByRole("switch", { name: /Monitor episode/ }) as HTMLInputElement[]
+}
+
+function monitoredCount(): number {
+    return monitorSwitches().filter((s) => s.checked).length
+}
+
+async function clickSwitch(index = 0) {
+    const switches = await waitFor(() => {
+        const found = monitorSwitches()
+        if (found.length === 0) throw new Error("no switches yet")
+        return found
+    })
+    fireEvent.click(switches[index])
+}
+
+// Clicks the first unmonitored switch, like the old "Not monitored" pill
+// helper did: picks the first row that is not yet being tracked.
+async function clickFirstUnmonitored() {
+    const switches = await waitFor(() => {
+        const found = monitorSwitches()
+        if (found.length === 0) throw new Error("no switches yet")
+        return found
+    })
+    const target = switches.find((s) => !s.checked) ?? switches[0]
+    fireEvent.click(target)
 }
 
 beforeEach(() => {
@@ -173,9 +197,9 @@ describe("MediaDetailPage season monitor sync", () => {
 
         renderPage()
 
-        await waitFor(() => expect(screen.getAllByText("Monitored")).toHaveLength(7))
+        await waitFor(() => expect(monitoredCount()).toBe(7))
 
-        await clickPill("Not monitored")
+        await clickFirstUnmonitored()
 
         await waitFor(() => expect(seasonCheckbox().checked).toBe(true))
         const seasonPost = monitorPosts.find((p) => p.body.is_season === true)
@@ -206,9 +230,9 @@ describe("MediaDetailPage season monitor sync", () => {
 
         renderPage()
 
-        await waitFor(() => expect(screen.getAllByText("Monitored")).toHaveLength(10))
+        await waitFor(() => expect(monitoredCount()).toBe(10))
 
-        await clickPill("Monitored")
+        await clickSwitch()
 
         await waitFor(() => expect(seasonCheckbox().checked).toBe(false))
         expect(monitored.find((m) => m.is_season)?.monitored).toBe(false)
@@ -237,9 +261,9 @@ describe("MediaDetailPage season monitor sync", () => {
 
         renderPage()
 
-        await waitFor(() => expect(screen.getAllByText("Monitored")).toHaveLength(10))
+        await waitFor(() => expect(monitoredCount()).toBe(10))
 
-        await clickPill("Monitored", 8)
+        await clickSwitch(8)
 
         await waitFor(() => expect(seasonCheckbox().checked).toBe(true))
         expect(monitored.find((m) => m.is_season)?.monitored).toBe(true)
@@ -268,12 +292,12 @@ describe("MediaDetailPage season monitor sync", () => {
 
         renderPage()
 
-        await waitFor(() => expect(screen.getAllByText("Monitored")).toHaveLength(10))
+        await waitFor(() => expect(monitoredCount()).toBe(10))
 
-        await clickPill("Monitored")
+        await clickSwitch()
         await waitFor(() => expect(seasonCheckbox().checked).toBe(false))
 
-        await clickPill("Not monitored")
+        await clickFirstUnmonitored()
 
         await waitFor(() => expect(seasonCheckbox().checked).toBe(true))
         const seasonPost = monitorPosts.find((p) => p.body.is_season === true)
@@ -294,7 +318,7 @@ describe("MediaDetailPage season monitor sync", () => {
         EPISODES[0].air_date = "2026-04-06T00:00:00Z"
         renderPage()
 
-        await waitFor(() => expect(screen.getAllByText("Monitored")).toHaveLength(10))
+        await waitFor(() => expect(monitoredCount()).toBe(10))
 
         expect(screen.getByText("Air date")).toBeDefined()
         expect(screen.getByText("2026-04-06")).toBeDefined()
@@ -302,8 +326,6 @@ describe("MediaDetailPage season monitor sync", () => {
         // pills because they are non-regular episodes.
         expect(screen.getAllByText("Credit")).toHaveLength(3)
         expect(screen.getAllByText("Regular")).toHaveLength(1)
-        expect(screen.getAllByText("EP")).toHaveLength(8)
-        expect(screen.getAllByText("CR")).toHaveLength(2)
-        expect(screen.queryByText("SP")).toBeNull()
+        expect(monitorSwitches()).toHaveLength(10)
     })
 })
