@@ -3,7 +3,7 @@ import { Badge, Box, Group, Paper, SimpleGrid, Stack, Table, Text, Title, Toolti
 import { useMediaQuery } from "@mantine/hooks"
 import { API_URL, apiFetch } from "@/utils"
 import { usePolling } from "@/hooks"
-import { formatDuration, formatRelative, ringProgress, formatWallClock } from "@/lib/format"
+import { formatDuration, formatRelative, formatTimeAgo, ringProgress, formatWallClock } from "@/lib/format"
 
 interface CycleStatus {
     service: string
@@ -24,12 +24,12 @@ interface ServiceHealth {
 const MONO = "var(--mantine-font-family-monospace)"
 const MISSING_RETRY_MIN = 1440
 
-function timeCell(ts: string | null, running: boolean, now: Date): React.ReactNode {
+function timeCell(ts: string | null, running: boolean, now: Date, isFuture = false): React.ReactNode {
     if (!ts) return <Text c="dimmed">never</Text>
     const date = new Date(ts)
     return (
         <Tooltip label={formatWallClock(date)}>
-            <Text>{running ? "started " + formatRelative(date, now) : formatRelative(date, now)}</Text>
+            <Text>{running ? "started " + formatRelative(date, now) : isFuture ? formatRelative(date, now) : formatTimeAgo(date, now)}</Text>
         </Tooltip>
     )
 }
@@ -102,13 +102,13 @@ function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                                 </Group>
                             </Table.Td>
                             <Table.Td ff={MONO}>{timeCell(v.lastTs, v.running, now)}</Table.Td>
-                            <Table.Td ff={MONO}>
-                                {v.running ? (
-                                    <Text c="dimmed">—</Text>
-                                ) : (
-                                    timeCell(c.next_run_at, false, now)
-                                )}
-                            </Table.Td>
+                             <Table.Td ff={MONO}>
+                                 {v.running ? (
+                                     <Text c="dimmed">—</Text>
+                                 ) : (
+                                     timeCell(c.next_run_at, false, now, true)
+                                 )}
+                             </Table.Td>
                             <Table.Td ff={MONO}>{formatDuration(c.last_duration_ms)}</Table.Td>
                         </Table.Tr>
                     )
@@ -153,7 +153,7 @@ function CycleCards({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                                     {v.running ? (
                                         <Text component="span" c="dimmed">—</Text>
                                     ) : (
-                                        timeCell(c.next_run_at, false, now)
+                                         timeCell(c.next_run_at, false, now, true)
                                     )}
                                 </Box>
                             </Box>

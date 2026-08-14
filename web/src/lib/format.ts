@@ -17,6 +17,12 @@ export function formatRelative(ts: Date | null, now: Date): string {
     return `in ${value}${u}`
 }
 
+export function formatTimeAgo(ts: Date | null, now: Date): string {
+    if (!ts) return "never"
+    const { value, unit: u } = unit(ts.getTime() - now.getTime())
+    return `${value}${u} ago`
+}
+
 export function formatWallClock(ts: Date): string {
     return ts.toISOString().slice(11, 19)
 }

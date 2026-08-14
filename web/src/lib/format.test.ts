@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatDuration, formatRelative, formatWallClock } from "./format"
+import { formatDuration, formatRelative, formatTimeAgo, formatWallClock } from "./format"
 
 const NOW = new Date("2026-08-01T12:00:00Z")
 
@@ -38,6 +38,28 @@ describe("formatRelative", () => {
     it("uses whole units for future", () => {
         expect(formatRelative(new Date("2026-08-01T12:01:00Z"), NOW)).toBe("in 1m")
         expect(formatRelative(new Date("2026-08-01T12:05:00Z"), NOW)).toBe("in 5m")
+    })
+})
+
+describe("formatTimeAgo", () => {
+    it("returns never for null", () => {
+        expect(formatTimeAgo(null, NOW)).toBe("never")
+    })
+
+    it("shows direct time for recent past timestamps", () => {
+        expect(formatTimeAgo(new Date("2026-08-01T11:59:37Z"), NOW)).toBe("23s ago")
+    })
+
+    it("formats past seconds", () => {
+        expect(formatTimeAgo(new Date("2026-08-01T11:59:30Z"), NOW)).toBe("30s ago")
+    })
+
+    it("formats past minutes", () => {
+        expect(formatTimeAgo(new Date("2026-08-01T11:55:00Z"), NOW)).toBe("5m ago")
+    })
+
+    it("formats past hours", () => {
+        expect(formatTimeAgo(new Date("2026-08-01T09:00:00Z"), NOW)).toBe("3h ago")
     })
 })
 
