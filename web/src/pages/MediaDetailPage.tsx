@@ -688,7 +688,7 @@ function formatAirDate(airDate: string): string {
 function EpisodeIndex({ epNo, type, available }: { epNo: string; type: number; available: boolean }) {
     const code = type === 1 ? "EP" : type === 2 ? "SP" : type === 3 ? "CR" : type === 4 ? "TR" : "PA"
     return (
-        <Stack gap={2} align="flex-start" style={{ width: 60, flexShrink: 0 }}>
+        <Stack gap={2} align="center" style={{ width: 60, flexShrink: 0, margin: "0 auto" }}>
             <Text size="xs" c="dimmed" style={{ fontFamily: MONO, letterSpacing: "0.12em", lineHeight: 1 }}>
                 {code}
             </Text>
@@ -699,13 +699,15 @@ function EpisodeIndex({ epNo, type, available }: { epNo: string; type: number; a
     )
 }
 
-function LedgerLabel({ children }: { children: ReactNode }) {
+function LedgerLabel({ children, center = false }: { children: ReactNode; center?: boolean }) {
     return (
-        <Text size="xs" tt="uppercase" c="dimmed" fw={700} style={{ letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+        <Text size="xs" tt="uppercase" c="dimmed" fw={700} style={{ letterSpacing: "0.08em", whiteSpace: "nowrap", textAlign: center ? "center" : "left" }}>
             {children}
         </Text>
     )
 }
+
+const CENTER_CELL: React.CSSProperties = { textAlign: "center" }
 
 // LedgerRow owns the hover/focus state that reveals the row's link, so the
 // link cell fades in only when the row is hovered or the anchor is focused
@@ -718,7 +720,7 @@ function LedgerRow({ children, link, showLink }: { children: ReactNode; link?: s
         <Table.Tr ref={ref} onFocusCapture={() => setFocused(true)} onBlurCapture={() => setFocused(false)}>
             {children}
             {showLink && (
-                <Table.Td>
+                <Table.Td style={CENTER_CELL}>
                     {link ? (
                         <Anchor
                             href={link}
@@ -817,18 +819,18 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
             >
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th style={{ cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => onSort("ep_no")}>
-                            <LedgerLabel>No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
+                        <Table.Th style={{ cursor: "pointer", whiteSpace: "nowrap", textAlign: "center" }} onClick={() => onSort("ep_no")}>
+                            <LedgerLabel center>No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
                         <Table.Th style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
                             <LedgerLabel>Title<SortIndicator field="title" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
-                        <Table.Th><LedgerLabel>Air date</LedgerLabel></Table.Th>
-                        <Table.Th><LedgerLabel>Availability</LedgerLabel></Table.Th>
-                        <Table.Th><LedgerLabel>Quality</LedgerLabel></Table.Th>
-                        <Table.Th><LedgerLabel>Subtitles</LedgerLabel></Table.Th>
-                        <Table.Th><LedgerLabel>Monitor</LedgerLabel></Table.Th>
-                        {hasLinks && <Table.Th><LedgerLabel>Link</LedgerLabel></Table.Th>}
+                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Air date</LedgerLabel></Table.Th>
+                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Availability</LedgerLabel></Table.Th>
+                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Quality</LedgerLabel></Table.Th>
+                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Subtitles</LedgerLabel></Table.Th>
+                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Monitor</LedgerLabel></Table.Th>
+                        {hasLinks && <Table.Th style={CENTER_CELL}><LedgerLabel center>Link</LedgerLabel></Table.Th>}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -841,7 +843,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         const link = episodeSourceUrl(episode)
                         return (
                             <LedgerRow key={episode.ID} link={link} showLink={hasLinks}>
-                                <Table.Td><EpisodeIndex epNo={episode.ep_no} type={episode.type} available={available} /></Table.Td>
+                                <Table.Td style={CENTER_CELL}><EpisodeIndex epNo={episode.ep_no} type={episode.type} available={available} /></Table.Td>
                                 <Table.Td style={{ maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                     <Group gap={6} wrap="nowrap" style={{ maxWidth: "100%" }}>
                                         {episode.type !== 1 && (
@@ -850,20 +852,20 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                                         <Text size="sm" truncate c={available ? undefined : "dimmed"}>{episode.title}</Text>
                                     </Group>
                                 </Table.Td>
-                                <Table.Td>
+                                <Table.Td style={CENTER_CELL}>
                                     <Text size="sm" c="dimmed" style={{ fontFamily: MONO, whiteSpace: "nowrap" }}>
                                         {formatAirDate(episode.air_date)}
                                     </Text>
                                 </Table.Td>
-                                <Table.Td>
+                                <Table.Td style={CENTER_CELL}>
                                     <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
                                 </Table.Td>
-                                <Table.Td>
+                                <Table.Td style={CENTER_CELL}>
                                     <Text size="sm" c={quality ? undefined : "dimmed"} style={{ fontFamily: MONO, whiteSpace: "nowrap" }}>
                                         {quality || "—"}
                                     </Text>
                                 </Table.Td>
-                                <Table.Td>
+                                <Table.Td style={CENTER_CELL}>
                                     <Text
                                         size="sm"
                                         c={subtitles ? undefined : "dimmed"}
@@ -873,7 +875,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                                         {subtitles || "—"}
                                     </Text>
                                 </Table.Td>
-                                <Table.Td>
+                                <Table.Td style={CENTER_CELL}>
                                     <StatusPill
                                         label={monitored ? "Monitored" : "Not monitored"}
                                         tone={monitored ? "green" : "gray"}
