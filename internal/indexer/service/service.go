@@ -92,10 +92,12 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 		}
 		_ = rec.End(ctx, pollCycle, next)
 
-		// Record the missing-search retry cycle. Its next run is based on the
-		// configured missingRetryInterval, not the poll interval.
-		_ = rec.Start(ctx, missingCycle)
-		_ = rec.End(ctx, missingCycle, time.Now().Add(missingRetryMin))
+		// Only record process_missing when a monitor was actually searched.
+		// The next missing retry is last_finished_at + missingRetryInterval.
+		if didWork {
+			_ = rec.Start(ctx, missingCycle)
+			_ = rec.End(ctx, missingCycle, time.Now().Add(missingRetryMin))
+		}
 
 		if didWork {
 			select {
