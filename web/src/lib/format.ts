@@ -10,7 +10,11 @@ export function formatRelative(ts: Date | null, now: Date): string {
     if (!ts) return "never"
     const diffMs = ts.getTime() - now.getTime()
     const { value, unit: u } = unit(diffMs)
-    return diffMs < 0 ? `${value}${u} ago` : `in ${value}${u}`
+    if (diffMs < 0) {
+        if (Math.abs(diffMs) < 30_000) return "due now"
+        return `overdue by ${value}${u}`
+    }
+    return `in ${value}${u}`
 }
 
 export function formatWallClock(ts: Date): string {

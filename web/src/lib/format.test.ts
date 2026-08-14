@@ -8,32 +8,36 @@ describe("formatRelative", () => {
         expect(formatRelative(null, NOW)).toBe("never")
     })
 
-    it("formats past seconds", () => {
-        expect(formatRelative(new Date("2026-08-01T11:59:37Z"), NOW)).toBe("23s ago")
+    it("shows 'due now' for past timestamps within 30s", () => {
+        expect(formatRelative(new Date("2026-08-01T11:59:37Z"), NOW)).toBe("due now")
+    })
+
+    it("shows 'overdue by X' for past timestamps beyond 30s", () => {
+        expect(formatRelative(new Date("2026-08-01T11:59:30Z"), NOW)).toBe("overdue by 30s")
+        expect(formatRelative(new Date("2026-08-01T11:55:00Z"), NOW)).toBe("overdue by 5m")
+        expect(formatRelative(new Date("2026-08-01T09:00:00Z"), NOW)).toBe("overdue by 3h")
+        expect(formatRelative(new Date("2026-07-30T12:00:00Z"), NOW)).toBe("overdue by 2d")
     })
 
     it("formats future seconds", () => {
         expect(formatRelative(new Date("2026-08-01T12:00:12Z"), NOW)).toBe("in 12s")
     })
 
-    it("formats minutes", () => {
-        expect(formatRelative(new Date("2026-08-01T11:55:00Z"), NOW)).toBe("5m ago")
+    it("formats future minutes", () => {
         expect(formatRelative(new Date("2026-08-01T12:05:00Z"), NOW)).toBe("in 5m")
     })
 
-    it("formats hours", () => {
-        expect(formatRelative(new Date("2026-08-01T09:00:00Z"), NOW)).toBe("3h ago")
+    it("formats future hours", () => {
         expect(formatRelative(new Date("2026-08-01T15:00:00Z"), NOW)).toBe("in 3h")
     })
 
-    it("formats days", () => {
-        expect(formatRelative(new Date("2026-07-30T12:00:00Z"), NOW)).toBe("2d ago")
+    it("formats future days", () => {
         expect(formatRelative(new Date("2026-08-03T12:00:00Z"), NOW)).toBe("in 2d")
     })
 
-    it("uses whole units", () => {
-        expect(formatRelative(new Date("2026-08-01T11:59:00Z"), NOW)).toBe("1m ago")
-        expect(formatRelative(new Date("2026-08-01T11:30:30Z"), NOW)).toBe("29m ago")
+    it("uses whole units for future", () => {
+        expect(formatRelative(new Date("2026-08-01T12:01:00Z"), NOW)).toBe("in 1m")
+        expect(formatRelative(new Date("2026-08-01T12:05:00Z"), NOW)).toBe("in 5m")
     })
 })
 
