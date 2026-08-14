@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
-import { useMediaQuery } from "@mantine/hooks"
+import { useElementSize, useMediaQuery } from "@mantine/hooks"
 import { useNavigate, useParams } from "react-router"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
@@ -73,6 +73,9 @@ export function MediaDetailPage() {
     const [refreshing, setRefreshing] = useState(false)
     const [refreshNonce, setRefreshNonce] = useState(0)
     const deleteFilesRef = useRef(false)
+    const { ref: episodesCardRef, width: episodesCardWidth } = useElementSize()
+    const windowIsNarrow = useMediaQuery("(max-width: 768px)")
+    const episodesAreMobile = episodesCardWidth > 0 ? episodesCardWidth < 600 : windowIsNarrow
 
     // Show the spinner when navigating between media in the same component
     // instance; the initial value already starts at true for first mount.
@@ -531,7 +534,7 @@ export function MediaDetailPage() {
                         </Card>
 
                         {(episodesData?.total ?? 0) > 0 || episodesData !== null ? (
-                            <Card withBorder radius="xl">
+                            <Card ref={episodesCardRef} withBorder radius="xl">
                                 <Stack gap="md" style={{ minHeight: (episodesData?.limit ?? 10) * 60 + 140 }}>
                                     <Group justify="space-between" align="center">
                                         <Title order={3}>Episodes</Title>
@@ -555,6 +558,7 @@ export function MediaDetailPage() {
                                         monitoredItems={monitoredItems}
                                         sortField={sortField}
                                         sortDir={sortDir}
+                                        isMobile={episodesAreMobile}
                                         onSort={handleSort}
                                         onMonitor={handleMonitorEpisode}
                                         onUnmonitor={handleUnmonitorEpisode}
@@ -705,17 +709,17 @@ function LedgerLabel({ children, center = false }: { children: ReactNode; center
 
 const CENTER_CELL: React.CSSProperties = { textAlign: "center" }
 
-function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, onMonitor, onUnmonitor }: {
+function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, isMobile, onSort, onMonitor, onUnmonitor }: {
     episodes: Episode[]
     monitoredItems: MonitoredItem[]
     sortField: SortField
     sortDir: SortDir
+    isMobile: boolean
     onSort: (field: SortField) => void
     onMonitor: (episode: Episode) => void
     onUnmonitor: (episode: Episode) => void
 }) {
     const hasLinks = episodes.some((e) => episodeSourceUrl(e) !== null)
-    const isMobile = useMediaQuery("(max-width: 768px)")
     const monitorEntryFor = (episode: Episode) =>
         monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
 
