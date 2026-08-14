@@ -51,3 +51,6 @@ tmp/
 
 # Bug audit working notes (local only)
 bugs/
+
+# Playwright MCP browser-verification artifacts
+.playwright-mcp/

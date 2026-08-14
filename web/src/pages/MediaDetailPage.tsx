@@ -14,6 +14,8 @@ type SortDir = "asc" | "desc"
 const ALL_TYPES = [1, 2, 3, 4, 5] as const
 const TYPE_LABELS: Record<number, string> = { 1: "Regular", 2: "Special", 3: "Credit", 4: "Trailer", 5: "Parody" }
 
+const isRegularEpisode = (episode: Episode) => !Number.isNaN(Number.parseInt(episode.ep_no, 10))
+
 interface EpisodesResponse {
     episodes: Episode[]
     total: number
@@ -127,18 +129,18 @@ export function MediaDetailPage() {
         }
     }
 
-    const fetchMonitored = useCallback(() => {
-        if (!id) return
-        apiFetch(`${API_URL}/api/library/${id}/monitored`)
-            .then((response) => {
-                if (!response.ok) throw new Error(response.statusText)
-                return response.json()
-            })
-            .then((data: MonitoredItem[]) => {
-                setMonitoredItems(data || [])
-                setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1 && item.monitored) ?? false)
-            })
-            .catch((error) => console.error("Failed to fetch monitored items", error))
+    const fetchSeq = useRef(0)
+
+    const fetchMonitored = useCallback(async () => {
+        const seq = ++fetchSeq.current
+        if (!id) return []
+        const response = await apiFetch(`${API_URL}/api/library/${id}/monitored`)
+        if (!response.ok) return []
+        const data = await response.json() as MonitoredItem[]
+        if (seq !== fetchSeq.current) return data || []
+        setMonitoredItems(data || [])
+        setMonitorEntireSeason(data?.some((item) => item.is_season && item.season === 1 && item.monitored) ?? false)
+        return data || []
     }, [id])
 
     useEffect(() => {
@@ -275,21 +277,20 @@ export function MediaDetailPage() {
             return
         }
 
-        // Immediately reflect the change in local state
-        const existing = monitoredItems.find((i) => i.external_id === episode.external_id && i.is_episode)
-        const updatedMonitored = existing
-            ? monitoredItems.map((i) => i.external_id === episode.external_id && i.is_episode ? { ...i, monitored: true } : i)
-            : [...monitoredItems, { external_id: episode.external_id, source: episode.source, is_episode: true, is_season: false, season: 1, monitored: true }]
+        // Refetch from the server — it is the single source of truth
+        const fresh = await fetchMonitored()
 
-        // Check if all episodes are now monitored — if so, add season monitor
+        // Check if all regular episodes are now monitored — if so, add season monitor
         const allEpsRes = await apiFetch(`${API_URL}/api/library/${id}/episodes?limit=10000`)
         const allEpsData = await allEpsRes.json() as EpisodesResponse
         const allEpisodes = allEpsData.episodes ?? []
-        const monitoredIds = new Set(updatedMonitored.filter((i) => i.is_episode && i.monitored).map((i) => i.external_id))
-        const allMonitored = allEpisodes.length > 0 && allEpisodes.every((ep) => monitoredIds.has(ep.external_id))
+        const regularEpisodes = allEpisodes.filter(isRegularEpisode)
+        const monitoredIds = new Set(fresh.filter((i) => i.is_episode && i.monitored).map((i) => i.external_id))
+        const allMonitored = regularEpisodes.length > 0 && regularEpisodes.every((ep) => monitoredIds.has(ep.external_id))
+        const seasonMonitored = fresh.some((i) => i.is_season && i.monitored)
 
-        if (allMonitored && !monitoredItems.some((i) => i.is_season && i.monitored)) {
-            await apiFetch(`${API_URL}/api/monitor`, {
+        if (allMonitored && !seasonMonitored) {
+            const seasonRes = await apiFetch(`${API_URL}/api/monitor`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -302,11 +303,14 @@ export function MediaDetailPage() {
                     is_season: true,
                     source: media.source,
                     external_id: media.source_id,
+                    monitored: true,
                 }),
             })
-            fetchMonitored()
-        } else {
-            setMonitoredItems(updatedMonitored)
+            if (seasonRes.ok) {
+                fetchMonitored()
+            } else {
+                showToast("Failed to monitor season", "error")
+            }
         }
     }
 
@@ -324,24 +328,17 @@ export function MediaDetailPage() {
             return
         }
 
-        if (seasonMonitor) {
-            // Remove only the season-level monitor record, not all episode monitors
+        if (seasonMonitor && isRegularEpisode(episode)) {
+            // Remove only the season-level monitor record when a regular episode is unmonitored
             await apiFetch(`${API_URL}/api/unmonitor`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ library_id: Number(id), external_id: seasonMonitor.external_id }),
             })
-            setMonitorEntireSeason(false)
         }
 
-        // Immediately reflect unmonitor in local state by toggling monitored=false
-        setMonitoredItems((prev) =>
-            prev.map((item) => {
-                if (item.external_id === episode.external_id && item.is_episode) return { ...item, monitored: false }
-                if (seasonMonitor && item.is_season && item.external_id === seasonMonitor.external_id) return { ...item, monitored: false }
-                return item
-            })
-        )
+        // Refetch from the server — it is the single source of truth
+        fetchMonitored()
     }
 
     useEffect(() => {
