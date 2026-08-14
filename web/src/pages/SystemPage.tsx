@@ -22,6 +22,7 @@ interface ServiceHealth {
 }
 
 const MONO = "var(--mantine-font-family-monospace)"
+const MISSING_RETRY_MIN = 1440
 
 function timeCell(ts: string | null, running: boolean, now: Date): React.ReactNode {
     if (!ts) return <Text c="dimmed">never</Text>
@@ -217,6 +218,18 @@ export default function SystemPage() {
         [workers],
     )
 
+    // Override process_missing cycle's next_run_at with client-side calculation
+    // based on missingRetryInterval (default 1440 min).
+    const allCycles = useMemo(() => {
+        return cycles.map((c) => {
+            if (c.service === "indexer" && c.cycle === "process_missing" && c.last_finished_at) {
+                const nextRun = new Date(new Date(c.last_finished_at).getTime() + MISSING_RETRY_MIN * 60_000)
+                return { ...c, next_run_at: nextRun.toISOString() }
+            }
+            return c
+        })
+    }, [cycles])
+
     return (
         <>
             <style>{`@media (prefers-reduced-motion: no-preference) { @keyframes kbarr-ring-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } } .kbarr-ring-pulse { animation: kbarr-ring-pulse 1.6s ease-in-out infinite; } }`}</style>
@@ -225,13 +238,13 @@ export default function SystemPage() {
                     <Title order={2}>System</Title>
                     {stale && <Text c="orange" size="sm">Status data is stale — retrying…</Text>}
                 </Group>
-                <Paper withBorder p={isDesktop ? "md" : 0}>
-                    {isDesktop ? (
-                        <CycleTable cycles={cycles} offlineServices={offlineServices} now={now} />
-                    ) : (
-                        <CycleCards cycles={cycles} offlineServices={offlineServices} now={now} />
-                    )}
-                </Paper>
+                    <Paper withBorder p={isDesktop ? "md" : 0}>
+                        {isDesktop ? (
+                            <CycleTable cycles={allCycles} offlineServices={offlineServices} now={now} />
+                        ) : (
+                            <CycleCards cycles={allCycles} offlineServices={offlineServices} now={now} />
+                        )}
+                    </Paper>
             </Stack>
         </>
     )

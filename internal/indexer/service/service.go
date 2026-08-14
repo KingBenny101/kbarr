@@ -80,6 +80,8 @@ func (s *IndexerService) getSearchTitles(ctx context.Context, libraryID int64, m
 func (s *IndexerService) PollAndQueue(ctx context.Context) {
 	rec := cycle.NewRecorder(s.db)
 	pollCycle := cycle.Cycle{Service: "indexer", Cycle: "monitor_poll", DisplayName: "Monitor poll"}
+	missingCycle := cycle.Cycle{Service: "indexer", Cycle: "process_missing", DisplayName: "Missing search retry"}
+	missingRetryMin := config.GetMinutes(s.db, "missingRetryInterval", 1440*time.Minute, time.Minute)
 	for {
 		_ = rec.Start(ctx, pollCycle)
 		didWork := s.processMonitors(ctx)
@@ -89,6 +91,12 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 			next = time.Now()
 		}
 		_ = rec.End(ctx, pollCycle, next)
+
+		// Record the missing-search retry cycle. Its next run is based on the
+		// configured missingRetryInterval, not the poll interval.
+		_ = rec.Start(ctx, missingCycle)
+		_ = rec.End(ctx, missingCycle, time.Now().Add(missingRetryMin))
+
 		if didWork {
 			select {
 			case <-ctx.Done():
