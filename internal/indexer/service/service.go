@@ -80,8 +80,6 @@ func (s *IndexerService) getSearchTitles(ctx context.Context, libraryID int64, m
 func (s *IndexerService) PollAndQueue(ctx context.Context) {
 	rec := cycle.NewRecorder(s.db)
 	pollCycle := cycle.Cycle{Service: "indexer", Cycle: "monitor_poll", DisplayName: "Monitor poll"}
-	missingCycle := cycle.Cycle{Service: "indexer", Cycle: "process_missing", DisplayName: "Missing search retry"}
-	missingRetryMin := config.GetMinutes(s.db, "missingRetryInterval", 1440*time.Minute, time.Minute)
 	for {
 		_ = rec.Start(ctx, pollCycle)
 		didWork := s.processMonitors(ctx)
@@ -91,13 +89,6 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 			next = time.Now()
 		}
 		_ = rec.End(ctx, pollCycle, next)
-
-		// Only record process_missing when a monitor was actually searched.
-		// The next missing retry is last_finished_at + missingRetryInterval.
-		if didWork {
-			_ = rec.Start(ctx, missingCycle)
-			_ = rec.End(ctx, missingCycle, time.Now().Add(missingRetryMin))
-		}
 
 		if didWork {
 			select {
@@ -430,6 +421,15 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	if n, _ := res.RowsAffected(); n == 0 {
 		slog.Info("Monitor already claimed by another poll, skipping", "id", mon.ID)
 		return false
+	}
+
+	// Record process_missing cycle only when a missing monitor is actually processed.
+	if mon.Status == "missing" {
+		rec := cycle.NewRecorder(s.db)
+		missingCycle := cycle.Cycle{Service: "indexer", Cycle: "process_missing", DisplayName: "Missing search retry"}
+		missingRetryMin := config.GetMinutes(s.db, "missingRetryInterval", 1440*time.Minute, time.Minute)
+		_ = rec.Start(ctx, missingCycle)
+		_ = rec.End(ctx, missingCycle, time.Now().Add(missingRetryMin))
 	}
 
 	season := effectiveSeason(mon, title)
