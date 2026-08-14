@@ -864,7 +864,12 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                                     </Text>
                                 </Table.Td>
                                 <Table.Td>
-                                    <Text size="sm" c={subtitles ? undefined : "dimmed"} style={{ fontFamily: MONO, whiteSpace: "nowrap" }}>
+                                    <Text
+                                        size="sm"
+                                        c={subtitles ? undefined : "dimmed"}
+                                        title={subtitles || undefined}
+                                        style={{ fontFamily: MONO, whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}
+                                    >
                                         {subtitles || "—"}
                                     </Text>
                                 </Table.Td>
