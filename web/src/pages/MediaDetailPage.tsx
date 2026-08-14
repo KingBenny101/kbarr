@@ -535,7 +535,7 @@ export function MediaDetailPage() {
 
                         {(episodesData?.total ?? 0) > 0 || episodesData !== null ? (
                             <Card ref={episodesCardRef} withBorder radius="xl">
-                                <Stack gap="md" style={{ minHeight: (episodesData?.limit ?? 10) * 60 + 140 }}>
+                                <Stack gap="md">
                                     <Group justify="space-between" align="center">
                                         <Title order={3}>Episodes</Title>
                                         {(episodesData?.present_types?.length ?? 0) > 1 && (
@@ -564,7 +564,7 @@ export function MediaDetailPage() {
                                         onUnmonitor={handleUnmonitorEpisode}
                                     />
                                     {totalPages > 1 ? (
-                                        <Group justify="space-between" align="center" mt="auto">
+                                        <Group justify="space-between" align="center">
                                             <Text size="sm" c="dimmed">
                                                 {(page - 1) * 10 + 1}–{Math.min(page * 10, episodesData?.total ?? 0)} of {episodesData?.total ?? 0}
                                             </Text>
