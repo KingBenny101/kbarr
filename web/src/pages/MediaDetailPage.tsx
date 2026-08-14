@@ -687,7 +687,7 @@ function formatAirDate(airDate: string): string {
 // scan down the page.
 function EpisodeIndex({ epNo, available }: { epNo: string; available: boolean }) {
     return (
-        <Stack gap={0} align="center" style={{ width: 60, flexShrink: 0, margin: "0 auto" }}>
+        <Stack gap={0} align="center" style={{ width: 48, flexShrink: 0, margin: "0 auto" }}>
             <Text fw={700} size="lg" c={available ? "yellow" : "dimmed"} style={{ fontFamily: MONO, lineHeight: 1.1 }}>
                 {epNo}
             </Text>
@@ -792,25 +792,26 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                 highlightOnHover
                 withRowBorders
                 verticalSpacing="sm"
-                horizontalSpacing="sm"
+                horizontalSpacing="xs"
                 tabularNums
+                layout="fixed"
                 w="100%"
-                style={{ minWidth: 720 }}
+                style={{ minWidth: 536 }}
             >
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th style={{ cursor: "pointer", whiteSpace: "nowrap", textAlign: "center" }} onClick={() => onSort("ep_no")}>
+                        <Table.Th w={56} style={{ cursor: "pointer", whiteSpace: "nowrap", textAlign: "center", overflow: "hidden" }} onClick={() => onSort("ep_no")}>
                             <LedgerLabel center>No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
-                        <Table.Th style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
+                        <Table.Th style={{ cursor: "pointer", overflow: "hidden" }} onClick={() => onSort("title")}>
                             <LedgerLabel>Title<SortIndicator field="title" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
-                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Air date</LedgerLabel></Table.Th>
-                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Availability</LedgerLabel></Table.Th>
-                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Quality</LedgerLabel></Table.Th>
-                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Subtitles</LedgerLabel></Table.Th>
-                        <Table.Th style={CENTER_CELL}><LedgerLabel center>Monitor</LedgerLabel></Table.Th>
-                        {hasLinks && <Table.Th style={CENTER_CELL}><LedgerLabel center>Link</LedgerLabel></Table.Th>}
+                        <Table.Th w={88} style={CENTER_CELL}><LedgerLabel center>Air date</LedgerLabel></Table.Th>
+                        <Table.Th w={96} style={CENTER_CELL}><LedgerLabel center>Status</LedgerLabel></Table.Th>
+                        <Table.Th w={72} style={CENTER_CELL}><LedgerLabel center>Quality</LedgerLabel></Table.Th>
+                        <Table.Th w={108} style={CENTER_CELL}><LedgerLabel center>Subtitles</LedgerLabel></Table.Th>
+                        <Table.Th w={72} style={CENTER_CELL}><LedgerLabel center>Monitor</LedgerLabel></Table.Th>
+                        {hasLinks && <Table.Th w={44} style={CENTER_CELL}><LedgerLabel center>Link</LedgerLabel></Table.Th>}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -824,7 +825,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         return (
                             <Table.Tr key={episode.ID}>
                                 <Table.Td style={CENTER_CELL}><EpisodeIndex epNo={episode.ep_no} available={available} /></Table.Td>
-                                <Table.Td style={{ maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                <Table.Td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                     <Group gap={6} wrap="nowrap" style={{ maxWidth: "100%" }}>
                                         {episode.type !== 1 && (
                                             <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
@@ -850,7 +851,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                                         size="sm"
                                         c={subtitles ? undefined : "dimmed"}
                                         title={subtitles || undefined}
-                                        style={{ fontFamily: MONO, whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}
+                                        style={{ fontFamily: MONO, whiteSpace: "nowrap", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis" }}
                                     >
                                         {subtitles || "—"}
                                     </Text>
