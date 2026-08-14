@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
-import { ActionIcon, Card, Group, Pagination, ScrollArea, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core"
+import { ActionIcon, Card, Group, Loader, Pagination, ScrollArea, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
-import { IconChevronDown, IconChevronUp, IconSelector, IconTrash } from "@tabler/icons-react"
+import { IconChevronDown, IconChevronUp, IconSearch, IconSelector, IconTrash } from "@tabler/icons-react"
 import { Link } from "react-router"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { StatusPill } from "@/components"
@@ -61,6 +61,7 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
 export function MonitorPage() {
     const [monitors, setMonitors] = useState<MonitorEntry[]>([])
     const [loading, setLoading] = useState(true)
+    const [searchLoading, setSearchLoading] = useState<Set<number>>(new Set())
     const [currentPage, setCurrentPage] = useState(1)
     const [sortField, setSortField] = useState<SortField>("status")
     const [sortDir, setSortDir] = useState<SortDir>("asc")
@@ -68,19 +69,44 @@ export function MonitorPage() {
     const isMobile = useMediaQuery("(max-width: 768px)")
     const itemsPerPage = 9
 
+    const refetchMonitors = async () => {
+        setLoading(true)
+        try {
+            const response = await apiFetch(`${API_URL}/api/monitor`)
+            if (!response.ok) throw new Error("Failed to fetch monitored items")
+            const data = await response.json()
+            setMonitors(data || [])
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to load monitored items", "error")
+        } finally {
+            setLoading(false)
+        }
+    }
+
     useEffect(() => {
-        apiFetch(`${API_URL}/api/monitor`)
-            .then((response) => {
-                if (!response.ok) throw new Error("Failed to fetch monitored items")
-                return response.json()
-            })
-            .then((data) => setMonitors(data || []))
-            .catch((error) => {
-                console.error(error)
-                showToast("Failed to load monitored items", "error")
-            })
-            .finally(() => setLoading(false))
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        refetchMonitors()
     }, [])
+
+    const handleSearch = async (id: number) => {
+        setSearchLoading((prev) => new Set(prev).add(id))
+        try {
+            const response = await apiFetch(`${API_URL}/api/monitor/${id}/search`, { method: "POST" })
+            if (!response.ok) throw new Error("Failed to trigger search")
+            showToast("Search triggered", "success")
+            await refetchMonitors()
+        } catch (error) {
+            console.error(error)
+            showToast("Failed to trigger search", "error")
+        } finally {
+            setSearchLoading((prev) => {
+                const next = new Set(prev)
+                next.delete(id)
+                return next
+            })
+        }
+    }
 
     const handleDelete = async (id: number) => {
         try {
@@ -206,6 +232,16 @@ export function MonitorPage() {
                                                     {entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ")}
                                                 </Text>
                                             )}
+                                            <ActionIcon
+                                                variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
+                                                color="blue"
+                                                size="sm"
+                                                onClick={() => handleSearch(entry.ID)}
+                                                disabled={searchLoading.has(entry.ID)}
+                                                aria-label="Search now"
+                                            >
+                                                {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={12} />}
+                                            </ActionIcon>
                                         </Group>
                                     </Card>
                                 ))
@@ -232,9 +268,10 @@ export function MonitorPage() {
                                                 Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th w={100}>Quality</Table.Th>
-                                        <Table.Th w={120}>Subtitles</Table.Th>
-                                        <Table.Th w={72} />
+<Table.Th w={100}>Quality</Table.Th>
+                                <Table.Th w={120}>Subtitles</Table.Th>
+                                <Table.Th w={72}>Search</Table.Th>
+                                <Table.Th w={72} />
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
@@ -274,6 +311,18 @@ export function MonitorPage() {
                                                     <Text truncate>
                                                         {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
                                                     </Text>
+                                                </Table.Td>
+                                                <Table.Td ta="center">
+                                                    <ActionIcon
+                                                        variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
+                                                        color="blue"
+                                                        size="sm"
+                                                        onClick={() => handleSearch(entry.ID)}
+                                                        disabled={searchLoading.has(entry.ID)}
+                                                        aria-label="Search now"
+                                                    >
+                                                        {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={16} />}
+                                                    </ActionIcon>
                                                 </Table.Td>
                                                 <Table.Td ta="right">
                                                     <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
