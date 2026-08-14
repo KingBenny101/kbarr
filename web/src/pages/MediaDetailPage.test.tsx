@@ -280,4 +280,30 @@ describe("MediaDetailPage season monitor sync", () => {
         expect(seasonPost).toBeDefined()
         expect(seasonPost!.body.monitored).toBe(true)
     })
+
+    it("shows the air date column and a type pill only for non-regular episodes", async () => {
+        monitored = EPISODES.map((e) => ({
+            external_id: e.external_id,
+            source: e.source,
+            is_episode: true,
+            is_season: false,
+            season: 1,
+            episode_number: Number.parseInt(e.ep_no, 10) || 0,
+            monitored: true,
+        }))
+        EPISODES[0].air_date = "2026-04-06T00:00:00Z"
+        renderPage()
+
+        await waitFor(() => expect(screen.getAllByText("Monitored")).toHaveLength(10))
+
+        expect(screen.getByText("Air date")).toBeDefined()
+        expect(screen.getByText("2026-04-06")).toBeDefined()
+        // Filter chips render once per present type; the credits also get row
+        // pills because they are non-regular episodes.
+        expect(screen.getAllByText("Credit")).toHaveLength(3)
+        expect(screen.getAllByText("Regular")).toHaveLength(1)
+        expect(screen.getAllByText("EP")).toHaveLength(8)
+        expect(screen.getAllByText("CR")).toHaveLength(2)
+        expect(screen.queryByText("SP")).toBeNull()
+    })
 })
