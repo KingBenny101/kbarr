@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useMediaQuery } from "@mantine/hooks"
+import type { ReactNode } from "react"
+import { useElementSize, useMediaQuery } from "@mantine/hooks"
 import { useNavigate, useParams } from "react-router"
 import { ActionIcon, Anchor, Button, Card, Checkbox, Grid, Group, Image, Pagination, ScrollArea, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core"
 import { modals } from "@mantine/modals"
@@ -72,6 +73,9 @@ export function MediaDetailPage() {
     const [refreshing, setRefreshing] = useState(false)
     const [refreshNonce, setRefreshNonce] = useState(0)
     const deleteFilesRef = useRef(false)
+    const { ref: episodesCardRef, width: episodesCardWidth } = useElementSize()
+    const windowIsNarrow = useMediaQuery("(max-width: 768px)")
+    const episodesAreMobile = episodesCardWidth > 0 ? episodesCardWidth < 600 : windowIsNarrow
 
     // Show the spinner when navigating between media in the same component
     // instance; the initial value already starts at true for first mount.
@@ -530,8 +534,8 @@ export function MediaDetailPage() {
                         </Card>
 
                         {(episodesData?.total ?? 0) > 0 || episodesData !== null ? (
-                            <Card withBorder radius="xl">
-                                <Stack gap="md" style={{ minHeight: (episodesData?.limit ?? 10) * 41 + 122 }}>
+                            <Card ref={episodesCardRef} withBorder radius="xl">
+                                <Stack gap="md">
                                     <Group justify="space-between" align="center">
                                         <Title order={3}>Episodes</Title>
                                         {(episodesData?.present_types?.length ?? 0) > 1 && (
@@ -554,12 +558,13 @@ export function MediaDetailPage() {
                                         monitoredItems={monitoredItems}
                                         sortField={sortField}
                                         sortDir={sortDir}
+                                        isMobile={episodesAreMobile}
                                         onSort={handleSort}
                                         onMonitor={handleMonitorEpisode}
                                         onUnmonitor={handleUnmonitorEpisode}
                                     />
                                     {totalPages > 1 ? (
-                                        <Group justify="space-between" align="center" mt="auto">
+                                        <Group justify="space-between" align="center">
                                             <Text size="sm" c="dimmed">
                                                 {(page - 1) * 10 + 1}–{Math.min(page * 10, episodesData?.total ?? 0)} of {episodesData?.total ?? 0}
                                             </Text>
@@ -671,17 +676,52 @@ function SortIndicator({ field, sortField, sortDir }: { field: SortField; sortFi
     return <Text span size="xs"> {sortDir === "asc" ? "↑" : "↓"}</Text>
 }
 
-function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, onMonitor, onUnmonitor }: {
+const MONO = "var(--mantine-font-family-monospace)"
+
+function formatAirDate(airDate: string): string {
+    if (!airDate) return "—"
+    const date = new Date(airDate)
+    if (isNaN(date.getTime())) return "—"
+    return date.toISOString().slice(0, 10)
+}
+
+// EpisodeIndex is the ledger spine: a fixed-width block with the episode
+// number in mono. The number lights up gold when the episode is available and
+// goes off-air gray when it is not, so availability reads as a single vertical
+// scan down the page.
+function EpisodeIndex({ epNo, available }: { epNo: string; available: boolean }) {
+    return (
+        <Stack gap={0} align="center" style={{ width: 48, flexShrink: 0, margin: "0 auto" }}>
+            <Text fw={700} size="lg" c={available ? "yellow" : "dimmed"} style={{ fontFamily: MONO, lineHeight: 1.1 }}>
+                {epNo}
+            </Text>
+        </Stack>
+    )
+}
+
+function LedgerLabel({ children, center = false }: { children: ReactNode; center?: boolean }) {
+    return (
+        <Text size="xs" tt="uppercase" c="dimmed" fw={700} style={{ letterSpacing: "0.08em", whiteSpace: "nowrap", textAlign: center ? "center" : "left" }}>
+            {children}
+        </Text>
+    )
+}
+
+const CENTER_CELL: React.CSSProperties = { textAlign: "center" }
+
+function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, isMobile, onSort, onMonitor, onUnmonitor }: {
     episodes: Episode[]
     monitoredItems: MonitoredItem[]
     sortField: SortField
     sortDir: SortDir
+    isMobile: boolean
     onSort: (field: SortField) => void
     onMonitor: (episode: Episode) => void
     onUnmonitor: (episode: Episode) => void
 }) {
     const hasLinks = episodes.some((e) => episodeSourceUrl(e) !== null)
-    const isMobile = useMediaQuery("(max-width: 768px)")
+    const monitorEntryFor = (episode: Episode) =>
+        monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
 
     if (isMobile) {
         return (
@@ -690,7 +730,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                     <Text ta="center" py="md" c="dimmed">No episodes found.</Text>
                 ) : (
                     episodes.map((episode) => {
-                        const monitorEntry = monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
+                        const monitorEntry = monitorEntryFor(episode)
                         const available = monitorEntry?.available === true
                         const monitored = monitorEntry?.monitored === true
                         const quality = monitorEntry?.quality?.toUpperCase() || ""
@@ -699,22 +739,42 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         return (
                             <Card withBorder radius="md" p="sm" key={episode.ID}>
                                 <Group justify="space-between" align="center" wrap="nowrap">
-                                    <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-                                        <Text fw={700} size="sm">{episode.ep_no}</Text>
-                                        <Text size="sm" truncate>{episode.title}</Text>
+                                    <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                                        <EpisodeIndex epNo={episode.ep_no} available={available} />
+                                        <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+                                            <Text size="sm" truncate c={available ? undefined : "dimmed"}>{episode.title}</Text>
+                                            <Group gap={6} wrap="nowrap">
+                                                {episode.type !== 1 && (
+                                                    <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
+                                                )}
+                                                <Text size="xs" c="dimmed" style={{ fontFamily: MONO }}>
+                                                    {formatAirDate(episode.air_date)}
+                                                </Text>
+                                            </Group>
+                                        </Stack>
                                     </Group>
-                                    <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
-                                </Group>
-                                <Group gap="xs" mt={4}>
-                                    <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
-                                    {quality && <Text size="xs" c="dimmed">{quality}</Text>}
-                                    {subtitles && <Text size="xs" c="dimmed">{subtitles}</Text>}
-                                    <div style={{ flex: 1 }} />
-                                    <StatusPill
-                                        label={monitored ? "Monitored" : "Not monitored"}
-                                        tone={monitored ? "green" : "gray"}
-                                        onClick={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                    <Switch
+                                        checked={monitored}
+                                        onChange={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                        aria-label={`Monitor episode ${episode.ep_no}`}
+                                        size="sm"
                                     />
+                                </Group>
+                                <Group gap="xs" mt={8} wrap="nowrap">
+                                    <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
+                                    {quality && <Text size="xs" c="dimmed" style={{ fontFamily: MONO }}>{quality}</Text>}
+                                    {subtitles && (
+                                        <Text
+                                            size="xs"
+                                            c="dimmed"
+                                            title={subtitles}
+                                            truncate
+                                            style={{ fontFamily: MONO, maxWidth: 110 }}
+                                        >
+                                            {subtitles}
+                                        </Text>
+                                    )}
+                                    <div style={{ flex: 1 }} />
                                     {link && (
                                         <Anchor href={link} target="_blank" rel="noreferrer" c="gray">
                                             <IconExternalLink size={14} />
@@ -731,26 +791,36 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
 
     return (
         <ScrollArea type="auto">
-            <Table striped highlightOnHover withTableBorder withColumnBorders w="100%">
+            <Table
+                striped={false}
+                highlightOnHover
+                withRowBorders
+                verticalSpacing="sm"
+                horizontalSpacing="xs"
+                tabularNums
+                layout="fixed"
+                w="100%"
+                style={{ minWidth: 536 }}
+            >
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th style={{ cursor: "pointer", textAlign: "center", whiteSpace: "nowrap" }} onClick={() => onSort("ep_no")}>
-                            No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} />
+                        <Table.Th w={56} style={{ cursor: "pointer", whiteSpace: "nowrap", textAlign: "center", overflow: "hidden" }} onClick={() => onSort("ep_no")}>
+                            <LedgerLabel center>No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
-                        <Table.Th style={{ cursor: "pointer" }} onClick={() => onSort("title")}>
-                            Title<SortIndicator field="title" sortField={sortField} sortDir={sortDir} />
+                        <Table.Th style={{ cursor: "pointer", overflow: "hidden" }} onClick={() => onSort("title")}>
+                            <LedgerLabel>Title<SortIndicator field="title" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
-                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Type</Table.Th>
-                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Availability</Table.Th>
-                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Quality</Table.Th>
-                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Subtitles</Table.Th>
-                        <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Monitor</Table.Th>
-                        {hasLinks && <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Link</Table.Th>}
+                        <Table.Th w={88} style={CENTER_CELL}><LedgerLabel center>Air date</LedgerLabel></Table.Th>
+                        <Table.Th w={96} style={CENTER_CELL}><LedgerLabel center>Status</LedgerLabel></Table.Th>
+                        <Table.Th w={72} style={CENTER_CELL}><LedgerLabel center>Quality</LedgerLabel></Table.Th>
+                        <Table.Th w={108} style={CENTER_CELL}><LedgerLabel center>Subtitles</LedgerLabel></Table.Th>
+                        <Table.Th w={72} style={CENTER_CELL}><LedgerLabel center>Monitor</LedgerLabel></Table.Th>
+                        {hasLinks && <Table.Th w={44} style={CENTER_CELL}><LedgerLabel center>Link</LedgerLabel></Table.Th>}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                     {episodes.map((episode) => {
-                        const monitorEntry = monitoredItems.find((item) => item.external_id === episode.external_id && item.source === episode.source && item.is_episode)
+                        const monitorEntry = monitorEntryFor(episode)
                         const available = monitorEntry?.available === true
                         const monitored = monitorEntry?.monitored === true
                         const quality = monitorEntry?.quality?.toUpperCase() || ""
@@ -758,34 +828,53 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, onSort, on
                         const link = episodeSourceUrl(episode)
                         return (
                             <Table.Tr key={episode.ID}>
-                                <Table.Td fw={700} style={{ textAlign: "center" }}>{episode.ep_no}</Table.Td>
-                                <Table.Td style={{ maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{episode.title}</Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                                    <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
+                                <Table.Td style={CENTER_CELL}><EpisodeIndex epNo={episode.ep_no} available={available} /></Table.Td>
+                                <Table.Td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    <Group gap={6} wrap="nowrap" style={{ maxWidth: "100%" }}>
+                                        {episode.type !== 1 && (
+                                            <StatusPill label={episodeTypeLabel(episode.type)} tone={episodeTypeTone(episode.type)} />
+                                        )}
+                                        <Text size="sm" truncate c={available ? undefined : "dimmed"}>{episode.title}</Text>
+                                    </Group>
                                 </Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
+                                <Table.Td style={CENTER_CELL}>
+                                    <Text size="sm" c="dimmed" style={{ fontFamily: MONO, whiteSpace: "nowrap" }}>
+                                        {formatAirDate(episode.air_date)}
+                                    </Text>
+                                </Table.Td>
+                                <Table.Td style={CENTER_CELL}>
                                     <StatusPill label={available ? "Available" : "Unavailable"} tone={available ? "green" : "gray"} />
                                 </Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                                    <Text size="sm" c={quality ? undefined : "dimmed"}>{quality || "—"}</Text>
+                                <Table.Td style={CENTER_CELL}>
+                                    <Text size="sm" c={quality ? undefined : "dimmed"} style={{ fontFamily: MONO, whiteSpace: "nowrap" }}>
+                                        {quality || "—"}
+                                    </Text>
                                 </Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                                    <Text size="sm" c={subtitles ? undefined : "dimmed"}>{subtitles || "—"}</Text>
+                                <Table.Td style={CENTER_CELL}>
+                                    <Text
+                                        size="sm"
+                                        c={subtitles ? undefined : "dimmed"}
+                                        title={subtitles || undefined}
+                                        style={{ fontFamily: MONO, whiteSpace: "nowrap", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis" }}
+                                    >
+                                        {subtitles || "—"}
+                                    </Text>
                                 </Table.Td>
-                                <Table.Td style={{ whiteSpace: "nowrap", textAlign: "center" }}>
-                                    <StatusPill
-                                        label={monitored ? "Monitored" : "Not monitored"}
-                                        tone={monitored ? "green" : "gray"}
-                                        onClick={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                <Table.Td style={CENTER_CELL}>
+                                    <Switch
+                                        checked={monitored}
+                                        onChange={() => monitored ? onUnmonitor(episode) : onMonitor(episode)}
+                                        aria-label={`Monitor episode ${episode.ep_no}`}
+                                        size="sm"
                                     />
                                 </Table.Td>
                                 {hasLinks && (
-                                    <Table.Td style={{ textAlign: "center" }}>
-                                        {link ? (
+                                    <Table.Td style={CENTER_CELL}>
+                                        {link && (
                                             <Anchor href={link} target="_blank" rel="noreferrer" c="gray">
                                                 <IconExternalLink size={18} />
                                             </Anchor>
-                                        ) : null}
+                                        )}
                                     </Table.Td>
                                 )}
                             </Table.Tr>
