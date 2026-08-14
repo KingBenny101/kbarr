@@ -48,6 +48,7 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 	huma.Register(api, huma.Operation{OperationID: "add-monitor", Method: "POST", Path: "/api/monitor", Security: secured, Tags: []string{"monitor"}, Summary: "Add monitor", DefaultStatus: 201}, handlers.AddMonitor())
 	huma.Register(api, huma.Operation{OperationID: "bulk-add-monitor", Method: "POST", Path: "/api/monitor/bulk", Security: secured, Tags: []string{"monitor"}, Summary: "Bulk add monitors", DefaultStatus: 201}, handlers.BulkAddMonitor())
 	huma.Register(api, huma.Operation{OperationID: "delete-monitor", Method: "DELETE", Path: "/api/monitor/{id}", Security: secured, Tags: []string{"monitor"}, Summary: "Delete monitor", DefaultStatus: 204}, handlers.DeleteMonitor())
+	huma.Register(api, huma.Operation{OperationID: "trigger-monitor-search", Method: "POST", Path: "/api/monitor/{id}/search", Security: secured, Tags: []string{"monitor"}, Summary: "Trigger immediate search for a monitor", DefaultStatus: 204}, handlers.TriggerMonitorSearch())
 	huma.Register(api, huma.Operation{OperationID: "unmonitor", Method: "POST", Path: "/api/unmonitor", Security: secured, Tags: []string{"monitor"}, Summary: "Unmonitor episode", DefaultStatus: 204}, handlers.Unmonitor())
 	huma.Register(api, huma.Operation{OperationID: "unmonitor-season", Method: "POST", Path: "/api/unmonitor/season", Security: secured, Tags: []string{"monitor"}, Summary: "Unmonitor season", DefaultStatus: 204}, handlers.UnmonitorSeason())
 

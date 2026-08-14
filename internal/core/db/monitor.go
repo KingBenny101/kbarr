@@ -11,27 +11,39 @@ import (
 
 // upsertMonitor inserts m, or re-activates an existing matching monitor. It runs
 // against any bun.IDB so callers can share a transaction.
+//
+// Monitors are keyed by their stable external id when one is present, so
+// specials and credits that share an episode number (e.g. C1/C2, both falling
+// back to episode_number 0) stay distinct rows. Without an external id, the
+// (library, season, episodeNumber) fallback keeps old behavior.
 func upsertMonitor(ctx context.Context, idb bun.IDB, m models.Monitor) error {
-	count, err := idb.NewSelect().Model((*models.Monitor)(nil)).
-		Where("library_id = ?", m.LibraryID).
-		Where("season = ?", m.Season).
-		Where("episode_number = ?", m.EpisodeNumber).
-		Where("is_episode = ?", m.IsEpisode).
-		Where("deleted_at IS NULL").
-		Count(ctx)
+	where := func(q *bun.SelectQuery) *bun.SelectQuery {
+		q = q.Where("library_id = ?", m.LibraryID).
+			Where("is_episode = ?", m.IsEpisode).
+			Where("deleted_at IS NULL")
+		if m.ExternalID != "" {
+			return q.Where("external_id = ?", m.ExternalID)
+		}
+		return q.Where("season = ?", m.Season).Where("episode_number = ?", m.EpisodeNumber)
+	}
+
+	count, err := where(idb.NewSelect().Model((*models.Monitor)(nil))).Count(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check monitor existence: %w", err)
 	}
 
 	if count > 0 {
-		_, err := idb.NewUpdate().Model((*models.Monitor)(nil)).
-			Set("monitored = ?, status = 'pending', updated_at = now()", m.Monitored).
+		upd := idb.NewUpdate().Model((*models.Monitor)(nil)).
+			Set("monitored = ?, status = 'pending', updated_at = CURRENT_TIMESTAMP", m.Monitored).
 			Where("library_id = ?", m.LibraryID).
-			Where("season = ?", m.Season).
-			Where("episode_number = ?", m.EpisodeNumber).
 			Where("is_episode = ?", m.IsEpisode).
-			Where("deleted_at IS NULL").
-			Exec(ctx)
+			Where("deleted_at IS NULL")
+		if m.ExternalID != "" {
+			upd = upd.Where("external_id = ?", m.ExternalID)
+		} else {
+			upd = upd.Where("season = ?", m.Season).Where("episode_number = ?", m.EpisodeNumber)
+		}
+		_, err := upd.Exec(ctx)
 		return err
 	}
 
@@ -72,7 +84,7 @@ func DeleteMonitor(id uint) error {
 		return err
 	}
 	_, err := DB.NewUpdate().Model((*models.Monitor)(nil)).
-		Set("monitored = false, updated_at = now()").
+		Set("monitored = false, updated_at = CURRENT_TIMESTAMP").
 		Where("id = ? AND deleted_at IS NULL", id).
 		Exec(context.Background())
 	return err
@@ -104,8 +116,8 @@ func DeleteMonitorsBySeason(libraryID uint, season int) error {
 		return err
 	}
 	_, err := DB.NewUpdate().Model((*models.Monitor)(nil)).
-		Set("monitored = false, updated_at = now()").
-		Where("library_id = ? AND season = ? AND deleted_at IS NULL", libraryID, season).
+		Set("monitored = false, updated_at = CURRENT_TIMESTAMP").
+		Where("library_id = ? AND season = ? AND (is_season = true OR episode_number > 0) AND deleted_at IS NULL", libraryID, season).
 		Exec(context.Background())
 	return err
 }
@@ -141,11 +153,22 @@ func UnmonitorByDetails(libraryID uint, externalID string) error {
 		return err
 	}
 	_, err := DB.NewUpdate().Model((*models.Monitor)(nil)).
-		Set("monitored = false, updated_at = now()").
+		Set("monitored = false, updated_at = CURRENT_TIMESTAMP").
 		Where("library_id = ? AND external_id = ? AND deleted_at IS NULL", libraryID, externalID).
 		Exec(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to unmonitor: %w", err)
 	}
 	return nil
+}
+
+func UpdateMonitorStatusByID(id string, status string) error {
+	if err := ensureDB(); err != nil {
+		return err
+	}
+	_, err := DB.NewUpdate().Model((*models.Monitor)(nil)).
+		Set("status = ?, updated_at = CURRENT_TIMESTAMP", status).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Exec(context.Background())
+	return err
 }
