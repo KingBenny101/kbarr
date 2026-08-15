@@ -699,9 +699,9 @@ function EpisodeIndex({ epNo, available }: { epNo: string; available: boolean })
     )
 }
 
-function LedgerLabel({ children, center = false }: { children: ReactNode; center?: boolean }) {
+function LedgerLabel({ children }: { children: ReactNode }) {
     return (
-        <Text size="xs" tt="uppercase" c="dimmed" fw={700} style={{ letterSpacing: "0.08em", whiteSpace: "nowrap", textAlign: center ? "center" : "left" }}>
+        <Text size="xs" tt="uppercase" c="dimmed" fw={700} style={{ letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
             {children}
         </Text>
     )
@@ -804,18 +804,18 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, isMobile, 
             >
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={56} style={{ cursor: "pointer", whiteSpace: "nowrap", textAlign: "center", overflow: "hidden" }} onClick={() => onSort("ep_no")}>
-                            <LedgerLabel center>No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
+                        <Table.Th w={56} style={{ cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden" }} onClick={() => onSort("ep_no")}>
+                            <LedgerLabel>No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
                         <Table.Th style={{ cursor: "pointer", overflow: "hidden" }} onClick={() => onSort("title")}>
                             <LedgerLabel>Title<SortIndicator field="title" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
-                        <Table.Th w={88} style={CENTER_CELL}><LedgerLabel center>Air date</LedgerLabel></Table.Th>
-                        <Table.Th w={96} style={CENTER_CELL}><LedgerLabel center>Status</LedgerLabel></Table.Th>
-                        <Table.Th w={72} style={CENTER_CELL}><LedgerLabel center>Quality</LedgerLabel></Table.Th>
-                        <Table.Th w={108} style={CENTER_CELL}><LedgerLabel center>Subtitles</LedgerLabel></Table.Th>
-                        <Table.Th w={72} style={CENTER_CELL}><LedgerLabel center>Monitor</LedgerLabel></Table.Th>
-                        {hasLinks && <Table.Th w={44} style={CENTER_CELL}><LedgerLabel center>Link</LedgerLabel></Table.Th>}
+                        <Table.Th w={88}><LedgerLabel>Air date</LedgerLabel></Table.Th>
+                        <Table.Th w={96}><LedgerLabel>Status</LedgerLabel></Table.Th>
+                        <Table.Th w={72}><LedgerLabel>Quality</LedgerLabel></Table.Th>
+                        <Table.Th w={108}><LedgerLabel>Subtitles</LedgerLabel></Table.Th>
+                        <Table.Th w={72}><LedgerLabel>Monitor</LedgerLabel></Table.Th>
+                        {hasLinks && <Table.Th w={44}><LedgerLabel>Link</LedgerLabel></Table.Th>}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>

@@ -133,7 +133,7 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
                                     <Text fw={500} fz="sm">{c.display_name}</Text>
                                 </Group>
                             </Table.Td>
-                            <Table.Td>
+                            <Table.Td ta="center">
                                 <Badge size="xs" variant="light" color={v.offline ? "red" : "green"}>{c.service}</Badge>
                             </Table.Td>
                             <Table.Td ff={MONO}>{timeCell(v.lastTs, v.running, now)}</Table.Td>
@@ -144,8 +144,8 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
                                     timeCell(c.next_run_at, false, now, true)
                                 )}
                             </Table.Td>
-                            <Table.Td ff={MONO} fw={500}>{formatDuration(c.last_duration_ms)}</Table.Td>
-                            <Table.Td>
+                            <Table.Td ff={MONO} fw={500} ta="center">{formatDuration(c.last_duration_ms)}</Table.Td>
+                            <Table.Td ta="center">
                                 <Button
                                     size="xs"
                                     variant="light"

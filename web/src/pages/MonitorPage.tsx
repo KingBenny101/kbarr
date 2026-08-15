@@ -285,7 +285,7 @@ export function MonitorPage() {
                                     ) : (
                                         currentMonitors.map((entry) => (
                                             <Table.Tr key={entry.ID}>
-                                                <Table.Td ta="center" fw={700}>
+                                                <Table.Td fw={700}>
                                                     <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate style={{ display: "block" }}>
                                                         {entry.title}
                                                     </Text>
@@ -293,7 +293,7 @@ export function MonitorPage() {
                                                 <Table.Td ta="center">
                                                     <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
                                                 </Table.Td>
-                                                <Table.Td ta="center" c="dimmed">
+                                                <Table.Td c="dimmed">
                                                     <Text truncate>
                                                         {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
                                                     </Text>
