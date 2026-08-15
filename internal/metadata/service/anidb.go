@@ -52,6 +52,9 @@ type AniDBService struct {
 	// searches don't each download the multi-MB dump (thundering herd).
 	loadMu sync.Mutex
 
+	// trigger wakes the titles sync loop immediately (see Trigger).
+	trigger chan struct{}
+
 	alMu        sync.RWMutex
 	animeLists  map[uint]ExternalIDs
 	aniListByID map[int]uint
@@ -163,6 +166,7 @@ func New(db *bun.DB) *AniDBService {
 	return &AniDBService{
 		db:         db,
 		httpClient: &http.Client{Timeout: 45 * time.Second},
+		trigger:    make(chan struct{}, 1),
 	}
 }
 
@@ -530,4 +534,13 @@ func downloadAndSaveImage(client *http.Client, imageURL, filename string) error 
 	}
 
 	return nil
+}
+
+// Trigger wakes the titles sync loop immediately. Non-blocking: if a sync is
+// already running or a wake is already pending, the signal is dropped.
+func (s *AniDBService) Trigger() {
+	select {
+	case s.trigger <- struct{}{}:
+	default:
+	}
 }

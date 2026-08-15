@@ -38,25 +38,37 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			_ = rec.Start(context.Background(), syncCycle)
-			if err := s.LoadTitlesDump(); err != nil {
-				slog.Warn("Scheduled titles sync failed", "error", err)
-			}
-			if err := s.LoadAnimeListsMapping(); err != nil {
-				slog.Warn("Scheduled anime-lists sync failed", "error", err)
-			}
-
-			nextInterval := s.currentTitlesInterval()
+			nextInterval := s.syncOnce(rec, syncCycle)
 			if nextInterval != interval {
 				interval = nextInterval
 				ticker.Reset(interval)
 			}
-			_ = rec.End(context.Background(), syncCycle, time.Now().Add(interval))
+		case <-s.trigger:
+			nextInterval := s.syncOnce(rec, syncCycle)
+			if nextInterval != interval {
+				interval = nextInterval
+				ticker.Reset(interval)
+			}
 		case <-stop:
 			slog.Info("Titles sync loop stopped")
 			return
 		}
 	}
+}
+
+// syncOnce runs one titles dump + anime-lists mapping sync, recording the
+// cycle, and returns the next interval so the caller can reset its ticker.
+func (s *AniDBService) syncOnce(rec *cycle.Recorder, syncCycle cycle.Cycle) time.Duration {
+	_ = rec.Start(context.Background(), syncCycle)
+	if err := s.LoadTitlesDump(); err != nil {
+		slog.Warn("Scheduled titles sync failed", "error", err)
+	}
+	if err := s.LoadAnimeListsMapping(); err != nil {
+		slog.Warn("Scheduled anime-lists sync failed", "error", err)
+	}
+	nextInterval := s.currentTitlesInterval()
+	_ = rec.End(context.Background(), syncCycle, time.Now().Add(nextInterval))
+	return nextInterval
 }
 
 func (s *AniDBService) currentTitlesInterval() time.Duration {

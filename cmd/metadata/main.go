@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
@@ -47,6 +48,11 @@ func main() {
 	mux.HandleFunc("GET /anime/{aid}", handler.GetAnimeDetails)
 	mux.HandleFunc("GET /resolve/anilist/{anilistID}", handler.ResolveAniList)
 	mux.HandleFunc("POST /prepare", handler.Prepare)
+	mux.HandleFunc("POST /trigger", func(w http.ResponseWriter, _ *http.Request) {
+		svc.Trigger()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
+	})
 
 	server := &http.Server{
 		Addr:    ":" + port,
