@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { MantineProvider } from "@mantine/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import SystemPage from "./SystemPage"
@@ -198,6 +198,71 @@ describe("SystemPage", () => {
         } finally {
             Object.defineProperty(window, "matchMedia", { writable: true, value: original })
         }
+    })
+
+    it("triggers a cycle via the run now button on desktop", async () => {
+        const original = window.matchMedia
+        Object.defineProperty(window, "matchMedia", {
+            writable: true,
+            value: (query: string) => ({
+                matches: query.includes("min-width: 62em"),
+                media: query,
+                onchange: null,
+                addListener: () => {},
+                removeListener: () => {},
+                addEventListener: () => {},
+                removeEventListener: () => {},
+                dispatchEvent: () => false,
+            }),
+        })
+
+        try {
+            const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input)
+                if (url.includes("/api/cycles")) return jsonResponse({ cycles: CYCLES })
+                if (url.includes("/api/workers")) return jsonResponse(WORKERS)
+                return jsonResponse({})
+            })
+            vi.stubGlobal("fetch", fetchMock)
+
+            renderPage()
+
+            await screen.findByText("Availability check")
+            const rows = await screen.findAllByRole("row")
+            const target = rows.find((r) => r.textContent?.includes("Availability check"))!
+            const button = within(target).getByRole("button", { name: "Run now" })
+            fireEvent.click(button)
+
+            expect(fetchMock).toHaveBeenCalledWith(
+                expect.stringContaining("/api/cycles/core/availability/trigger"),
+                expect.objectContaining({ method: "POST" }),
+            )
+        } finally {
+            Object.defineProperty(window, "matchMedia", { writable: true, value: original })
+        }
+    })
+
+    it("shows an error toast when a trigger fails", async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.includes("/api/cycles")) return jsonResponse({ cycles: CYCLES })
+            if (url.includes("/api/workers")) return jsonResponse(WORKERS)
+            return new Response(JSON.stringify({ error: { message: "service unreachable" } }), {
+                status: 502,
+                headers: { "Content-Type": "application/json" },
+            })
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        renderPage()
+
+        const buttons = await screen.findAllByRole("button", { name: "Run now" })
+        fireEvent.click(buttons[0])
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining("/api/cycles/"),
+            expect.objectContaining({ method: "POST" }),
+        )
     })
 })
 

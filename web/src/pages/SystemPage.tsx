@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
-import { Badge, Box, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core"
+import { Badge, Box, Button, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
-import { API_URL, apiFetch } from "@/utils"
+import { API_URL, apiFetch, showToast } from "@/utils"
 import { usePolling } from "@/hooks"
 import { formatDuration, formatRelativeWords, formatTimeAgoWords, ringProgress, formatWallClock } from "@/lib/format"
 
@@ -97,7 +97,13 @@ function CycleRing({ running, offline, progress }: { running: boolean; offline: 
     )
 }
 
-function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; offlineServices: Set<string>; now: Date }) {
+function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
+    cycles: CycleStatus[]
+    offlineServices: Set<string>
+    now: Date
+    runningKey: string | null
+    onRun: (c: CycleStatus) => void
+}) {
     return (
         <Table striped highlightOnHover>
             <Table.Thead>
@@ -106,6 +112,7 @@ function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                     <Table.Th style={{ width: "140px" }}>Last run</Table.Th>
                     <Table.Th style={{ width: "140px" }}>Next run</Table.Th>
                     <Table.Th style={{ width: "120px" }}>Duration</Table.Th>
+                    <Table.Th style={{ width: "110px" }}>Run</Table.Th>
                 </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -135,12 +142,22 @@ function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                                 )}
                             </Table.Td>
                             <Table.Td ff={MONO} fw={500}>{formatDuration(c.last_duration_ms)}</Table.Td>
+                            <Table.Td>
+                                <Button
+                                    size="xs"
+                                    variant="light"
+                                    loading={runningKey === `${c.service}/${c.cycle}`}
+                                    onClick={() => onRun(c)}
+                                >
+                                    Run now
+                                </Button>
+                            </Table.Td>
                         </Table.Tr>
                     )
                 })}
                 {cycles.length === 0 && (
                     <Table.Tr>
-                        <Table.Td colSpan={4} style={{ textAlign: "center", padding: "xl" }}>
+                        <Table.Td colSpan={5} style={{ textAlign: "center", padding: "xl" }}>
                             <Text c="dimmed">No cycles recorded yet</Text>
                         </Table.Td>
                     </Table.Tr>
@@ -150,7 +167,13 @@ function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
     )
 }
 
-function CycleCards({ cycles, offlineServices, now }: { cycles: CycleStatus[]; offlineServices: Set<string>; now: Date }) {
+function CycleCards({ cycles, offlineServices, now, runningKey, onRun }: {
+    cycles: CycleStatus[]
+    offlineServices: Set<string>
+    now: Date
+    runningKey: string | null
+    onRun: (c: CycleStatus) => void
+}) {
     return (
         <>
             {cycles.map((c, i) => {
@@ -171,7 +194,17 @@ function CycleCards({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                                 <CycleRing running={v.running} offline={v.offline} progress={v.progress} />
                                 <Text fw={500} fz="sm" truncate>{c.display_name}</Text>
                             </Group>
-                            <Badge size="xs" variant="outline" color="gray" visibleFrom="sm">{c.service}</Badge>
+                            <Group gap="xs" wrap="nowrap">
+                                <Badge size="xs" variant="outline" color="gray" visibleFrom="sm">{c.service}</Badge>
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    loading={runningKey === `${c.service}/${c.cycle}`}
+                                    onClick={() => onRun(c)}
+                                >
+                                    Run now
+                                </Button>
+                            </Group>
                         </Group>
                         <SimpleGrid cols={3} spacing="xs">
                             <Box>
@@ -208,6 +241,7 @@ export default function SystemPage() {
     const [workers, setWorkers] = useState<ServiceHealth[]>([])
     const now = useMemo(() => new Date(), [])
     const [stale, setStale] = useState(false)
+    const [runningKey, setRunningKey] = useState<string | null>(null)
     const isDesktop = useMediaQuery("(min-width: 62em)")
 
     const fetchCycles = async (): Promise<boolean> => {
@@ -239,6 +273,29 @@ export default function SystemPage() {
     usePolling(fetchCycles, { interval: 15_000 }, [])
     usePolling(fetchWorkers, { interval: 15_000 }, [])
 
+    const runCycle = async (c: CycleStatus) => {
+        const key = `${c.service}/${c.cycle}`
+        setRunningKey(key)
+        try {
+            const res = await apiFetch(`${API_URL}/api/cycles/${c.service}/${c.cycle}/trigger`, { method: "POST" })
+            if (!res.ok) {
+                let msg = `Failed to trigger ${c.display_name}`
+                try {
+                    const body = await res.json()
+                    if (body?.error?.message) msg = body.error.message
+                } catch {
+                    /* keep the fallback message */
+                }
+                showToast(msg, "error")
+                return
+            }
+            showToast(`${c.display_name} triggered`, "success")
+            void fetchCycles()
+        } finally {
+            setRunningKey(null)
+        }
+    }
+
     const offlineServices = useMemo(
         () => new Set(workers.filter((w) => !w.running).map((w) => w.name)),
         [workers],
@@ -269,9 +326,9 @@ export default function SystemPage() {
                 </Group>
                 <Paper withBorder p={isDesktop ? "md" : 0} style={{ borderColor: "var(--mantine-color-default-border)" }}>
                     {isDesktop ? (
-                        <CycleTable cycles={allCycles} offlineServices={offlineServices} now={now} />
+                        <CycleTable cycles={allCycles} offlineServices={offlineServices} now={now} runningKey={runningKey} onRun={runCycle} />
                     ) : (
-                        <CycleCards cycles={allCycles} offlineServices={offlineServices} now={now} />
+                        <CycleCards cycles={allCycles} offlineServices={offlineServices} now={now} runningKey={runningKey} onRun={runCycle} />
                     )}
                 </Paper>
             </Stack>
