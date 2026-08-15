@@ -21,7 +21,7 @@ func main() {
 	}
 
 	// nil deps are safe: handler closures are registered for schema reflection but never invoked
-	coreapi.RegisterRoutes(api, nil, nil, "dev")
+	coreapi.RegisterRoutes(api, nil, nil, "dev", nil)
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")

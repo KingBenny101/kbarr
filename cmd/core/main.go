@@ -46,7 +46,16 @@ func main() {
 	metadataAddr := resolveAddr("METADATA_ADDR", "http://localhost:8081")
 	metadataClient := clients.NewMetadataClient(metadataAddr)
 
-	router := api.NewRouter(metadataClient, appVersion, authStore)
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+	go authStore.CleanupExpired(bgCtx)
+	avTrigger := coreservice.PollAvailability(bgCtx, db.DB)
+	refreshTrigger := coreservice.PollMetadataRefresh(bgCtx, metadataClient)
+
+	router := api.NewRouter(metadataClient, appVersion, authStore, map[string]func(){
+		"availability":     avTrigger,
+		"metadata_refresh": refreshTrigger,
+	})
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -55,12 +64,6 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	bgCtx, bgCancel := context.WithCancel(context.Background())
-	defer bgCancel()
-	go authStore.CleanupExpired(bgCtx)
-	go coreservice.PollAvailability(bgCtx, db.DB)
-	go coreservice.PollMetadataRefresh(bgCtx, metadataClient)
 
 	go func() {
 		slog.Info("Server running on", "url", "http://localhost:"+port)

@@ -9,7 +9,7 @@ import (
 
 var secured = []map[string][]string{{"bearerAuth": {}}}
 
-func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.Store, version string) {
+func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.Store, version string, coreTriggers map[string]func()) {
 	// Public
 	huma.Register(api, huma.Operation{OperationID: "health-check", Method: "GET", Path: "/api/health", Tags: []string{"system"}, Summary: "Health check"}, handlers.Health())
 	huma.Register(api, huma.Operation{OperationID: "login", Method: "POST", Path: "/api/auth/login", Tags: []string{"auth"}, Summary: "Login"}, handlers.Login(authStore))
@@ -24,6 +24,12 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 	huma.Register(api, huma.Operation{OperationID: "check-availability", Method: "POST", Path: "/api/availability/check", Security: secured, Tags: []string{"system"}, Summary: "Trigger availability check", DefaultStatus: 204}, handlers.CheckAvailability())
 	huma.Register(api, huma.Operation{OperationID: "get-workers", Method: "GET", Path: "/api/workers", Security: secured, Tags: []string{"system"}, Summary: "Get service health"}, handlers.GetWorkers())
 	huma.Register(api, huma.Operation{OperationID: "get-cycles", Method: "GET", Path: "/api/cycles", Security: secured, Tags: []string{"system"}, Summary: "Get cycle status"}, handlers.GetCycles())
+	huma.Register(api, huma.Operation{OperationID: "trigger-cycle", Method: "POST", Path: "/api/cycles/{service}/{cycle}/trigger", Security: secured, Tags: []string{"system"}, Summary: "Run a cycle now", DefaultStatus: 204}, handlers.TriggerCycle(
+		coreTriggers,
+		handlers.SvcAddr("INDEXER_HEALTH_ADDR", "http://localhost:8082"),
+		handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083"),
+		handlers.SvcAddr("METADATA_ADDR", "http://localhost:8081"),
+	))
 	huma.Register(api, huma.Operation{OperationID: "get-svc-logs", Method: "GET", Path: "/api/workers/{name}/logs", Security: secured, Tags: []string{"system"}, Summary: "Get service logs"}, handlers.GetServiceLogs())
 
 	// Search

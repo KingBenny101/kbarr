@@ -14,7 +14,7 @@ import (
 	"github.com/kingbenny101/kbarr/internal/core/clients"
 )
 
-func NewRouter(metadataClient *clients.MetadataClient, version string, authStore *auth.Store) http.Handler {
+func NewRouter(metadataClient *clients.MetadataClient, version string, authStore *auth.Store, coreTriggers map[string]func()) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -36,7 +36,7 @@ func NewRouter(metadataClient *clients.MetadataClient, version string, authStore
 		"bearerAuth": {Type: "http", Scheme: "bearer", BearerFormat: "token"},
 	}
 
-	RegisterRoutes(api, metadataClient, authStore, version)
+	RegisterRoutes(api, metadataClient, authStore, version, coreTriggers)
 
 	// Export all logs as plain text — uses chi directly for text/plain response
 	r.Get("/api/workers/logs/export", handlers.ExportAllLogs)
