@@ -314,12 +314,12 @@ export default function SystemPage() {
                 }
                 showToast(msg, "error")
                 if (res.status === 429) {
-                    setLastTriggered((prev) => ({ ...prev, [key]: Date.now() }))
+                    setLastTriggered((prev) => ({ ...prev, [key]: serverNow.getTime() }))
                 }
                 return
             }
             showToast(`${c.display_name} triggered`, "success")
-            setLastTriggered((prev) => ({ ...prev, [key]: Date.now() }))
+            setLastTriggered((prev) => ({ ...prev, [key]: serverNow.getTime() }))
             void fetchCycles()
         } finally {
             setRunningKey(null)
