@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Badge, Box, Button, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
 import { API_URL, apiFetch, showToast } from "@/utils"
@@ -239,17 +239,29 @@ function CycleCards({ cycles, offlineServices, now, runningKey, onRun }: {
 export default function SystemPage() {
     const [cycles, setCycles] = useState<CycleStatus[]>([])
     const [workers, setWorkers] = useState<ServiceHealth[]>([])
-    const now = useMemo(() => new Date(), [])
     const [stale, setStale] = useState(false)
     const [runningKey, setRunningKey] = useState<string | null>(null)
+    // serverSkew is (server clock − browser clock) in ms, measured on each
+    // cycles fetch; now is derived from it so relative times and the clock line
+    // follow the server even when the browser clock is wrong.
+    const [serverSkew, setServerSkew] = useState<number | null>(null)
+    const [now, setNow] = useState(() => new Date())
     const isDesktop = useMediaQuery("(min-width: 62em)")
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 1000)
+        return () => clearInterval(id)
+    }, [])
+
+    const serverNow = new Date(now.getTime() + (serverSkew ?? 0))
 
     const fetchCycles = async (): Promise<boolean> => {
         try {
             const res = await apiFetch(`${API_URL}/api/cycles`)
             if (!res.ok) throw new Error()
-            const data: { cycles: CycleStatus[] } = await res.json()
+            const data: { cycles: CycleStatus[]; server_time?: string } = await res.json()
             setCycles(data.cycles)
+            if (data.server_time) setServerSkew(new Date(data.server_time).getTime() - Date.now())
             setStale(false)
             return true
         } catch {
@@ -322,13 +334,13 @@ export default function SystemPage() {
                     {stale && <Text c="orange" size="sm">Status data is stale — retrying…</Text>}
                 </Group>
                 <Group justify="space-between" mb="xs">
-                    <Text c="dimmed" size="sm" ff={MONO}>Current server time: {formatWallClock(now)}</Text>
+                    <Text c="dimmed" size="sm" ff={MONO}>Current server time: {formatWallClock(serverNow)}</Text>
                 </Group>
                 <Paper withBorder p={isDesktop ? "md" : 0} style={{ borderColor: "var(--mantine-color-default-border)" }}>
                     {isDesktop ? (
-                        <CycleTable cycles={allCycles} offlineServices={offlineServices} now={now} runningKey={runningKey} onRun={runCycle} />
+                        <CycleTable cycles={allCycles} offlineServices={offlineServices} now={serverNow} runningKey={runningKey} onRun={runCycle} />
                     ) : (
-                        <CycleCards cycles={allCycles} offlineServices={offlineServices} now={now} runningKey={runningKey} onRun={runCycle} />
+                        <CycleCards cycles={allCycles} offlineServices={offlineServices} now={serverNow} runningKey={runningKey} onRun={runCycle} />
                     )}
                 </Paper>
             </Stack>

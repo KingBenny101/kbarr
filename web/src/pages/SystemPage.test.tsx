@@ -264,6 +264,31 @@ describe("SystemPage", () => {
             expect.objectContaining({ method: "POST" }),
         )
     })
+
+    it("anchors the server time line to the server clock", async () => {
+        const skewMs = 5 * 60_000
+        const serverTime = () => new Date(Date.now() + skewMs)
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.includes("/api/cycles")) {
+                return jsonResponse({ server_time: serverTime().toISOString(), cycles: CYCLES })
+            }
+            if (url.includes("/api/workers")) return jsonResponse(WORKERS)
+            return jsonResponse({})
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        renderPage()
+
+        const clock = await screen.findByText(/Current server time:/)
+        const shown = clock.textContent!.replace("Current server time: ", "").trim()
+        const expected = serverTime().toISOString().slice(11, 19)
+        const toSec = (t: string) => {
+            const [h, m, s] = t.split(":").map(Number)
+            return h * 3600 + m * 60 + s
+        }
+        expect(Math.abs(toSec(shown) - toSec(expected))).toBeLessThanOrEqual(2)
+    })
 })
 
 describe("ringProgress", () => {
