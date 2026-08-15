@@ -850,7 +850,7 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, isMobile, 
                                         {quality || "—"}
                                     </Text>
                                 </Table.Td>
-                                <Table.Td style={CENTER_CELL}>
+                                <Table.Td style={{ textAlign: "start" }}>
                                     <Text
                                         size="sm"
                                         c={subtitles ? undefined : "dimmed"}
