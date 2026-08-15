@@ -422,10 +422,10 @@ export function DownloadsPage() {
                                                     {new Date(item.created_at).toLocaleString()}
                                                 </Table.Td>
                                                 <Table.Td ta="center">
-                                                    <Stack gap={4}>
+                                                    <Stack gap={4} align="center">
                                                         <StatusPill label={item.status ?? "unknown"} tone={statusTone(item.status)} />
                                                         {item.status === "downloading" && (
-                                                            <Progress value={(item.progress ?? 0) * 100} size="xs" color="blue" />
+                                                            <Progress value={(item.progress ?? 0) * 100} size="xs" color="blue" w={80} />
                                                         )}
                                                     </Stack>
                                                 </Table.Td>
