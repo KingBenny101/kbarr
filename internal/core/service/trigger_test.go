@@ -19,6 +19,9 @@ func TestPollAvailabilityWakesOnTrigger(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sqldb.Close()
+	// A single connection so the in-memory database is shared by the poll
+	// goroutine and the assertions.
+	sqldb.SetMaxOpenConns(1)
 	testDB := bun.NewDB(sqldb, sqlitedialect.New())
 	ctx := context.Background()
 	if _, err := testDB.ExecContext(ctx, cycle.Schema); err != nil {
@@ -89,6 +92,7 @@ func TestPollMetadataRefreshWakesOnTrigger(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sqldb.Close()
+	sqldb.SetMaxOpenConns(1)
 	testDB := bun.NewDB(sqldb, sqlitedialect.New())
 	ctx := context.Background()
 	if _, err := testDB.ExecContext(ctx, cycle.Schema); err != nil {
