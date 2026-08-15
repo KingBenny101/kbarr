@@ -297,6 +297,31 @@ describe("SystemPage", () => {
         }
         expect(Math.abs(toSec(shown) - toSec(expected))).toBeLessThanOrEqual(2)
     })
+
+    it("disables run now and shows the cooldown after triggering", async () => {
+        renderPage()
+
+        await screen.findByText("Availability check")
+
+        const runNow = screen.getAllByRole("button", { name: "Run now" })
+        expect(runNow[0]).toBeEnabled()
+
+        fireEvent.click(runNow[0])
+
+        const waiting = await screen.findByRole("button", { name: /wait \d+s/i })
+        expect(waiting).toBeDisabled()
+    })
+
+    it("disables run now while the cycle is running", async () => {
+        renderPage()
+
+        await screen.findByText("Availability check")
+
+        const runNow = screen.getAllByRole("button", { name: "Run now" })
+        // CYCLES[1] (Metadata refresh) has state "running" in the fixture.
+        expect(runNow[1]).toBeDisabled()
+        expect(runNow[0]).toBeEnabled()
+    })
 })
 
 describe("ringProgress", () => {

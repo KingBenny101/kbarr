@@ -23,6 +23,7 @@ interface ServiceHealth {
 
 const MONO = "'JetBrains Mono', var(--mantine-font-family-monospace)"
 const MISSING_RETRY_MIN = 1440
+const TRIGGER_COOLDOWN_MS = 30_000
 
 function stateColor(state: "idle" | "running", offline: boolean): string {
     if (offline) return "var(--mantine-color-red-6)"
@@ -96,11 +97,12 @@ function CycleRing({ running, offline, progress }: { running: boolean; offline: 
     )
 }
 
-function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
+function CycleTable({ cycles, offlineServices, now, runningKey, cooldownFor, onRun }: {
     cycles: CycleStatus[]
     offlineServices: Set<string>
     now: Date
     runningKey: string | null
+    cooldownFor: (c: CycleStatus) => number
     onRun: (c: CycleStatus) => void
 }) {
     return (
@@ -149,9 +151,10 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
                                     size="xs"
                                     variant="light"
                                     loading={runningKey === `${c.service}/${c.cycle}`}
+                                    disabled={v.running || cooldownFor(c) > 0}
                                     onClick={() => onRun(c)}
                                 >
-                                    Run now
+                                    {cooldownFor(c) > 0 ? `Wait ${Math.ceil(cooldownFor(c) / 1000)}s` : "Run now"}
                                 </Button>
                             </Table.Td>
                         </Table.Tr>
@@ -169,11 +172,12 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
     )
 }
 
-function CycleCards({ cycles, offlineServices, now, runningKey, onRun }: {
+function CycleCards({ cycles, offlineServices, now, runningKey, cooldownFor, onRun }: {
     cycles: CycleStatus[]
     offlineServices: Set<string>
     now: Date
     runningKey: string | null
+    cooldownFor: (c: CycleStatus) => number
     onRun: (c: CycleStatus) => void
 }) {
     return (
@@ -202,9 +206,10 @@ function CycleCards({ cycles, offlineServices, now, runningKey, onRun }: {
                                     size="compact-xs"
                                     variant="light"
                                     loading={runningKey === `${c.service}/${c.cycle}`}
+                                    disabled={v.running || cooldownFor(c) > 0}
                                     onClick={() => onRun(c)}
                                 >
-                                    Run now
+                                    {cooldownFor(c) > 0 ? `Wait ${Math.ceil(cooldownFor(c) / 1000)}s` : "Run now"}
                                 </Button>
                             </Group>
                         </Group>
@@ -243,6 +248,7 @@ export default function SystemPage() {
     const [workers, setWorkers] = useState<ServiceHealth[]>([])
     const [stale, setStale] = useState(false)
     const [runningKey, setRunningKey] = useState<string | null>(null)
+    const [lastTriggered, setLastTriggered] = useState<Record<string, number>>({})
     // serverSkew is (server clock − browser clock) in ms, measured on each
     // cycles fetch; now is derived from it so relative times and the clock line
     // follow the server even when the browser clock is wrong.
@@ -256,6 +262,12 @@ export default function SystemPage() {
     }, [])
 
     const serverNow = new Date(now.getTime() + (serverSkew ?? 0))
+
+    const cooldownFor = (c: CycleStatus) => {
+        const t = lastTriggered[`${c.service}/${c.cycle}`]
+        if (!t) return 0
+        return Math.max(0, TRIGGER_COOLDOWN_MS - (serverNow.getTime() - t))
+    }
 
     const fetchCycles = async (): Promise<boolean> => {
         try {
@@ -301,9 +313,13 @@ export default function SystemPage() {
                     /* keep the fallback message */
                 }
                 showToast(msg, "error")
+                if (res.status === 429) {
+                    setLastTriggered((prev) => ({ ...prev, [key]: Date.now() }))
+                }
                 return
             }
             showToast(`${c.display_name} triggered`, "success")
+            setLastTriggered((prev) => ({ ...prev, [key]: Date.now() }))
             void fetchCycles()
         } finally {
             setRunningKey(null)
@@ -340,9 +356,9 @@ export default function SystemPage() {
                 </Group>
                 <Paper withBorder p={isDesktop ? "md" : 0} style={{ borderColor: "var(--mantine-color-default-border)" }}>
                     {isDesktop ? (
-                        <CycleTable cycles={allCycles} offlineServices={offlineServices} now={serverNow} runningKey={runningKey} onRun={runCycle} />
+                        <CycleTable cycles={allCycles} offlineServices={offlineServices} now={serverNow} runningKey={runningKey} cooldownFor={cooldownFor} onRun={runCycle} />
                     ) : (
-                        <CycleCards cycles={allCycles} offlineServices={offlineServices} now={serverNow} runningKey={runningKey} onRun={runCycle} />
+                        <CycleCards cycles={allCycles} offlineServices={offlineServices} now={serverNow} runningKey={runningKey} cooldownFor={cooldownFor} onRun={runCycle} />
                     )}
                 </Paper>
             </Stack>
