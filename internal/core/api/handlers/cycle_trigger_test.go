@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -12,7 +13,7 @@ import (
 func TestTriggerCycleCore(t *testing.T) {
 	called := false
 	h := TriggerCycle(map[string]func(){"availability": func() { called = true }},
-		"http://localhost:1", "http://localhost:1", "http://localhost:1")
+		"http://localhost:1", "http://localhost:1", "http://localhost:1", NewTriggerLimiter(time.Hour))
 
 	_, err := h(context.Background(), &TriggerCycleInput{Service: "core", Cycle: "availability"})
 	if err != nil {
@@ -24,7 +25,7 @@ func TestTriggerCycleCore(t *testing.T) {
 }
 
 func TestTriggerCycleUnknown(t *testing.T) {
-	h := TriggerCycle(nil, "http://localhost:1", "http://localhost:1", "http://localhost:1")
+	h := TriggerCycle(nil, "http://localhost:1", "http://localhost:1", "http://localhost:1", NewTriggerLimiter(time.Hour))
 
 	cases := []TriggerCycleInput{
 		{Service: "core", Cycle: "bogus"},
@@ -53,7 +54,7 @@ func TestTriggerCycleProxy(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	h := TriggerCycle(nil, srv.URL, srv.URL, srv.URL)
+	h := TriggerCycle(nil, srv.URL, srv.URL, srv.URL, NewTriggerLimiter(time.Hour))
 	for _, in := range []TriggerCycleInput{
 		{Service: "indexer", Cycle: "monitor_poll"},
 		{Service: "downloader", Cycle: "downloader_poll"},
@@ -73,7 +74,7 @@ func TestTriggerCycleUnreachable(t *testing.T) {
 	addr := srv.URL
 	srv.Close()
 
-	h := TriggerCycle(nil, addr, addr, addr)
+	h := TriggerCycle(nil, addr, addr, addr, NewTriggerLimiter(time.Hour))
 	_, err := h(context.Background(), &TriggerCycleInput{Service: "indexer", Cycle: "monitor_poll"})
 	if err == nil {
 		t.Fatal("want error for unreachable service")

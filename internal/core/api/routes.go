@@ -1,6 +1,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/kingbenny101/kbarr/internal/core/api/handlers"
 	"github.com/kingbenny101/kbarr/internal/core/auth"
@@ -29,6 +31,7 @@ func RegisterRoutes(api huma.API, mc *clients.MetadataClient, authStore *auth.St
 		handlers.SvcAddr("INDEXER_HEALTH_ADDR", "http://localhost:8082"),
 		handlers.SvcAddr("DOWNLOADER_HEALTH_ADDR", "http://localhost:8083"),
 		handlers.SvcAddr("METADATA_ADDR", "http://localhost:8081"),
+		handlers.NewTriggerLimiter(30*time.Second),
 	))
 	huma.Register(api, huma.Operation{OperationID: "get-svc-logs", Method: "GET", Path: "/api/workers/{name}/logs", Security: secured, Tags: []string{"system"}, Summary: "Get service logs"}, handlers.GetServiceLogs())
 

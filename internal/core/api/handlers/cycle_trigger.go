@@ -19,8 +19,13 @@ type TriggerCycleInput struct {
 // Core cycles are triggered in-process; worker-service cycles are proxied to
 // the service's /trigger endpoint. Unknown service/cycle → 404; an unreachable
 // service → 502.
-func TriggerCycle(coreTriggers map[string]func(), indexerAddr, downloaderAddr, metadataAddr string) func(context.Context, *TriggerCycleInput) (*struct{}, error) {
+func TriggerCycle(coreTriggers map[string]func(), indexerAddr, downloaderAddr, metadataAddr string, limiter *TriggerLimiter) func(context.Context, *TriggerCycleInput) (*struct{}, error) {
 	return func(ctx context.Context, in *TriggerCycleInput) (*struct{}, error) {
+		key := in.Service + "/" + in.Cycle
+		if ok, remaining := limiter.Allow(key); !ok {
+			slog.Info("Cycle trigger rejected", "service", in.Service, "cycle", in.Cycle, "retryIn", remaining.Round(time.Second))
+			return nil, huma.Error429TooManyRequests(fmt.Sprintf("cycle already triggered recently, try again in %s", remaining.Round(time.Second)))
+		}
 		slog.Info("Cycle triggered", "service", in.Service, "cycle", in.Cycle)
 		switch in.Service {
 		case "core":
