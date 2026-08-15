@@ -201,7 +201,7 @@ function CycleCards({ cycles, offlineServices, now, runningKey, cooldownFor, onR
                                 <Text fw={500} fz="sm" truncate>{c.display_name}</Text>
                             </Group>
                             <Group gap="xs" wrap="nowrap">
-                                <Badge size="xs" variant="light" color={v.offline ? "red" : "green"} visibleFrom="sm">{c.service}</Badge>
+                                <Badge size="xs" variant="light" color={v.offline ? "red" : "green"}>{c.service}</Badge>
                                 <Button
                                     size="compact-xs"
                                     variant="light"

@@ -107,6 +107,8 @@ describe("SystemPage", () => {
         expect(screen.getAllByText("Next run")).toHaveLength(2)
         expect(screen.getAllByText("Duration")).toHaveLength(2)
         expect(screen.queryByText("Cycle")).not.toBeInTheDocument()
+        // Service pills are shown on the mobile cards too (one per card).
+        expect(screen.getAllByText("core")).toHaveLength(2)
     })
 
     it("renders the table layout on desktop", async () => {
