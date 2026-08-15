@@ -90,9 +90,11 @@ func (s *IndexerService) getSearchTitles(ctx context.Context, libraryID int64, m
 func (s *IndexerService) PollAndQueue(ctx context.Context) {
 	rec := cycle.NewRecorder(s.db)
 	pollCycle := cycle.Cycle{Service: "indexer", Cycle: "monitor_poll", DisplayName: "Monitor poll"}
+	forceRetry := false
 	for {
 		_ = rec.Start(ctx, pollCycle)
-		didWork := s.processMonitors(ctx)
+		didWork := s.processMonitors(ctx, forceRetry)
+		forceRetry = false
 		next := time.Now().Add(s.currentMonitorInterval())
 		if didWork {
 			// Work is available immediately; the next pass starts right away.
@@ -114,6 +116,7 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 		case <-time.After(interval):
 		case <-s.trigger:
 			slog.Info("Monitor poll woken by trigger")
+			forceRetry = true
 		case <-ctx.Done():
 			return
 		}
@@ -376,7 +379,7 @@ func (s *IndexerService) queueDownload(ctx context.Context, mon models.Monitor, 
 
 	_, err = s.db.NewUpdate().
 		Model((*models.Monitor)(nil)).
-		Set("status = 'queued', updated_at = now()").
+		Set("status = 'queued', updated_at = CURRENT_TIMESTAMP").
 		Where("id = ?", mon.ID).
 		Exec(ctx)
 	if err != nil {
@@ -389,7 +392,18 @@ func (s *IndexerService) queueDownload(ctx context.Context, mon models.Monitor, 
 
 // ── process monitors ──────────────────────────────────────────────────────────
 
-func (s *IndexerService) processMonitors(ctx context.Context) bool {
+// processMonitors picks work for one pass of the poll loop. A triggered pass
+// (forceRetry) re-searches every monitored missing monitor immediately,
+// bypassing the retry-interval gate; a scheduled pass processes at most one
+// monitor whose time has come.
+func (s *IndexerService) processMonitors(ctx context.Context, forceRetry bool) bool {
+	if forceRetry {
+		return s.retryMissing(ctx)
+	}
+	return s.processOne(ctx)
+}
+
+func (s *IndexerService) processOne(ctx context.Context) bool {
 	// Re-search items marked 'missing' (no qualifying torrent found earlier) once
 	// the configured retry interval has elapsed, so temporarily-unavailable
 	// releases (no seeders, not yet aired) are picked up later.
@@ -413,7 +427,41 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 	if len(monitors) == 0 {
 		return false
 	}
-	mon := monitors[0]
+	return s.claimAndSearch(ctx, monitors[0])
+}
+
+// retryMissing re-searches every monitored missing monitor right away. It
+// runs when the poll loop is woken by a trigger, so "Run now" produces an
+// immediate search instead of waiting for the configured retry interval.
+func (s *IndexerService) retryMissing(ctx context.Context) bool {
+	var monitors []models.Monitor
+	err := s.db.NewSelect().
+		Model(&monitors).
+		Where("monitored = true AND available = false AND status = 'missing' AND deleted_at IS NULL").
+		OrderExpr("is_season DESC, updated_at ASC").
+		Scan(ctx)
+	if err != nil {
+		slog.Error("Failed to fetch missing monitors for retry", "error", err)
+		return false
+	}
+	if len(monitors) == 0 {
+		slog.Info("No missing monitors to retry")
+		return false
+	}
+
+	didWork := false
+	for _, mon := range monitors {
+		if s.claimAndSearch(ctx, mon) {
+			didWork = true
+		}
+	}
+	return didWork
+}
+
+// claimAndSearch claims a monitor and searches for a release, recording the
+// process_missing cycle when the monitor was missing. Returns true when the
+// monitor was claimed.
+func (s *IndexerService) claimAndSearch(ctx context.Context, mon models.Monitor) bool {
 	if mon.Title == "" || mon.LibraryID == 0 {
 		return false
 	}
@@ -423,7 +471,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 
 	res, err := s.db.NewUpdate().
 		Model((*models.Monitor)(nil)).
-		Set("status = 'searching', updated_at = now()").
+		Set("status = 'searching', updated_at = CURRENT_TIMESTAMP").
 		Where("id = ? AND status IN ('pending', 'searching', 'missing')", mon.ID).
 		Exec(ctx)
 	if err != nil {
@@ -455,7 +503,7 @@ func (s *IndexerService) processMonitors(ctx context.Context) bool {
 		if seasonActive {
 			slog.Info("Skipping episode — season pack already in progress, resetting to pending", "monitor_id", mon.ID)
 			s.db.NewUpdate().Model((*models.Monitor)(nil)).
-				Set("status = 'pending', updated_at = now()").
+				Set("status = 'pending', updated_at = CURRENT_TIMESTAMP").
 				Where("id = ?", mon.ID).Exec(ctx)
 			return true
 		}
@@ -553,7 +601,7 @@ func (s *IndexerService) runSearch(ctx context.Context, mon models.Monitor, req 
 		if s.queueDownload(ctx, mon, best) && req.IsSeason {
 			s.db.NewUpdate().
 				Model((*models.Monitor)(nil)).
-				Set("status = 'queued', updated_at = now()").
+				Set("status = 'queued', updated_at = CURRENT_TIMESTAMP").
 				Where("library_id = ? AND is_episode = true AND monitored = true AND status = 'pending' AND deleted_at IS NULL", mon.LibraryID).
 				Exec(ctx)
 		}
@@ -589,7 +637,7 @@ func (s *IndexerService) markMissing(ctx context.Context, mon models.Monitor) {
 	// The in-memory snapshot can be stale (a long search lets the scanner mark
 	// the file available mid-flight), so the update re-checks available in SQL.
 	s.db.NewUpdate().Model((*models.Monitor)(nil)).
-		Set("status = 'missing', updated_at = now()").
+		Set("status = 'missing', updated_at = CURRENT_TIMESTAMP").
 		Where("id = ? AND available = false", mon.ID).
 		Exec(ctx)
 }
