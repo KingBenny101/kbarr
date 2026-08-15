@@ -804,14 +804,14 @@ function EpisodeTable({ episodes, monitoredItems, sortField, sortDir, isMobile, 
             >
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={56} style={{ cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden" }} onClick={() => onSort("ep_no")}>
+                        <Table.Th w={68} style={{ cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden" }} onClick={() => onSort("ep_no")}>
                             <LedgerLabel>No.<SortIndicator field="ep_no" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
                         <Table.Th style={{ cursor: "pointer", overflow: "hidden" }} onClick={() => onSort("title")}>
                             <LedgerLabel>Title<SortIndicator field="title" sortField={sortField} sortDir={sortDir} /></LedgerLabel>
                         </Table.Th>
                         <Table.Th w={88}><LedgerLabel>Air date</LedgerLabel></Table.Th>
-                        <Table.Th w={96}><LedgerLabel>Status</LedgerLabel></Table.Th>
+                        <Table.Th w={112}><LedgerLabel>Status</LedgerLabel></Table.Th>
                         <Table.Th w={72}><LedgerLabel>Quality</LedgerLabel></Table.Th>
                         <Table.Th w={108}><LedgerLabel>Subtitles</LedgerLabel></Table.Th>
                         <Table.Th w={72}><LedgerLabel>Monitor</LedgerLabel></Table.Th>
