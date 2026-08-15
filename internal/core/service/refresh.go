@@ -39,24 +39,35 @@ func RefreshLibrary(ctx context.Context, mc *clients.MetadataClient, libraryID u
 // every still-airing library show and upserts any new episodes. Finished shows
 // (those with an end date) are never re-fetched, so the per-tick AniDB load is
 // bounded by the handful of shows currently airing — and each request still goes
-// through the metadata service's 2s throttle and ban cooldown.
-func PollMetadataRefresh(ctx context.Context, mc *clients.MetadataClient) {
-	rec := cycle.NewRecorder(db.DB)
-	refreshCycle := cycle.Cycle{Service: "core", Cycle: "metadata_refresh", DisplayName: "Metadata refresh"}
-	// First pass is delayed a little so it doesn't pile onto startup work.
-	timer := time.NewTimer(time.Minute)
-	defer timer.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
+// through the metadata service's 2s throttle and ban cooldown. Returns a
+// non-blocking trigger that wakes the loop for an immediate pass.
+func PollMetadataRefresh(ctx context.Context, mc *clients.MetadataClient) func() {
+	trigger := make(chan struct{}, 1)
+	go func() {
+		rec := cycle.NewRecorder(db.DB)
+		refreshCycle := cycle.Cycle{Service: "core", Cycle: "metadata_refresh", DisplayName: "Metadata refresh"}
+		// First pass is delayed a little so it doesn't pile onto startup work.
+		timer := time.NewTimer(time.Minute)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+			case <-trigger:
+			}
+			_ = rec.Start(ctx, refreshCycle)
+			runRefreshPass(ctx, mc)
+			interval := config.GetMinutes(db.DB, "metadataRefreshInterval", 1440*time.Minute, 60*time.Minute)
+			_ = rec.End(ctx, refreshCycle, time.Now().Add(interval))
+			timer.Reset(interval)
 		}
-		_ = rec.Start(ctx, refreshCycle)
-		runRefreshPass(ctx, mc)
-		interval := config.GetMinutes(db.DB, "metadataRefreshInterval", 1440*time.Minute, 60*time.Minute)
-		_ = rec.End(ctx, refreshCycle, time.Now().Add(interval))
-		timer.Reset(interval)
+	}()
+	return func() {
+		select {
+		case trigger <- struct{}{}:
+		default:
+		}
 	}
 }
 

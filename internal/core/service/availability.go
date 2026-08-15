@@ -31,6 +31,7 @@ type AvailabilityChecker struct {
 	db        *bun.DB
 	cache     map[string]folderScan // sanitized folder name -> last scan
 	scanCount int                   // incremented each cycle; every 10th forces a full re-scan
+	trigger   chan struct{}
 }
 
 // folderScan is a cached directory listing: the mtime it was taken at and the
@@ -42,13 +43,25 @@ type folderScan struct {
 
 // NewAvailabilityChecker constructs a checker with an empty cache.
 func NewAvailabilityChecker(db *bun.DB) *AvailabilityChecker {
-	return &AvailabilityChecker{db: db, cache: map[string]folderScan{}}
+	return &AvailabilityChecker{db: db, cache: map[string]folderScan{}, trigger: make(chan struct{}, 1)}
 }
 
-// PollAvailability runs CheckAvailability on a loop. Kept as a package function
+// Trigger wakes the poll loop immediately. Non-blocking: if the loop is already
+// running a pass or a wake is already pending, the signal is dropped.
+func (c *AvailabilityChecker) Trigger() {
+	select {
+	case c.trigger <- struct{}{}:
+	default:
+	}
+}
+
+// PollAvailability runs CheckAvailability on a loop, returning a non-blocking
+// trigger that wakes the loop for an immediate pass. Kept as a package function
 // for the existing caller; it owns a single checker so the mtime cache persists.
-func PollAvailability(ctx context.Context, bunDB *bun.DB) {
-	NewAvailabilityChecker(bunDB).Poll(ctx)
+func PollAvailability(ctx context.Context, bunDB *bun.DB) func() {
+	checker := NewAvailabilityChecker(bunDB)
+	go checker.Poll(ctx)
+	return checker.Trigger
 }
 
 // CheckAvailability runs a single reconciliation pass. Used by the manual trigger
@@ -165,6 +178,8 @@ func (c *AvailabilityChecker) Poll(ctx context.Context) {
 		interval := config.GetSeconds(c.db, "availabilityCheckInterval", 60*time.Second, 10*time.Second)
 		select {
 		case <-time.After(interval):
+			c.recordedCheck(ctx, rec, avCycle, interval)
+		case <-c.trigger:
 			c.recordedCheck(ctx, rec, avCycle, interval)
 		case <-ctx.Done():
 			return
