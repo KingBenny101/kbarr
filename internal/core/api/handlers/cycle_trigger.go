@@ -22,9 +22,9 @@ type TriggerCycleInput struct {
 func TriggerCycle(coreTriggers map[string]func(), indexerAddr, downloaderAddr, metadataAddr string, limiter *TriggerLimiter) func(context.Context, *TriggerCycleInput) (*struct{}, error) {
 	return func(ctx context.Context, in *TriggerCycleInput) (*struct{}, error) {
 		key := in.Service + "/" + in.Cycle
-		if ok, remaining := limiter.Allow(key); !ok {
-			slog.Info("Cycle trigger rejected", "service", in.Service, "cycle", in.Cycle, "retryIn", remaining.Round(time.Second))
-			return nil, huma.Error429TooManyRequests(fmt.Sprintf("cycle already triggered recently, try again in %s", remaining.Round(time.Second)))
+		if ok, remaining := limiter.Check(key); !ok {
+			slog.Info("Cycle trigger rejected", "service", in.Service, "cycle", in.Cycle, "retryIn", ceilDuration(remaining, time.Second))
+			return nil, huma.Error429TooManyRequests(fmt.Sprintf("cycle already triggered recently, try again in %s", ceilDuration(remaining, time.Second)))
 		}
 		slog.Info("Cycle triggered", "service", in.Service, "cycle", in.Cycle)
 		switch in.Service {
@@ -34,25 +34,32 @@ func TriggerCycle(coreTriggers map[string]func(), indexerAddr, downloaderAddr, m
 				return nil, huma.Error404NotFound(fmt.Sprintf("unknown core cycle %q", in.Cycle))
 			}
 			fn()
-			return nil, nil
 		case "indexer":
 			if in.Cycle != "monitor_poll" && in.Cycle != "process_missing" {
 				return nil, huma.Error404NotFound(fmt.Sprintf("unknown indexer cycle %q", in.Cycle))
 			}
-			return proxyTrigger(ctx, indexerAddr)
+			if _, err := proxyTrigger(ctx, indexerAddr); err != nil {
+				return nil, err
+			}
 		case "downloader":
 			if in.Cycle != "downloader_poll" {
 				return nil, huma.Error404NotFound(fmt.Sprintf("unknown downloader cycle %q", in.Cycle))
 			}
-			return proxyTrigger(ctx, downloaderAddr)
+			if _, err := proxyTrigger(ctx, downloaderAddr); err != nil {
+				return nil, err
+			}
 		case "metadata":
 			if in.Cycle != "anidb_sync" {
 				return nil, huma.Error404NotFound(fmt.Sprintf("unknown metadata cycle %q", in.Cycle))
 			}
-			return proxyTrigger(ctx, metadataAddr)
+			if _, err := proxyTrigger(ctx, metadataAddr); err != nil {
+				return nil, err
+			}
 		default:
 			return nil, huma.Error404NotFound(fmt.Sprintf("unknown service %q", in.Service))
 		}
+		limiter.Record(key)
+		return nil, nil
 	}
 }
 
