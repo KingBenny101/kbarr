@@ -270,7 +270,7 @@ export function MonitorPage() {
                                         </Table.Th>
 <Table.Th w={100}>Quality</Table.Th>
                                 <Table.Th w={120}>Subtitles</Table.Th>
-                                <Table.Th w={88}><Text ta="right" size="xs" tt="uppercase" c="dimmed" fw={700}>Actions</Text></Table.Th>
+                                <Table.Th w={88} style={{ textAlign: "right" }}>Actions</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
