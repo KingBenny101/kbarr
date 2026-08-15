@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatDuration, formatRelative, formatTimeAgo, formatWallClock } from "./format"
+import { formatDuration, formatRelative, formatRelativeWords, formatTimeAgo, formatTimeAgoWords, formatWallClock } from "./format"
 
 const NOW = new Date("2026-08-01T12:00:00Z")
 
@@ -66,6 +66,54 @@ describe("formatTimeAgo", () => {
 describe("formatWallClock", () => {
     it("formats 24-hour time with seconds", () => {
         expect(formatWallClock(new Date("2026-08-01T14:32:05Z"))).toBe("14:32:05")
+    })
+})
+
+describe("formatTimeAgoWords", () => {
+    it("returns never for null", () => {
+        expect(formatTimeAgoWords(null, NOW)).toBe("never")
+    })
+
+    it("spells out seconds", () => {
+        expect(formatTimeAgoWords(new Date("2026-08-01T11:59:30Z"), NOW)).toBe("30 secs ago")
+    })
+
+    it("spells out minutes", () => {
+        expect(formatTimeAgoWords(new Date("2026-08-01T11:55:00Z"), NOW)).toBe("5 mins ago")
+    })
+
+    it("spells out hours", () => {
+        expect(formatTimeAgoWords(new Date("2026-08-01T09:00:00Z"), NOW)).toBe("3 hours ago")
+    })
+
+    it("spells out days", () => {
+        expect(formatTimeAgoWords(new Date("2026-07-30T12:00:00Z"), NOW)).toBe("2 days ago")
+    })
+
+    it("uses singular for one", () => {
+        expect(formatTimeAgoWords(new Date("2026-08-01T11:59:00Z"), NOW)).toBe("1 min ago")
+    })
+})
+
+describe("formatRelativeWords", () => {
+    it("returns never for null", () => {
+        expect(formatRelativeWords(null, NOW)).toBe("never")
+    })
+
+    it("shows due now for past timestamps within 30s", () => {
+        expect(formatRelativeWords(new Date("2026-08-01T11:59:37Z"), NOW)).toBe("due now")
+    })
+
+    it("spells out overdue time", () => {
+        expect(formatRelativeWords(new Date("2026-08-01T11:55:00Z"), NOW)).toBe("overdue by 5 mins")
+        expect(formatRelativeWords(new Date("2026-07-30T12:00:00Z"), NOW)).toBe("overdue by 2 days")
+    })
+
+    it("spells out future time", () => {
+        expect(formatRelativeWords(new Date("2026-08-01T12:00:12Z"), NOW)).toBe("in 12 secs")
+        expect(formatRelativeWords(new Date("2026-08-01T12:05:00Z"), NOW)).toBe("in 5 mins")
+        expect(formatRelativeWords(new Date("2026-08-01T15:00:00Z"), NOW)).toBe("in 3 hours")
+        expect(formatRelativeWords(new Date("2026-08-03T12:00:00Z"), NOW)).toBe("in 2 days")
     })
 })
 

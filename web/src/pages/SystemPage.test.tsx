@@ -194,7 +194,7 @@ describe("SystemPage", () => {
             expect(targetRow).toBeTruthy()
             const cells = targetRow!.querySelectorAll("td")
             const nextRunCell = cells[2] // Next run column (0=Cycle, 1=Last run, 2=Next run, 3=Duration)
-            expect(nextRunCell.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \(in \d+[smhd]\)$/)
+            expect(nextRunCell.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \(in \d+ (secs|mins|hours|days)\)$/)
         } finally {
             Object.defineProperty(window, "matchMedia", { writable: true, value: original })
         }

@@ -6,6 +6,18 @@ function unit(ms: number): { value: number; unit: string } {
     return { value: Math.floor(abs / 86_400_000), unit: "d" }
 }
 
+const UNIT_WORDS: Record<string, [string, string]> = {
+    s: ["sec", "secs"],
+    m: ["min", "mins"],
+    h: ["hour", "hours"],
+    d: ["day", "days"],
+}
+
+function wordUnit(value: number, unit: string): string {
+    const [singular, plural] = UNIT_WORDS[unit]
+    return value === 1 ? singular : plural
+}
+
 export function formatRelative(ts: Date | null, now: Date): string {
     if (!ts) return "never"
     const diffMs = ts.getTime() - now.getTime()
@@ -21,6 +33,24 @@ export function formatTimeAgo(ts: Date | null, now: Date): string {
     if (!ts) return "never"
     const { value, unit: u } = unit(ts.getTime() - now.getTime())
     return `${value}${u} ago`
+}
+
+export function formatRelativeWords(ts: Date | null, now: Date): string {
+    if (!ts) return "never"
+    const diffMs = ts.getTime() - now.getTime()
+    const { value, unit: u } = unit(diffMs)
+    const word = wordUnit(value, u)
+    if (diffMs < 0) {
+        if (Math.abs(diffMs) < 30_000) return "due now"
+        return `overdue by ${value} ${word}`
+    }
+    return `in ${value} ${word}`
+}
+
+export function formatTimeAgoWords(ts: Date | null, now: Date): string {
+    if (!ts) return "never"
+    const { value, unit: u } = unit(ts.getTime() - now.getTime())
+    return `${value} ${wordUnit(value, u)} ago`
 }
 
 export function formatWallClock(ts: Date): string {

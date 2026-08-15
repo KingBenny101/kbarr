@@ -3,7 +3,7 @@ import { Badge, Box, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from 
 import { useMediaQuery } from "@mantine/hooks"
 import { API_URL, apiFetch } from "@/utils"
 import { usePolling } from "@/hooks"
-import { formatDuration, formatRelative, formatTimeAgo, ringProgress, formatWallClock } from "@/lib/format"
+import { formatDuration, formatRelativeWords, formatTimeAgoWords, ringProgress, formatWallClock } from "@/lib/format"
 
 interface CycleStatus {
     service: string
@@ -35,14 +35,13 @@ function timeCell(ts: string | null, running: boolean, now: Date, isFuture = fal
     const wall = formatWallClock(date)
     const dateStr = date.toISOString().slice(0, 10) // YYYY-MM-DD
     const relative = running
-        ? "started " + formatRelative(date, now)
+        ? "started " + formatRelativeWords(date, now)
         : isFuture
-            ? formatRelative(date, now)
-            : formatTimeAgo(date, now)
-    const relDisplay = relative.replace("overdue by ", "overdue ")
+            ? formatRelativeWords(date, now)
+            : formatTimeAgoWords(date, now)
     return (
         <Text ff={MONO} fw={500} fz="xs">
-            <span>{dateStr} {wall}</span> <span style={{ opacity: 0.5, marginLeft: 4 }}>({relDisplay})</span>
+            <span>{dateStr} {wall}</span> <span style={{ opacity: 0.5, marginLeft: 4 }}>({relative})</span>
         </Text>
     )
 }
