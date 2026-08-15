@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Badge, Box, Group, Paper, SimpleGrid, Stack, Table, Text, Title, Tooltip } from "@mantine/core"
+import { Badge, Box, Group, Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
 import { API_URL, apiFetch } from "@/utils"
 import { usePolling } from "@/hooks"
@@ -21,16 +21,29 @@ interface ServiceHealth {
     running: boolean
 }
 
-const MONO = "var(--mantine-font-family-monospace)"
+const MONO = "'JetBrains Mono', var(--mantine-font-family-monospace)"
 const MISSING_RETRY_MIN = 1440
 
+function stateColor(state: "idle" | "running", offline: boolean): string {
+    if (offline) return "var(--mantine-color-red-6)"
+    return state === "running" ? "var(--mantine-color-yellow-6)" : "var(--mantine-color-blue-6)"
+}
+
 function timeCell(ts: string | null, running: boolean, now: Date, isFuture = false): React.ReactNode {
-    if (!ts) return <Text c="dimmed">never</Text>
+    if (!ts) return <Text c="dimmed" ff={MONO}>—</Text>
     const date = new Date(ts)
+    const wall = formatWallClock(date)
+    const dateStr = date.toISOString().slice(0, 10) // YYYY-MM-DD
+    const relative = running
+        ? "started " + formatRelative(date, now)
+        : isFuture
+            ? formatRelative(date, now)
+            : formatTimeAgo(date, now)
+    const relDisplay = relative.replace("overdue by ", "overdue ")
     return (
-        <Tooltip label={formatWallClock(date)}>
-            <Text>{running ? "started " + formatRelative(date, now) : isFuture ? formatRelative(date, now) : formatTimeAgo(date, now)}</Text>
-        </Tooltip>
+        <Text ff={MONO} fw={500} fz="xs">
+            <span>{dateStr} {wall}</span> <span style={{ opacity: 0.5, marginLeft: 4 }}>({relDisplay})</span>
+        </Text>
     )
 }
 
@@ -39,13 +52,20 @@ interface CycleView {
     running: boolean
     lastTs: string | null
     progress: number | null
+    stateColor: string
 }
 
 function cycleView(c: CycleStatus, offlineServices: Set<string>, now: Date): CycleView {
     const offline = offlineServices.has(c.service)
     const running = !offline && c.state === "running"
     const lastTs = running ? c.last_started_at : c.last_finished_at ?? c.last_started_at
-    return { offline, running, lastTs, progress: running ? null : ringProgress(now, c.last_finished_at, c.next_run_at) }
+    return {
+        offline,
+        running,
+        lastTs,
+        progress: running ? null : ringProgress(now, c.last_finished_at, c.next_run_at),
+        stateColor: stateColor(c.state, offline),
+    }
 }
 
 function CycleRing({ running, offline, progress }: { running: boolean; offline: boolean; progress: number | null }) {
@@ -83,21 +103,27 @@ function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
         <Table striped highlightOnHover>
             <Table.Thead>
                 <Table.Tr>
-                    <Table.Th>Cycle</Table.Th>
-                    <Table.Th>Last run</Table.Th>
-                    <Table.Th>Next run</Table.Th>
-                    <Table.Th>Duration</Table.Th>
+                    <Table.Th style={{ width: "200px", minWidth: "160px" }}>Cycle</Table.Th>
+                    <Table.Th style={{ width: "140px" }}>Last run</Table.Th>
+                    <Table.Th style={{ width: "140px" }}>Next run</Table.Th>
+                    <Table.Th style={{ width: "120px" }}>Duration</Table.Th>
                 </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
                 {cycles.map((c) => {
                     const v = cycleView(c, offlineServices, now)
                     return (
-                        <Table.Tr key={`${c.service}/${c.cycle}`}>
-                            <Table.Td>
+                        <Table.Tr
+                            key={`${c.service}/${c.cycle}`}
+                            style={{
+                                borderLeft: `3px solid ${v.stateColor}`,
+                                transition: "border-color 0.2s ease",
+                            }}
+                        >
+                            <Table.Td style={{ paddingLeft: "md" }}>
                                 <Group gap="xs">
                                     <CycleRing running={v.running} offline={v.offline} progress={v.progress} />
-                                    <Text fw={500}>{c.display_name}</Text>
+                                    <Text fw={500} fz="sm">{c.display_name}</Text>
                                     <Badge size="xs" variant="outline" color="gray">{c.service}</Badge>
                                 </Group>
                             </Table.Td>
@@ -109,13 +135,15 @@ function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                                     timeCell(c.next_run_at, false, now, true)
                                 )}
                             </Table.Td>
-                            <Table.Td ff={MONO}>{formatDuration(c.last_duration_ms)}</Table.Td>
+                            <Table.Td ff={MONO} fw={500}>{formatDuration(c.last_duration_ms)}</Table.Td>
                         </Table.Tr>
                     )
                 })}
                 {cycles.length === 0 && (
                     <Table.Tr>
-                        <Table.Td colSpan={4}><Text c="dimmed" ta="center">No cycles recorded yet</Text></Table.Td>
+                        <Table.Td colSpan={4} style={{ textAlign: "center", padding: "xl" }}>
+                            <Text c="dimmed">No cycles recorded yet</Text>
+                        </Table.Td>
                     </Table.Tr>
                 )}
             </Table.Tbody>
@@ -132,34 +160,38 @@ function CycleCards({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                     <Box
                         key={`${c.service}/${c.cycle}`}
                         px="md"
-                        py="sm"
-                        style={i > 0 ? { borderTop: "1px solid var(--mantine-color-default-border)" } : undefined}
+                        py="md"
+                        style={{
+                            borderTop: i > 0 ? "1px solid var(--mantine-color-default-border)" : undefined,
+                            borderLeft: `3px solid ${v.stateColor}`,
+                            background: "linear-gradient(90deg, transparent 99%, var(--mantine-color-default-border) 100%)",
+                        }}
                     >
-                        <Group justify="space-between" gap="sm" wrap="nowrap">
+                        <Group justify="space-between" gap="sm" wrap="nowrap" mb="xs">
                             <Group gap="xs" wrap="nowrap" miw={0}>
                                 <CycleRing running={v.running} offline={v.offline} progress={v.progress} />
-                                <Text fw={500} truncate>{c.display_name}</Text>
+                                <Text fw={500} fz="sm" truncate>{c.display_name}</Text>
                             </Group>
                             <Badge size="xs" variant="outline" color="gray" visibleFrom="sm">{c.service}</Badge>
                         </Group>
-                        <SimpleGrid cols={3} spacing="xs" mt="xs">
+                        <SimpleGrid cols={3} spacing="xs">
                             <Box>
-                                <Text size="xs" c="dimmed">Last run</Text>
-                                <Box fz="sm" ff={MONO}>{timeCell(v.lastTs, v.running, now)}</Box>
+                                <Text size="xs" c="dimmed" mb="2">Last run</Text>
+                                <Box ff={MONO} fz="sm" fw={500}>{timeCell(v.lastTs, v.running, now)}</Box>
                             </Box>
                             <Box>
-                                <Text size="xs" c="dimmed">Next run</Text>
-                                <Box fz="sm" ff={MONO}>
+                                <Text size="xs" c="dimmed" mb="2">Next run</Text>
+                                <Box ff={MONO} fz="sm" fw={500}>
                                     {v.running ? (
-                                        <Text component="span" c="dimmed">—</Text>
+                                        <Text c="dimmed">—</Text>
                                     ) : (
                                         timeCell(c.next_run_at, false, now, true)
                                     )}
                                 </Box>
                             </Box>
                             <Box>
-                                <Text size="xs" c="dimmed">Duration</Text>
-                                <Box fz="sm" ff={MONO}>{formatDuration(c.last_duration_ms)}</Box>
+                                <Text size="xs" c="dimmed" mb="2">Duration</Text>
+                                <Box ff={MONO} fz="sm" fw={500}>{formatDuration(c.last_duration_ms)}</Box>
                             </Box>
                         </SimpleGrid>
                     </Box>
@@ -230,13 +262,13 @@ export default function SystemPage() {
             <style>{`@media (prefers-reduced-motion: no-preference) { @keyframes kbarr-ring-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } } .kbarr-ring-pulse { animation: kbarr-ring-pulse 1.6s ease-in-out infinite; } }`}</style>
             <Stack gap="md">
                 <Group justify="space-between">
-                    <Title order={2}>System</Title>
+                    <Title order={2} fw={600}>System</Title>
                     {stale && <Text c="orange" size="sm">Status data is stale — retrying…</Text>}
                 </Group>
-                <Group justify="space-between" mb="sm">
-                    <Text c="dimmed" size="sm">Browser time: {formatWallClock(now)}</Text>
+                <Group justify="space-between" mb="xs">
+                    <Text c="dimmed" size="sm" ff={MONO}>Current server time: {formatWallClock(now)}</Text>
                 </Group>
-                <Paper withBorder p={isDesktop ? "md" : 0}>
+                <Paper withBorder p={isDesktop ? "md" : 0} style={{ borderColor: "var(--mantine-color-default-border)" }}>
                     {isDesktop ? (
                         <CycleTable cycles={allCycles} offlineServices={offlineServices} now={now} />
                     ) : (

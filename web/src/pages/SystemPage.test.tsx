@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { MantineProvider } from "@mantine/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import SystemPage from "./SystemPage"
@@ -149,30 +149,55 @@ describe("SystemPage", () => {
     })
 
     it("renders Missing search retry row with correct next run time", async () => {
-        // Use timestamps relative to now so the relative time is deterministic
-        const nowIso = () => new Date().toISOString()
-        const finished = new Date(nowIso())
-        finished.setSeconds(0, 0)
-        const finishedIso = finished.toISOString()
-
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-            const url = String(input)
-            if (url.includes("/api/cycles")) return jsonResponse({
-                cycles: [
-                    { service: "core", cycle: "availability", display_name: "Availability check", state: "idle", last_started_at: finishedIso, last_finished_at: finishedIso, last_duration_ms: 10000, next_run_at: finishedIso },
-                    { service: "indexer", cycle: "process_missing", display_name: "Missing search retry", state: "idle", last_started_at: finishedIso, last_finished_at: finishedIso, last_duration_ms: 5000, next_run_at: finishedIso },
-                ]
-            })
-            if (url.includes("/api/workers")) return jsonResponse(WORKERS)
-            return jsonResponse({})
+        const original = window.matchMedia
+        Object.defineProperty(window, "matchMedia", {
+            writable: true,
+            value: (query: string) => ({
+                matches: query.includes("min-width: 62em"),
+                media: query,
+                onchange: null,
+                addListener: () => {},
+                removeListener: () => {},
+                addEventListener: () => {},
+                removeEventListener: () => {},
+                dispatchEvent: () => false,
+            }),
         })
-        vi.stubGlobal("fetch", fetchMock)
 
-        renderPage()
+        try {
+            // Use timestamps relative to now so the relative time is deterministic
+            const nowIso = () => new Date().toISOString()
+            const finished = new Date(nowIso())
+            finished.setSeconds(0, 0)
+            const finishedIso = finished.toISOString()
 
-        expect(await screen.findByText("Missing search retry")).toBeInTheDocument()
-        // next_run_at is computed client-side as last_finished_at + 1440min
-        await waitFor(() => expect(screen.getByText(/in 23h|in 1d/i)).toBeInTheDocument())
+            const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input)
+                if (url.includes("/api/cycles")) return jsonResponse({
+                    cycles: [
+                        { service: "core", cycle: "availability", display_name: "Availability check", state: "idle", last_started_at: finishedIso, last_finished_at: finishedIso, last_duration_ms: 10000, next_run_at: finishedIso },
+                        { service: "indexer", cycle: "process_missing", display_name: "Missing search retry", state: "idle", last_started_at: finishedIso, last_finished_at: finishedIso, last_duration_ms: 5000, next_run_at: finishedIso },
+                    ]
+                })
+                if (url.includes("/api/workers")) return jsonResponse(WORKERS)
+                return jsonResponse({})
+            })
+            vi.stubGlobal("fetch", fetchMock)
+
+            renderPage()
+
+            expect(await screen.findByText("Missing search retry")).toBeInTheDocument()
+            // next_run_at is computed client-side as last_finished_at + 1440min
+            // With the new design, absolute time (HH:MM:SS) is shown, relative time is in tooltip
+            const rows = screen.getAllByRole("row")
+            const targetRow = rows.find(r => r.textContent?.includes("Missing search retry"))
+            expect(targetRow).toBeTruthy()
+            const cells = targetRow!.querySelectorAll("td")
+            const nextRunCell = cells[2] // Next run column (0=Cycle, 1=Last run, 2=Next run, 3=Duration)
+            expect(nextRunCell.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \(in \d+[smhd]\)$/)
+        } finally {
+            Object.defineProperty(window, "matchMedia", { writable: true, value: original })
+        }
     })
 })
 
