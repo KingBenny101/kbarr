@@ -21,12 +21,15 @@ type CycleStatus struct {
 
 type CyclesOutput struct {
 	Body struct {
-		Cycles []CycleStatus `json:"cycles"`
+		Cycles     []CycleStatus `json:"cycles"`
+		ServerTime time.Time     `json:"server_time"`
 	}
 }
 
 // GetCycles reports the last/next run times of every background cycle.
 // Pure DB read: service liveness is reported separately by GET /api/workers.
+// server_time lets the UI anchor relative times to the server clock instead of
+// the browser clock, which may be skewed.
 func GetCycles() func(context.Context, *struct{}) (*CyclesOutput, error) {
 	return func(ctx context.Context, _ *struct{}) (*CyclesOutput, error) {
 		var rows = []CycleStatus{}
@@ -36,7 +39,8 @@ func GetCycles() func(context.Context, *struct{}) (*CyclesOutput, error) {
 			return nil, huma.Error500InternalServerError("failed to read cycle status", err)
 		}
 		return &CyclesOutput{Body: struct {
-			Cycles []CycleStatus `json:"cycles"`
-		}{Cycles: rows}}, nil
+			Cycles     []CycleStatus `json:"cycles"`
+			ServerTime time.Time     `json:"server_time"`
+		}{Cycles: rows, ServerTime: time.Now()}}, nil
 	}
 }

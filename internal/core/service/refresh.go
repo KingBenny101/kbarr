@@ -55,6 +55,7 @@ func PollMetadataRefresh(ctx context.Context, mc *clients.MetadataClient) func()
 				return
 			case <-timer.C:
 			case <-trigger:
+				slog.Info("Metadata refresh woken by trigger")
 			}
 			_ = rec.Start(ctx, refreshCycle)
 			runRefreshPass(ctx, mc)

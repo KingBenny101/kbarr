@@ -44,6 +44,7 @@ func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 				ticker.Reset(interval)
 			}
 		case <-s.trigger:
+			slog.Info("AniDB sync woken by trigger")
 			nextInterval := s.syncOnce(rec, syncCycle)
 			if nextInterval != interval {
 				interval = nextInterval

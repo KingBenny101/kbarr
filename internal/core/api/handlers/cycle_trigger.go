@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,6 +21,7 @@ type TriggerCycleInput struct {
 // service → 502.
 func TriggerCycle(coreTriggers map[string]func(), indexerAddr, downloaderAddr, metadataAddr string) func(context.Context, *TriggerCycleInput) (*struct{}, error) {
 	return func(ctx context.Context, in *TriggerCycleInput) (*struct{}, error) {
+		slog.Info("Cycle triggered", "service", in.Service, "cycle", in.Cycle)
 		switch in.Service {
 		case "core":
 			fn, ok := coreTriggers[in.Cycle]

@@ -63,6 +63,9 @@ func TestGetCycles(t *testing.T) {
 	if row.LastDurationMs < 0 {
 		t.Errorf("last_duration_ms = %d", row.LastDurationMs)
 	}
+	if out.Body.ServerTime.IsZero() {
+		t.Error("server_time is zero")
+	}
 }
 
 func TestGetCyclesEmpty(t *testing.T) {

@@ -180,6 +180,7 @@ func (c *AvailabilityChecker) Poll(ctx context.Context) {
 		case <-time.After(interval):
 			c.recordedCheck(ctx, rec, avCycle, interval)
 		case <-c.trigger:
+			slog.Info("Availability poll woken by trigger")
 			c.recordedCheck(ctx, rec, avCycle, interval)
 		case <-ctx.Done():
 			return

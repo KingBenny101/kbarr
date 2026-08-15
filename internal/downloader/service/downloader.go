@@ -132,6 +132,7 @@ func (s *DownloaderService) PollAndDownload(ctx context.Context) {
 		case <-time.After(interval):
 			s.recordedPoll(ctx, rec, dlCycle)
 		case <-s.trigger:
+			slog.Info("Downloader poll woken by trigger")
 			s.recordedPoll(ctx, rec, dlCycle)
 		case <-ctx.Done():
 			return

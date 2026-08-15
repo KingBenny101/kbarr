@@ -113,6 +113,7 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 		select {
 		case <-time.After(interval):
 		case <-s.trigger:
+			slog.Info("Monitor poll woken by trigger")
 		case <-ctx.Done():
 			return
 		}
