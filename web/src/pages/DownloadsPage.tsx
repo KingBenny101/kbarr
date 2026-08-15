@@ -366,7 +366,7 @@ export function DownloadsPage() {
                                                 Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th w={72} />
+                                        <Table.Th w={72}><Text ta="right" size="xs" tt="uppercase" c="dimmed" fw={700}>Actions</Text></Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>

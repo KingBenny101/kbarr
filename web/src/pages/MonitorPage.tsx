@@ -270,17 +270,17 @@ export function MonitorPage() {
                                         </Table.Th>
 <Table.Th w={100}>Quality</Table.Th>
                                 <Table.Th w={120}>Subtitles</Table.Th>
-                                <Table.Th w={88} />
+                                <Table.Th w={88}><Text ta="right" size="xs" tt="uppercase" c="dimmed" fw={700}>Actions</Text></Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
                                     {loading ? (
                                         <Table.Tr>
-                                            <Table.Td colSpan={6}><Text ta="center" py="md">Loading...</Text></Table.Td>
+                                            <Table.Td colSpan={7}><Text ta="center" py="md">Loading...</Text></Table.Td>
                                         </Table.Tr>
                                     ) : filtered.length === 0 ? (
                                         <Table.Tr>
-                                            <Table.Td colSpan={6}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
+                                            <Table.Td colSpan={7}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
                                         </Table.Tr>
                                     ) : (
                                         currentMonitors.map((entry) => (
@@ -316,14 +316,13 @@ export function MonitorPage() {
                                                         <ActionIcon
                                                             variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
                                                             color="blue"
-                                                            size="sm"
                                                             onClick={() => handleSearch(entry.ID)}
                                                             disabled={searchLoading.has(entry.ID)}
                                                             aria-label="Search now"
                                                         >
-                                                            {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={16} />}
+                                                            {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={18} />}
                                                         </ActionIcon>
-                                                        <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
+                                                        <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
                                                             <IconTrash size={18} />
                                                         </ActionIcon>
                                                     </Group>
