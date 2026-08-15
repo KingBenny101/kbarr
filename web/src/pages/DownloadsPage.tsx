@@ -366,7 +366,7 @@ export function DownloadsPage() {
                                                 Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th w={72} style={{ textAlign: "right" }}>Actions</Table.Th>
+                                        <Table.Th w={72}>Actions</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
@@ -429,8 +429,8 @@ export function DownloadsPage() {
                                                         )}
                                                     </Stack>
                                                 </Table.Td>
-                                                <Table.Td ta="right">
-                                                    <Group gap={4} justify="flex-end" wrap="nowrap">
+                                                <Table.Td>
+                                                    <Group gap={4} wrap="nowrap">
                                                         {item.status === "completed" && (
                                                             <Tooltip label="Retry hardlink creation">
                                                                 <ActionIcon variant="subtle" color="blue" onClick={() => handleRetryHardlinks(item)} aria-label="Retry hardlinks">

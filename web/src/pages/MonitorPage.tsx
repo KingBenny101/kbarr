@@ -270,7 +270,7 @@ export function MonitorPage() {
                                         </Table.Th>
 <Table.Th w={100}>Quality</Table.Th>
                                 <Table.Th w={120}>Subtitles</Table.Th>
-                                <Table.Th w={88} style={{ textAlign: "right" }}>Actions</Table.Th>
+                                <Table.Th w={88}>Actions</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
@@ -311,8 +311,8 @@ export function MonitorPage() {
                                                         {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
                                                     </Text>
                                                 </Table.Td>
-                                                <Table.Td ta="right">
-                                                    <Group gap={4} justify="flex-end" wrap="nowrap">
+                                                <Table.Td>
+                                                    <Group gap={4} wrap="nowrap">
                                                         <ActionIcon
                                                             variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
                                                             color="blue"
