@@ -285,34 +285,34 @@ export function MonitorPage() {
                                     ) : (
                                         currentMonitors.map((entry) => (
                                             <Table.Tr key={entry.ID}>
-                                                <Table.Td fw={700}>
+                                                <Table.Td ta="center" fw={700}>
                                                     <Text component={Link} to={`/media/${entry.library_id}`} c="gray" fw={700} truncate style={{ display: "block" }}>
                                                         {entry.title}
                                                     </Text>
                                                 </Table.Td>
-                                                <Table.Td>
+                                                <Table.Td ta="center">
                                                     <StatusPill label={entry.is_season ? "Season" : "Episode"} tone={entry.is_season ? "violet" : "blue"} />
                                                 </Table.Td>
-                                                <Table.Td c="dimmed">
+                                                <Table.Td ta="center" c="dimmed">
                                                     <Text truncate>
                                                         {entry.is_season ? "" : `E${entry.episode_number}: ${entry.episode_title}`}
                                                     </Text>
                                                 </Table.Td>
-                                                <Table.Td>
+                                                <Table.Td ta="center">
                                                     <StatusPill label={entry.status} tone={STATUS_TONES[entry.status] ?? "gray"} />
                                                 </Table.Td>
-                                                <Table.Td c={entry.quality ? undefined : "dimmed"}>
+                                                <Table.Td ta="center" c={entry.quality ? undefined : "dimmed"}>
                                                     <Text truncate>
                                                         {entry.quality ? entry.quality.toUpperCase() : "—"}
                                                     </Text>
                                                 </Table.Td>
-                                                <Table.Td c={entry.subtitles ? undefined : "dimmed"}>
+                                                <Table.Td ta="center" c={entry.subtitles ? undefined : "dimmed"}>
                                                     <Text truncate>
                                                         {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
                                                     </Text>
                                                 </Table.Td>
-                                                <Table.Td>
-                                                    <Group gap={4} wrap="nowrap">
+                                                <Table.Td ta="center">
+                                                    <Group gap={4} justify="center" wrap="nowrap">
                                                         <ActionIcon
                                                             variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
                                                             color="blue"

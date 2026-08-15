@@ -387,16 +387,16 @@ export function DownloadsPage() {
                                     ) : (
                                         visible.map((item) => (
                                             <Table.Tr key={item.id}>
-                                                <Table.Td fw={700} style={{ maxWidth: 220 }}>
+                                                <Table.Td ta="center" fw={700} style={{ maxWidth: 220 }}>
                                                     <Tooltip label={item.title ?? "—"} disabled={!item.title} openDelay={400}>
                                                         <Text size="sm" fw={700} truncate="end">{item.title ?? "—"}</Text>
                                                     </Tooltip>
                                                 </Table.Td>
-                                                <Table.Td style={{ maxWidth: 320 }}>
+                                                <Table.Td ta="center" style={{ maxWidth: 320 }}>
                                                     <Tooltip label={item.torrent_name ?? "—"} multiline maw={420} disabled={!item.torrent_name} openDelay={400}>
                                                         {item.torrent_url ? (
                                                             <Anchor href={item.torrent_url} target="_blank" rel="noreferrer" c="gray">
-                                                                <Group gap={4} wrap="nowrap">
+                                                                <Group gap={4} wrap="nowrap" justify="center">
                                                                     <IconExternalLink size={14} style={{ flexShrink: 0 }} />
                                                                     <Text size="sm" truncate="end">{item.torrent_name ?? "Link"}</Text>
                                                                 </Group>
@@ -404,24 +404,24 @@ export function DownloadsPage() {
                                                         ) : <Text c="dimmed" size="sm" truncate="end">{item.torrent_name ?? "—"}</Text>}
                                                     </Tooltip>
                                                 </Table.Td>
-                                                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                                                <Table.Td ta="center" style={{ whiteSpace: "nowrap" }}>
                                                     <Text size="sm">{item.indexer ?? "—"}</Text>
                                                 </Table.Td>
-                                                <Table.Td style={{ whiteSpace: "nowrap" }}>
+                                                <Table.Td ta="center" style={{ whiteSpace: "nowrap" }}>
                                                     <Text size="sm" c="dimmed">{item.size ? formatBytes(item.size) : "—"}</Text>
                                                 </Table.Td>
                                                 <Table.Td ta="center">
                                                     <Text size="sm">{item.seeders ?? "—"}</Text>
                                                 </Table.Td>
-                                                <Table.Td>
+                                                <Table.Td ta="center">
                                                     <Text size="sm" c="dimmed" style={{ fontFamily: "monospace" }}>
                                                         {item.torrent_hash ? item.torrent_hash.slice(0, 12) + "…" : "—"}
                                                     </Text>
                                                 </Table.Td>
-                                                <Table.Td c="dimmed" style={{ whiteSpace: "nowrap" }}>
+                                                <Table.Td ta="center" c="dimmed" style={{ whiteSpace: "nowrap" }}>
                                                     {new Date(item.created_at).toLocaleString()}
                                                 </Table.Td>
-                                                <Table.Td>
+                                                <Table.Td ta="center">
                                                     <Stack gap={4}>
                                                         <StatusPill label={item.status ?? "unknown"} tone={statusTone(item.status)} />
                                                         {item.status === "downloading" && (
@@ -429,8 +429,8 @@ export function DownloadsPage() {
                                                         )}
                                                     </Stack>
                                                 </Table.Td>
-                                                <Table.Td>
-                                                    <Group gap={4} wrap="nowrap">
+                                                <Table.Td ta="center">
+                                                    <Group gap={4} justify="center" wrap="nowrap">
                                                         {item.status === "completed" && (
                                                             <Tooltip label="Retry hardlink creation">
                                                                 <ActionIcon variant="subtle" color="blue" onClick={() => handleRetryHardlinks(item)} aria-label="Retry hardlinks">
