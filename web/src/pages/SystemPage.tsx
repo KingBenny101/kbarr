@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Badge, Box, Group, Paper, SimpleGrid, Stack, Table, Text, Title, Tooltip } from "@mantine/core"
 import { useMediaQuery } from "@mantine/hooks"
 import { API_URL, apiFetch } from "@/utils"
@@ -102,13 +102,13 @@ function CycleTable({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                                 </Group>
                             </Table.Td>
                             <Table.Td ff={MONO}>{timeCell(v.lastTs, v.running, now)}</Table.Td>
-                             <Table.Td ff={MONO}>
-                                 {v.running ? (
-                                     <Text c="dimmed">—</Text>
-                                 ) : (
-                                     timeCell(c.next_run_at, false, now, true)
-                                 )}
-                             </Table.Td>
+                            <Table.Td ff={MONO}>
+                                {v.running ? (
+                                    <Text c="dimmed">—</Text>
+                                ) : (
+                                    timeCell(c.next_run_at, false, now, true)
+                                )}
+                            </Table.Td>
                             <Table.Td ff={MONO}>{formatDuration(c.last_duration_ms)}</Table.Td>
                         </Table.Tr>
                     )
@@ -153,7 +153,7 @@ function CycleCards({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
                                     {v.running ? (
                                         <Text component="span" c="dimmed">—</Text>
                                     ) : (
-                                         timeCell(c.next_run_at, false, now, true)
+                                        timeCell(c.next_run_at, false, now, true)
                                     )}
                                 </Box>
                             </Box>
@@ -175,14 +175,9 @@ function CycleCards({ cycles, offlineServices, now }: { cycles: CycleStatus[]; o
 export default function SystemPage() {
     const [cycles, setCycles] = useState<CycleStatus[]>([])
     const [workers, setWorkers] = useState<ServiceHealth[]>([])
-    const [now, setNow] = useState(() => new Date())
+    const now = useMemo(() => new Date(), [])
     const [stale, setStale] = useState(false)
     const isDesktop = useMediaQuery("(min-width: 62em)")
-
-    useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000)
-        return () => clearInterval(timer)
-    }, [])
 
     const fetchCycles = async (): Promise<boolean> => {
         try {
@@ -238,13 +233,16 @@ export default function SystemPage() {
                     <Title order={2}>System</Title>
                     {stale && <Text c="orange" size="sm">Status data is stale — retrying…</Text>}
                 </Group>
-                    <Paper withBorder p={isDesktop ? "md" : 0}>
-                        {isDesktop ? (
-                            <CycleTable cycles={allCycles} offlineServices={offlineServices} now={now} />
-                        ) : (
-                            <CycleCards cycles={allCycles} offlineServices={offlineServices} now={now} />
-                        )}
-                    </Paper>
+                <Group justify="space-between" mb="sm">
+                    <Text c="dimmed" size="sm">Browser time: {formatWallClock(now)}</Text>
+                </Group>
+                <Paper withBorder p={isDesktop ? "md" : 0}>
+                    {isDesktop ? (
+                        <CycleTable cycles={allCycles} offlineServices={offlineServices} now={now} />
+                    ) : (
+                        <CycleCards cycles={allCycles} offlineServices={offlineServices} now={now} />
+                    )}
+                </Paper>
             </Stack>
         </>
     )
