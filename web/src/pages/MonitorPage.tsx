@@ -215,6 +215,16 @@ export function MonitorPage() {
                                                     {entry.title}
                                                 </Text>
                                             </Group>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="blue"
+                                                size="sm"
+                                                onClick={() => handleSearch(entry.ID)}
+                                                disabled={searchLoading.has(entry.ID)}
+                                                aria-label="Search now"
+                                            >
+                                                {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={16} />}
+                                            </ActionIcon>
                                             <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
                                                 <IconTrash size={16} />
                                             </ActionIcon>
@@ -232,16 +242,6 @@ export function MonitorPage() {
                                                     {entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ")}
                                                 </Text>
                                             )}
-                                            <ActionIcon
-                                                variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
-                                                color="blue"
-                                                size="sm"
-                                                onClick={() => handleSearch(entry.ID)}
-                                                disabled={searchLoading.has(entry.ID)}
-                                                aria-label="Search now"
-                                            >
-                                                {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={12} />}
-                                            </ActionIcon>
                                         </Group>
                                     </Card>
                                 ))
@@ -270,18 +270,17 @@ export function MonitorPage() {
                                         </Table.Th>
 <Table.Th w={100}>Quality</Table.Th>
                                 <Table.Th w={120}>Subtitles</Table.Th>
-                                <Table.Th w={72}>Search</Table.Th>
-                                <Table.Th w={72} />
+                                <Table.Th w={88} />
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
                                     {loading ? (
                                         <Table.Tr>
-                                            <Table.Td colSpan={7}><Text ta="center" py="md">Loading...</Text></Table.Td>
+                                            <Table.Td colSpan={6}><Text ta="center" py="md">Loading...</Text></Table.Td>
                                         </Table.Tr>
                                     ) : filtered.length === 0 ? (
                                         <Table.Tr>
-                                            <Table.Td colSpan={7}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
+                                            <Table.Td colSpan={6}><Text ta="center" py="md" c="dimmed">No items match the current filter.</Text></Table.Td>
                                         </Table.Tr>
                                     ) : (
                                         currentMonitors.map((entry) => (
@@ -312,22 +311,22 @@ export function MonitorPage() {
                                                         {entry.subtitles ? entry.subtitles.split(",").filter(Boolean).map((s) => s.toUpperCase()).join(", ") : "—"}
                                                     </Text>
                                                 </Table.Td>
-                                                <Table.Td ta="center">
-                                                    <ActionIcon
-                                                        variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
-                                                        color="blue"
-                                                        size="sm"
-                                                        onClick={() => handleSearch(entry.ID)}
-                                                        disabled={searchLoading.has(entry.ID)}
-                                                        aria-label="Search now"
-                                                    >
-                                                        {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={16} />}
-                                                    </ActionIcon>
-                                                </Table.Td>
                                                 <Table.Td ta="right">
-                                                    <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
-                                                        <IconTrash size={18} />
-                                                    </ActionIcon>
+                                                    <Group gap={4} justify="flex-end" wrap="nowrap">
+                                                        <ActionIcon
+                                                            variant={searchLoading.has(entry.ID) ? "filled" : "subtle"}
+                                                            color="blue"
+                                                            size="sm"
+                                                            onClick={() => handleSearch(entry.ID)}
+                                                            disabled={searchLoading.has(entry.ID)}
+                                                            aria-label="Search now"
+                                                        >
+                                                            {searchLoading.has(entry.ID) ? <Loader size="sm" /> : <IconSearch size={16} />}
+                                                        </ActionIcon>
+                                                        <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleDelete(entry.ID)} aria-label="Remove from monitor">
+                                                            <IconTrash size={18} />
+                                                        </ActionIcon>
+                                                    </Group>
                                                 </Table.Td>
                                             </Table.Tr>
                                         ))
