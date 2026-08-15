@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatDuration, formatRelative, formatRelativeWords, formatTimeAgo, formatTimeAgoWords, formatWallClock } from "./format"
+import { formatDuration, formatRelative, formatRelativeWords, formatTimeAgo, formatTimeAgoWords, formatTimestamp, formatWallClock } from "./format"
 
 const NOW = new Date("2026-08-01T12:00:00Z")
 
@@ -66,6 +66,12 @@ describe("formatTimeAgo", () => {
 describe("formatWallClock", () => {
     it("formats 24-hour time with seconds", () => {
         expect(formatWallClock(new Date("2026-08-01T14:32:05Z"))).toBe("14:32:05")
+    })
+})
+
+describe("formatTimestamp", () => {
+    it("formats date and time with seconds", () => {
+        expect(formatTimestamp(new Date("2026-08-01T14:32:05Z"))).toBe("2026-08-01 14:32:05")
     })
 })
 

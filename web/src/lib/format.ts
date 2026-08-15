@@ -57,6 +57,10 @@ export function formatWallClock(ts: Date): string {
     return ts.toISOString().slice(11, 19)
 }
 
+export function formatTimestamp(ts: Date): string {
+    return ts.toISOString().slice(0, 19).replace("T", " ")
+}
+
 export function formatDuration(ms: number): string {
     const totalSec = Math.round(ms / 1000)
     const hours = Math.floor(totalSec / 3600)

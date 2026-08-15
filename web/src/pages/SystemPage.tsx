@@ -3,7 +3,7 @@ import { Badge, Box, Button, Group, Paper, SimpleGrid, Stack, Table, Text, Title
 import { useMediaQuery } from "@mantine/hooks"
 import { API_URL, apiFetch, showToast } from "@/utils"
 import { usePolling } from "@/hooks"
-import { formatDuration, formatRelativeWords, formatTimeAgoWords, ringProgress, formatWallClock } from "@/lib/format"
+import { formatDuration, formatRelativeWords, formatTimestamp, formatTimeAgoWords, ringProgress } from "@/lib/format"
 
 interface CycleStatus {
     service: string
@@ -32,8 +32,7 @@ function stateColor(state: "idle" | "running", offline: boolean): string {
 function timeCell(ts: string | null, running: boolean, now: Date, isFuture = false): React.ReactNode {
     if (!ts) return <Text c="dimmed" ff={MONO}>—</Text>
     const date = new Date(ts)
-    const wall = formatWallClock(date)
-    const dateStr = date.toISOString().slice(0, 10) // YYYY-MM-DD
+    const stamp = formatTimestamp(date)
     const relative = running
         ? "started " + formatRelativeWords(date, now)
         : isFuture
@@ -41,7 +40,7 @@ function timeCell(ts: string | null, running: boolean, now: Date, isFuture = fal
             : formatTimeAgoWords(date, now)
     return (
         <Text ff={MONO} fw={500} fz="xs">
-            <span>{dateStr} {wall}</span> <span style={{ opacity: 0.5, marginLeft: 4 }}>({relative})</span>
+            <span>{stamp}</span> <span style={{ opacity: 0.5, marginLeft: 4 }}>({relative})</span>
         </Text>
     )
 }
@@ -337,7 +336,7 @@ export default function SystemPage() {
                     {stale && <Text c="orange" size="sm">Status data is stale — retrying…</Text>}
                 </Group>
                 <Group justify="space-between" mb="xs">
-                    <Text c="dimmed" size="sm" ff={MONO}>Current server time: {formatWallClock(serverNow)}</Text>
+                    <Text c="dimmed" size="sm" ff={MONO}>Current server time: {formatTimestamp(serverNow)}</Text>
                 </Group>
                 <Paper withBorder p={isDesktop ? "md" : 0} style={{ borderColor: "var(--mantine-color-default-border)" }}>
                     {isDesktop ? (

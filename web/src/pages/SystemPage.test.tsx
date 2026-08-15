@@ -290,9 +290,9 @@ describe("SystemPage", () => {
 
         const clock = await screen.findByText(/Current server time:/)
         const shown = clock.textContent!.replace("Current server time: ", "").trim()
-        const expected = serverTime().toISOString().slice(11, 19)
+        const expected = serverTime().toISOString().slice(0, 19).replace("T", " ")
         const toSec = (t: string) => {
-            const [h, m, s] = t.split(":").map(Number)
+            const [h, m, s] = t.slice(11).split(":").map(Number)
             return h * 3600 + m * 60 + s
         }
         expect(Math.abs(toSec(shown) - toSec(expected))).toBeLessThanOrEqual(2)
