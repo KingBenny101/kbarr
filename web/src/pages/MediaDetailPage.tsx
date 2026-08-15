@@ -701,7 +701,7 @@ function EpisodeIndex({ epNo, available }: { epNo: string; available: boolean })
 
 function LedgerLabel({ children }: { children: ReactNode }) {
     return (
-        <Text size="xs" tt="uppercase" c="dimmed" fw={700} style={{ letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+        <Text size="xs" tt="uppercase" c="dimmed" fw={700} style={{ letterSpacing: "0.08em", whiteSpace: "nowrap", textAlign: "center" }}>
             {children}
         </Text>
     )

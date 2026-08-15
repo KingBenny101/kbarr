@@ -252,25 +252,25 @@ export function MonitorPage() {
                             <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md" style={{ tableLayout: "fixed", width: "100%" }}>
                                 <Table.Thead>
                                     <Table.Tr>
-                                        <Table.Th w="30%">
+                                        <Table.Th w="30%" ta="center">
                                             <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Anime <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th w={80}>
+                                        <Table.Th w={80} ta="center">
                                             <UnstyledButton onClick={() => toggleSort("type")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Type <SortIcon field="type" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th w="30%">Details</Table.Th>
-                                        <Table.Th w={130}>
+                                        <Table.Th w="30%" ta="center">Details</Table.Th>
+                                        <Table.Th w={130} ta="center">
                                             <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-<Table.Th w={100}>Quality</Table.Th>
-                                <Table.Th w={120}>Subtitles</Table.Th>
-                                <Table.Th w={88}>Actions</Table.Th>
+                                        <Table.Th w={100} ta="center">Quality</Table.Th>
+                                        <Table.Th w={120} ta="center">Subtitles</Table.Th>
+                                        <Table.Th w={88} ta="center">Actions</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>

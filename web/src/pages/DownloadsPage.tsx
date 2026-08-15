@@ -338,35 +338,35 @@ export function DownloadsPage() {
                             <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="md">
                                 <Table.Thead>
                                     <Table.Tr>
-                                        <Table.Th>
+                                        <Table.Th ta="center">
                                             <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Media <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th>Torrent name</Table.Th>
-                                        <Table.Th>Indexer</Table.Th>
-                                        <Table.Th>
+                                        <Table.Th ta="center">Torrent name</Table.Th>
+                                        <Table.Th ta="center">Indexer</Table.Th>
+                                        <Table.Th ta="center">
                                             <UnstyledButton onClick={() => toggleSort("size")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Size <SortIcon field="size" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th>
+                                        <Table.Th ta="center">
                                             <UnstyledButton onClick={() => toggleSort("seeders")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Seeders <SortIcon field="seeders" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th>Hash</Table.Th>
-                                        <Table.Th>
+                                        <Table.Th ta="center">Hash</Table.Th>
+                                        <Table.Th ta="center">
                                             <UnstyledButton onClick={() => toggleSort("added")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Added <SortIcon field="added" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th>
+                                        <Table.Th ta="center">
                                             <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
-                                        <Table.Th w={72}>Actions</Table.Th>
+                                        <Table.Th w={72} ta="center">Actions</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
