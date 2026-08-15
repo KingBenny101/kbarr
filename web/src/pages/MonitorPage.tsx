@@ -263,7 +263,7 @@ export function MonitorPage() {
                                             </UnstyledButton>
                                         </Table.Th>
                                         <Table.Th w="30%">Details</Table.Th>
-                                        <Table.Th w={100}>
+                                        <Table.Th w={130}>
                                             <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
