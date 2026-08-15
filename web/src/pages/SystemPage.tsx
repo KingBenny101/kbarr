@@ -109,6 +109,7 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
             <Table.Thead>
                 <Table.Tr>
                     <Table.Th style={{ width: "200px", minWidth: "160px" }}>Cycle</Table.Th>
+                    <Table.Th style={{ width: "110px" }}>Service</Table.Th>
                     <Table.Th style={{ width: "140px" }}>Last run</Table.Th>
                     <Table.Th style={{ width: "140px" }}>Next run</Table.Th>
                     <Table.Th style={{ width: "120px" }}>Duration</Table.Th>
@@ -130,8 +131,10 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
                                 <Group gap="xs">
                                     <CycleRing running={v.running} offline={v.offline} progress={v.progress} />
                                     <Text fw={500} fz="sm">{c.display_name}</Text>
-                                    <Badge size="xs" variant="outline" color="gray">{c.service}</Badge>
                                 </Group>
+                            </Table.Td>
+                            <Table.Td>
+                                <Badge size="xs" variant="light" color={v.offline ? "red" : "green"}>{c.service}</Badge>
                             </Table.Td>
                             <Table.Td ff={MONO}>{timeCell(v.lastTs, v.running, now)}</Table.Td>
                             <Table.Td ff={MONO}>
@@ -157,7 +160,7 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
                 })}
                 {cycles.length === 0 && (
                     <Table.Tr>
-                        <Table.Td colSpan={5} style={{ textAlign: "center", padding: "xl" }}>
+                        <Table.Td colSpan={6} style={{ textAlign: "center", padding: "xl" }}>
                             <Text c="dimmed">No cycles recorded yet</Text>
                         </Table.Td>
                     </Table.Tr>
@@ -195,7 +198,7 @@ function CycleCards({ cycles, offlineServices, now, runningKey, onRun }: {
                                 <Text fw={500} fz="sm" truncate>{c.display_name}</Text>
                             </Group>
                             <Group gap="xs" wrap="nowrap">
-                                <Badge size="xs" variant="outline" color="gray" visibleFrom="sm">{c.service}</Badge>
+                                <Badge size="xs" variant="light" color={v.offline ? "red" : "green"} visibleFrom="sm">{c.service}</Badge>
                                 <Button
                                     size="compact-xs"
                                     variant="light"

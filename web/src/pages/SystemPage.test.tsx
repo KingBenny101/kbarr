@@ -95,6 +95,8 @@ describe("SystemPage", () => {
 
         const card = (await screen.findByText("AniDB title sync")).closest("div")!
         expect(card.querySelector('circle[stroke="var(--mantine-color-red-6)"]')).not.toBeNull()
+        const pill = screen.getByText("metadata").closest(".mantine-Badge-root") as HTMLElement
+        expect(pill.style.getPropertyValue("--badge-color")).toContain("red")
     })
 
     it("renders stacked cards with labeled values on mobile", async () => {
@@ -129,6 +131,12 @@ describe("SystemPage", () => {
             expect(await screen.findByText("Availability check")).toBeInTheDocument()
             expect(screen.getByText("Cycle")).toBeInTheDocument()
             expect(screen.getAllByText("Duration")).toHaveLength(1)
+            // Service status pills sit in their own column, colored by health.
+            expect(screen.getByText("Service")).toBeInTheDocument()
+            const rows = screen.getAllByRole("row")
+            const coreRow = rows.find((r) => r.textContent?.includes("Availability check"))!
+            const pill = within(coreRow).getByText("core").closest(".mantine-Badge-root") as HTMLElement
+            expect(pill.style.getPropertyValue("--badge-color")).toContain("green")
         } finally {
             Object.defineProperty(window, "matchMedia", { writable: true, value: original })
         }
@@ -193,7 +201,7 @@ describe("SystemPage", () => {
             const targetRow = rows.find(r => r.textContent?.includes("Missing search retry"))
             expect(targetRow).toBeTruthy()
             const cells = targetRow!.querySelectorAll("td")
-            const nextRunCell = cells[2] // Next run column (0=Cycle, 1=Last run, 2=Next run, 3=Duration)
+            const nextRunCell = cells[3] // Next run column (0=Cycle, 1=Service, 2=Last run, 3=Next run, 4=Duration)
             expect(nextRunCell.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \(in \d+ (secs|mins|hours|days)\)$/)
         } finally {
             Object.defineProperty(window, "matchMedia", { writable: true, value: original })
