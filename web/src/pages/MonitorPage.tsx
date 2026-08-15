@@ -253,18 +253,18 @@ export function MonitorPage() {
                                 <Table.Thead>
                                     <Table.Tr>
                                         <Table.Th w="30%" ta="center">
-                                            <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <UnstyledButton onClick={() => toggleSort("title")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                                                 Anime <SortIcon field="title" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
                                         <Table.Th w={80} ta="center">
-                                            <UnstyledButton onClick={() => toggleSort("type")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <UnstyledButton onClick={() => toggleSort("type")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                                                 Type <SortIcon field="type" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>
                                         <Table.Th w="30%" ta="center">Details</Table.Th>
                                         <Table.Th w={130} ta="center">
-                                            <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <UnstyledButton onClick={() => toggleSort("status")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                                                 Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
                                             </UnstyledButton>
                                         </Table.Th>

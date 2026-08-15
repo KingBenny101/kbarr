@@ -105,15 +105,15 @@ function CycleTable({ cycles, offlineServices, now, runningKey, onRun }: {
     onRun: (c: CycleStatus) => void
 }) {
     return (
-        <Table striped highlightOnHover>
+        <Table striped highlightOnHover w="100%">
             <Table.Thead>
                 <Table.Tr>
-                    <Table.Th style={{ width: "200px", minWidth: "160px", textAlign: "center" }}>Cycle</Table.Th>
-                    <Table.Th style={{ width: "110px", textAlign: "center" }}>Service</Table.Th>
-                    <Table.Th style={{ width: "140px", textAlign: "center" }}>Last run</Table.Th>
-                    <Table.Th style={{ width: "140px", textAlign: "center" }}>Next run</Table.Th>
-                    <Table.Th style={{ width: "120px", textAlign: "center" }}>Duration</Table.Th>
-                    <Table.Th style={{ width: "110px", textAlign: "center" }}>Run</Table.Th>
+                    <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Cycle</Table.Th>
+                    <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Service</Table.Th>
+                    <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Last run</Table.Th>
+                    <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Next run</Table.Th>
+                    <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Duration</Table.Th>
+                    <Table.Th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Run</Table.Th>
                 </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
