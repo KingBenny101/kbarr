@@ -29,14 +29,25 @@ import (
 )
 
 type DownloaderService struct {
-	db     *bun.DB
-	client dlprovider.TorrentClient
+	db      *bun.DB
+	client  dlprovider.TorrentClient
+	trigger chan struct{}
 }
 
 func NewDownloaderService(db *bun.DB) *DownloaderService {
 	return &DownloaderService{
-		db:     db,
-		client: dlprovider.Get(db),
+		db:      db,
+		client:  dlprovider.Get(db),
+		trigger: make(chan struct{}, 1),
+	}
+}
+
+// Trigger wakes the poll loop immediately. Non-blocking: if the loop is already
+// running a pass or a wake is already pending, the signal is dropped.
+func (s *DownloaderService) Trigger() {
+	select {
+	case s.trigger <- struct{}{}:
+	default:
 	}
 }
 
@@ -119,6 +130,8 @@ func (s *DownloaderService) PollAndDownload(ctx context.Context) {
 		interval := s.pollInterval()
 		select {
 		case <-time.After(interval):
+			s.recordedPoll(ctx, rec, dlCycle)
+		case <-s.trigger:
 			s.recordedPoll(ctx, rec, dlCycle)
 		case <-ctx.Done():
 			return

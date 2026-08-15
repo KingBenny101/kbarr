@@ -91,11 +91,8 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
 	})
-	mux.HandleFunc("POST /trigger", func(w http.ResponseWriter, r *http.Request) {
-		go func() {
-			svc.ProcessPending(context.Background())
-			svc.UpdateDownloading(context.Background())
-		}()
+	mux.HandleFunc("POST /trigger", func(w http.ResponseWriter, _ *http.Request) {
+		svc.Trigger()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "message": "Triggered"})
 	})
