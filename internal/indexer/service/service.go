@@ -21,11 +21,21 @@ import (
 )
 
 type IndexerService struct {
-	db *bun.DB
+	db      *bun.DB
+	trigger chan struct{}
 }
 
 func New(db *bun.DB) *IndexerService {
-	return &IndexerService{db: db}
+	return &IndexerService{db: db, trigger: make(chan struct{}, 1)}
+}
+
+// Trigger wakes the poll loop immediately. Non-blocking: if the loop is already
+// running a pass or a wake is already pending, the signal is dropped.
+func (s *IndexerService) Trigger() {
+	select {
+	case s.trigger <- struct{}{}:
+	default:
+	}
 }
 
 // ── parser ────────────────────────────────────────────────────────────────────
@@ -102,6 +112,7 @@ func (s *IndexerService) PollAndQueue(ctx context.Context) {
 		interval := s.currentMonitorInterval()
 		select {
 		case <-time.After(interval):
+		case <-s.trigger:
 		case <-ctx.Done():
 			return
 		}

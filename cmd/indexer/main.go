@@ -101,6 +101,11 @@ func main() {
 
 	mux.HandleFunc("POST /test/prowlarr", testProwlarr)
 	mux.HandleFunc("POST /test/kbdex", testKbdex)
+	mux.HandleFunc("POST /trigger", func(w http.ResponseWriter, _ *http.Request) {
+		svc.Trigger()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
+	})
 	go func() {
 		slog.Info("Health endpoint listening", "port", "8082")
 		if err := http.ListenAndServe(":8082", mux); err != nil {
