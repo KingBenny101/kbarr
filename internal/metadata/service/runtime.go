@@ -22,15 +22,13 @@ func DataRootDir() string {
 func (s *AniDBService) StartTitlesSync(stop <-chan struct{}) {
 	interval := s.currentTitlesInterval()
 
-	if err := s.LoadTitlesDump(); err != nil {
-		slog.Warn("Initial titles sync failed", "error", err)
-	}
-	if err := s.LoadAnimeListsMapping(); err != nil {
-		slog.Warn("Initial anime-lists sync failed", "error", err)
-	}
-
 	rec := cycle.NewRecorder(s.db)
 	syncCycle := cycle.Cycle{Service: "metadata", Cycle: "anidb_sync", DisplayName: "AniDB title sync"}
+
+	// The initial load is recorded as a completed cycle the same way a scheduled
+	// or triggered pass is, so a startup sync is visible on the System page
+	// instead of leaving the cycleStatus row stale until the first tick.
+	interval = s.syncOnce(rec, syncCycle)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
