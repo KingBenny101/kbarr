@@ -84,7 +84,7 @@ func TestJellyfin() func(context.Context, *struct{}) (*TestResultOutput, error) 
 		if err != nil {
 			return &TestResultOutput{Body: TestResult{Ok: "false", Message: err.Error()}}, nil
 		}
-		req.Header.Set("X-Emby-Token", apiKey)
+		req.Header.Set("Authorization", "MediaBrowser Token=\""+apiKey+"\"")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -98,7 +98,7 @@ func TestJellyfin() func(context.Context, *struct{}) (*TestResultOutput, error) 
 		if resp.StatusCode != http.StatusOK {
 			return &TestResultOutput{Body: TestResult{Ok: "false", Message: fmt.Sprintf("unexpected status %d", resp.StatusCode)}}, nil
 		}
-		return &TestResultOutput{Body: TestResult{Ok: "true", Message: "connected"}}, nil
+		return &TestResultOutput{Body: TestResult{Ok: "true", Message: "Connected to Jellyfin"}}, nil
 	}
 }
 
